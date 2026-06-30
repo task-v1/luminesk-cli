@@ -315,7 +315,7 @@ dev = [
 requires-dist = [
     { name = "cyclopts", specifier = ">=4.3.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "mypy", marker = "extra == 'dev'" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.1.0" },
     { name = "platformdirs", specifier = ">=4.9.4" },
     { name = "pyinstaller", marker = "extra == 'build'", specifier = ">=6.11.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },

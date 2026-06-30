@@ -30,7 +30,7 @@ Additionally, the database tracks transient **Runtime** metadata for active serv
 - **`pid`**: The system PID of the container runtime process.
 - **`loop_enabled`**: Boolean indicating if the restart loop mode is active.
 - **`docker_container_id`**: The unique container SHA ID returned by the Docker engine.
-- **`docker_container_name`**: The friendly container name on the Docker daemon (e.g., `Luminesk-my-server`).
+- **`docker_container_name`**: The friendly container name on the Docker daemon (e.g., `luminesk-my-server`).
 - **`docker_memory_limit`**: The active memory limit.
 - **`last_started_at`**: Timestamp of the last boot.
 - **`last_stopped_at`**: Timestamp of the last shutdown.

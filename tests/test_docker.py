@@ -12,9 +12,12 @@ from luminesk.utils.docker import (
 
 
 class LaunchTarget:
-    tag = "My Server!"
-    path = Path("/srv/my server")
-    executable_name = "server.jar"
+    tag: str = "My Server!"
+    path: Path = Path("/srv/my server")
+    executable_name: str = "server.jar"
+    core_id: str = "nukkit"
+    config_file: str = "server.properties"
+    port_way: str = "server-port"
 
 
 def test_build_docker_container_name_sanitizes_tag() -> None:
@@ -90,11 +93,12 @@ def test_build_docker_run_command_parses_custom_ports_from_config(
 
     # 1. Test properties config
     class PropertiesLaunchTarget:
-        tag = "test-properties"
-        path = tmp_path / "prop_server"
-        executable_name = "server.jar"
-        config_file = "server.properties"
-        port_way = "server-port"
+        tag: str = "test-properties"
+        path: Path = tmp_path / "prop_server"
+        executable_name: str = "server.jar"
+        config_file: str = "server.properties"
+        port_way: str = "server-port"
+        core_id: str = "nukkit"
 
     PropertiesLaunchTarget.path.mkdir()
     (PropertiesLaunchTarget.path / "server.properties").write_text(
@@ -111,11 +115,12 @@ def test_build_docker_run_command_parses_custom_ports_from_config(
 
     # 2. Test yml config
     class YmlLaunchTarget:
-        tag = "test-yml"
-        path = tmp_path / "yml_server"
-        executable_name = "server.jar"
-        config_file = "settings.yml"
-        port_way = "general.server-port"
+        tag: str = "test-yml"
+        path: Path = tmp_path / "yml_server"
+        executable_name: str = "server.jar"
+        config_file: str = "settings.yml"
+        port_way: str = "general.server-port"
+        core_id: str = "nukkit"
 
     YmlLaunchTarget.path.mkdir()
     (YmlLaunchTarget.path / "settings.yml").write_text(

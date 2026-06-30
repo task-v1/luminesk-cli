@@ -123,5 +123,7 @@ def test_save_writes_sqlite_state(
     assert config_db_file.is_file()
     loaded_config = config.UserConfig.load()
     assert loaded_config.language == config.DEFAULT_LANGUAGE
-    assert loaded_config.get_server_by_tag("test").runtime_image == "17"
+    loaded_server = loaded_config.get_server_by_tag("test")
+    assert loaded_server is not None
+    assert loaded_server.runtime_image == "17"
 

@@ -32,8 +32,8 @@ export default function CTA() {
   }
 
   const installCmd = os === 'Windows'
-    ? "iwr -useb https://Luminesk.taskov1ch.xyz/ps1 | iex"
-    : "curl -fsSL https://Luminesk.taskov1ch.xyz/sh | sh";
+    ? "iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex"
+    : "curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(installCmd);

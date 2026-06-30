@@ -62,7 +62,10 @@ def test_strip_namespaces() -> None:
     stripped = maven._strip_namespaces(root)
     assert stripped.tag == "metadata"
     assert stripped.find("versioning") is not None
-    assert stripped.find("versioning/latest").text == "1.0.0"
+
+    latest = stripped.find("versioning/latest")
+    assert latest is not None
+    assert latest.text == "1.0.0"
 
 
 def test_get_latest_version() -> None:

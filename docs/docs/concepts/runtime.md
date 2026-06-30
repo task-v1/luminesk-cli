@@ -23,7 +23,7 @@ When you execute `nesk start <tag>`, Luminesk generates a `docker run` command d
 docker run \
   --detach \
   --interactive \
-  --name Luminesk-my-server \
+  --name luminesk-my-server \
   --memory 1g \
   --volume /absolute/path/to/server:/server \
   --workdir /server \
@@ -51,18 +51,18 @@ sequenceDiagram
     CLI->>Daemon: docker run --detach
     Daemon-->>CLI: Container ID
     Daemon->>Container: Spawn Shell
-    Container->>Container: Create FIFO /tmp/Luminesk-console.pipe
-    Container->>Java: java -jar server.jar < /tmp/Luminesk-console.pipe
+    Container->>Container: Create FIFO /tmp/luminesk-console.pipe
+    Container->>Java: java -jar server.jar < /tmp/luminesk-console.pipe
     Note over Java: Server is running
     CLI->>Daemon: docker logs --follow (If interactive)
 ```
 
 ### The FIFO Pipe Input Trick
 By default, Docker container stdin is difficult to write to programmatically once detached. To enable clean command injection (like sending `stop` or plugin commands), the Luminesk entrypoint script does the following inside the container:
-1. Creates a named FIFO pipe at `/tmp/Luminesk-console.pipe`.
-2. Starts the Java process, redirecting its stdin: `java -jar server.jar < /tmp/Luminesk-console.pipe`.
+1. Creates a named FIFO pipe at `/tmp/luminesk-console.pipe`.
+2. Starts the Java process, redirecting its stdin: `java -jar server.jar < /tmp/luminesk-console.pipe`.
 3. When you run `nesk stop <tag>`, Luminesk calls `docker exec` to write directly into that pipe:
    ```bash
-   printf "stop\n" > /tmp/Luminesk-console.pipe
+   printf "stop\n" > /tmp/luminesk-console.pipe
    ```
 This allows graceful console command injection from the outside!

@@ -115,7 +115,7 @@ translations = {
     "manager.directory_already_registered": "Directory '{directory}' is already registered as server '{tag}'.",
     "manager.server_must_be_stopped_for_core_change": "Server '{tag}' must be stopped before upgrading the core.",
     "manager.server_must_be_stopped_for_image_change": "Server '{tag}' must be stopped before changing the runtime image.",
-    "manager.server_must_be_stopped_for_delete": "Server '{tag}' must be stopped before it can be deleted from luminesk.",
+    "manager.server_must_be_stopped_for_delete": "Server '{tag}' must be stopped before it can be deleted from Luminesk.",
     "manager.delete_metadata_failed": "Failed to delete server metadata directory '{directory}': {error}",
     "manager.using_cached_core": "Using cached core {core_name} ({hash})",
     "manager.pid_undefined": "Process PID is not defined.",

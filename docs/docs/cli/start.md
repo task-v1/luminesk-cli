@@ -63,6 +63,6 @@ nesk attach my-server
 - **Cause**: The server folder exists, but the jar file specified in the metadata (e.g., `nukkit.jar`) is missing.
 - **Solution**: Download the core again using `nesk upgrade-core --redownload` or manually place a jar with the matching filename in the folder.
 
-### `Docker container 'Luminesk-<tag>' is already running.`
+### `Docker container 'luminesk-<tag>' is already running.`
 - **Cause**: An orphaned Docker container from a previous crash or manual launch is using the name.
-- **Solution**: Stop/delete it manually using `docker rm -f Luminesk-<tag>`.
+- **Solution**: Stop/delete it manually using `docker rm -f luminesk-<tag>`.

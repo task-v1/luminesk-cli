@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://github.com/task-v1/Luminesk/raw/refs/heads/dev/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
+<img src="https://github.com/task-v1/luminesk/raw/refs/heads/dev/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
 
 Composer of Minecraft Bedrock Edition (MCBE) servers
 
-[![PyPI - Version](https://img.shields.io/pypi/v/Luminesk?style=for-the-badge)](https://pypi.org/project/Luminesk/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/Luminesk?style=for-the-badge)](https://github.com/task-v1/luminesk/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/Luminesk/ci.yml?style=for-the-badge)](https://github.com/task-v1/Luminesk/actions)
+[![PyPI - Version](https://img.shields.io/pypi/v/luminesk?style=for-the-badge)](https://pypi.org/project/luminesk/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/luminesk?style=for-the-badge)](https://github.com/task-v1/luminesk/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/luminesk/ci.yml?style=for-the-badge)](https://github.com/task-v1/luminesk/actions)
 
 </div>
 
@@ -61,7 +61,7 @@ curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
 iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
 ```
 
-## Via [PyPI](https://pypi.org/project/Luminesk/)
+## Via [PyPI](https://pypi.org/project/luminesk/)
 
 ```bash
 pip install luminesk
@@ -109,7 +109,7 @@ Linux/macOS:
 
 ```bash
 pyinstaller --onefile --name=luminesk \
-  Luminesk/__main__.py
+  luminesk/__main__.py
 ```
 
 The compiled binary will be available at `dist/luminesk`.
@@ -118,7 +118,7 @@ Windows:
 
 ```bash
 pyinstaller --onefile --name=luminesk ^
-  Luminesk/__main__.py
+  luminesk/__main__.py
 ```
 
 The compiled binary will be available at `dist/luminesk.exe`.
@@ -216,4 +216,4 @@ The project status of Luminesk is currently **active development (Beta)**. The t
 
 The project is licensed under **GPL-3.0-or-later**.
 
-See [LICENSE](https://github.com/task-v1/Luminesk/blob/main/LICENSE)
+See [LICENSE](https://github.com/task-v1/luminesk/blob/main/LICENSE)

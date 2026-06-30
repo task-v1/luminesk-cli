@@ -113,7 +113,7 @@ export default function Hero() {
               Get Started
               <ArrowRightIcon width="20" height="20" />
             </Link>
-            <a href="https://github.com/task-v1/Luminesk" target="_blank" rel="noreferrer" className={styles.secondaryButton}>
+            <a href="https://github.com/task-v1/luminesk" target="_blank" rel="noreferrer" className={styles.secondaryButton}>
               View Source
             </a>
           </div>

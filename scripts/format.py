@@ -8,8 +8,8 @@ class BlankLineChecker(ast.NodeVisitor):
     def __init__(self, filename: str, content: str):
         self.filename = filename
         self.lines = content.splitlines()
-        self.lines_to_fix = set()
-        self.errors = []
+        self.lines_to_fix: set[int] = set()
+        self.errors: list[str] = []
 
     def check_block(self, body):
         for idx, stmt in enumerate(body):

@@ -43,7 +43,7 @@ nesk = "luminesk.main:main"
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.11.0"]
-dev = ["mypy", "pytest>=9.0.3", "pytest-cov>=5.0.0", "ruff>=0.15.20"]
+dev = ["mypy>=2.1.0", "pytest>=9.0.3", "pytest-cov>=5.0.0", "ruff>=0.15.20"]
 
 [build-system]
 requires = ["setuptools>=69"]

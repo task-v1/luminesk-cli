@@ -11,6 +11,58 @@ Supported server engines include Nukkit, PowerNukkitX, Nukkit-MOT, Lumi, and oth
 
 ---
 
+## Strict rules
+* No `pip`, `poetry`, or other commands—exclusively `uv`. Only use other utilities as a fallback if `uv` is unavailable.
+  Example:
+  ```
+  # Wrong!
+
+  uv --version
+  # uv 0.11.25
+
+  pip install mypy
+  .venv\Scripts\python -m ...
+  ```
+  ```
+  # Right.
+  uv add mypy # uv pip install mypy
+  uv run ...
+
+  # Output: Error: uv not found!
+  pip ...
+  ```
+
+* If the package is missing but is required for the work, don't take matters into your own hands; simply state that the agent cannot proceed with the task.
+
+* Follow PEP8 strictly! Additionally, there is an extra rule: leave a blank line before and after `if`, `for`, and other similar statement blocks.
+  Example:
+  ```
+  # Wrong!
+  x = 1
+  if x == 1:
+      print("True")
+      while False:
+          print("Dont work")
+  for i in range(x + 5):
+      print(i)
+  return x
+  ```
+  ```
+  # Right
+  x = 1
+
+  if x == 1:
+      print("True")
+
+      while False:
+          print("Dont work")
+
+  for i in range(x + 5):
+      print(i)
+
+  return x
+  ```
+
 ## Code Style & Development Commands
 
 After making any changes to the source code (adding, modifying, or deleting files), you **MUST** run the code formatter and static checks.

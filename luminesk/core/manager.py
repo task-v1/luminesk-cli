@@ -314,6 +314,8 @@ def resolve_server_target(
 ) -> ResolvedServerTarget:
     sync_runtime_states(config)
 
+    server: ManagedServer | None = None
+
     if not tag or not tag.strip():
         server = resolve_server(config=config, tag=None, directory=directory)
         return ResolvedServerTarget(

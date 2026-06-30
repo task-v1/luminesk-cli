@@ -136,12 +136,16 @@ def test_stop_server_stops_docker_container(monkeypatch, tmp_path: Path) -> None
 
     assert result.signal_name == "SIGINT"
     assert calls == ["stop:luminesk-test", "rm"]
-    assert config.get_server_by_tag("test").runtime.status == "stopped"
+    server = config.get_server_by_tag("test")
+    assert server is not None
+    assert server.runtime.status == "stopped"
 
 
 def test_stop_server_docker_loop_without_force(monkeypatch, tmp_path: Path) -> None:
     config = _running_docker_config(tmp_path)
-    config.get_server_by_tag("test").runtime.loop_enabled = True
+    server = config.get_server_by_tag("test")
+    assert server is not None
+    server.runtime.loop_enabled = True
     calls: list[str] = []
 
     monkeypatch.setattr(manager.UserConfig, "save", lambda self: None)
@@ -161,7 +165,7 @@ def test_stop_server_docker_loop_without_force(monkeypatch, tmp_path: Path) -> N
     assert result.signal_name == "SIGINT"
     assert result.loop_active is True
     assert calls == ["luminesk-test:ctrl_c"]
-    assert config.get_server_by_tag("test").runtime.status == "running"
+    assert server.runtime.status == "running"
 
 
 def test_kill_server_uses_cross_platform_docker_kill(
@@ -185,7 +189,9 @@ def test_kill_server_uses_cross_platform_docker_kill(
 
     assert result.signal_name == "SIGKILL"
     assert calls == ["kill:luminesk-test", "rm"]
-    assert config.get_server_by_tag("test").runtime.last_exit_code == 137
+    server = config.get_server_by_tag("test")
+    assert server is not None
+    assert server.runtime.last_exit_code == 137
 
 
 def test_delete_server_removes_registration_without_deleting_files(
@@ -237,10 +243,13 @@ def test_change_server_image_requires_stopped_server(
     monkeypatch.setattr(manager, "docker_container_is_running", lambda _: True)
     monkeypatch.setattr(manager, "get_docker_container_pid", lambda _: 1234)
 
+    server = config.get_server_by_tag("test")
+    assert server is not None
+
     with pytest.raises(ServerManagerError, match="must be stopped"):
         manager.change_server_image(
             config=config,
-            server=config.get_server_by_tag("test"),
+            server=server,
             image="eclipse-temurin:17-jre",
         )
 
@@ -330,7 +339,9 @@ def test_stop_server_by_directory(monkeypatch, tmp_path: Path) -> None:
 
     assert result.signal_name == "SIGINT"
     assert calls == ["stop:luminesk-test", "rm"]
-    assert config.get_server_by_tag("test").runtime.status == "stopped"
+    server = config.get_server_by_tag("test")
+    assert server is not None
+    assert server.runtime.status == "stopped"
 
 
 def test_delete_server_by_directory(monkeypatch, tmp_path: Path) -> None:

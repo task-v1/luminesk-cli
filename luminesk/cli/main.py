@@ -136,11 +136,11 @@ def wrap_ansi_for_readline(ansi_str: str) -> str:
 
 class ReadlinePrompt(Prompt):
     @property
-    def illegal_choice_message(self) -> str:
+    def illegal_choice_message(self) -> str:  # type: ignore[override]
         return t("cli.prompt.invalid_choice")
 
     @property
-    def validate_error_message(self) -> str:
+    def validate_error_message(self) -> str:  # type: ignore[override]
         return t("cli.prompt.invalid_value")
 
     @classmethod

@@ -20,7 +20,7 @@ def test_request_with_retries_returns_final_error_response_open() -> None:
             return FakeResponse()
 
     response = request_with_retries(
-        FakeClient(),
+        FakeClient(),  # type: ignore[arg-type]
         "GET",
         "https://example.com/status",
         attempts=1,
@@ -28,7 +28,7 @@ def test_request_with_retries_returns_final_error_response_open() -> None:
     )
 
     assert response.status_code == 503
-    assert not response.closed
+    assert not response.closed  # type: ignore[attr-defined]
 
 
 def test_get_json_object_with_retries_rejects_non_object_payload() -> None:

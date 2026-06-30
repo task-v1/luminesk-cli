@@ -12,7 +12,10 @@ def main() -> int:
     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
         for core in registry.get_all():
             try:
-                url = get_latest_download_url(core, client=client)
+                if core._provider is None:
+                    raise ValueError("No download provider")
+
+                url = get_latest_download_url(core._provider, client=client)
             except Exception as exc:
                 exit_code = 1
                 print(f"{core.id}: ERROR: {exc}")

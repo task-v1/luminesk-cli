@@ -14,7 +14,7 @@ const config: Config = {
   url: 'https://luminesk.taskov1ch.xyz',
   baseUrl: '/',
   organizationName: 'task-v1',
-  projectName: 'Luminesk',
+  projectName: 'luminesk',
 
   onBrokenLinks: 'throw',
 
@@ -64,7 +64,7 @@ const config: Config = {
       items: [
         // { to: '/blog', label: 'Blog', position: 'left' },
         {
-          href: 'https://github.com/task-v1/Luminesk',
+          href: 'https://github.com/task-v1/luminesk',
           position: 'right',
           className: 'header-github-link navbar-sidebar__item--hidden',
           'aria-label': 'GitHub repository',
@@ -75,7 +75,7 @@ const config: Config = {
       style: 'dark',
       // links: [],
       copyright: `<span class='primary'>Luminesk</span> is released under the
-                <a href="https://github.com/task-v1/Luminesk/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GNU GPLv3 License</a>.
+                <a href="https://github.com/task-v1/luminesk/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GNU GPLv3 License</a>.
                 The gradient background in the Hero section is created using
                 <a href="https://neat.firecms.co/" target="_blank" rel="noopener noreferrer">NEAT</a>.
                 Built with Docusaurus.`,
