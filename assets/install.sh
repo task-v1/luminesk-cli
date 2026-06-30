@@ -83,7 +83,7 @@ case "$ARCH" in
 esac
 
 BINARY_NAME="luminesk-$OS-$ARCH"
-DOWNLOAD_URL="https://github.com/task-v1/luminesk/releases/latest/download/$BINARY_NAME"
+DOWNLOAD_URL="https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 INSTALL_DIR="/usr/local/bin"
 USE_SUDO=""
@@ -201,9 +201,9 @@ REMOTE_VER=""
 RELEASE_JSON=""
 
 if command -v curl >/dev/null 2>&1; then
-    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/task-v1/luminesk/releases/latest")
+    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest")
 elif command -v wget >/dev/null 2>&1; then
-    RELEASE_JSON=$(wget -qO- "https://api.github.com/repos/task-v1/luminesk/releases/latest")
+    RELEASE_JSON=$(wget -qO- "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest")
 fi
 
 if [ -n "$RELEASE_JSON" ]; then

@@ -78,7 +78,7 @@ switch ($RAW_ARCH) {
 }
 
 $BINARY_NAME = "luminesk-$OS-$ARCH.exe"
-$DOWNLOAD_URL = "https://github.com/task-v1/luminesk/releases/latest/download/$BINARY_NAME"
+$DOWNLOAD_URL = "https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 # Check administrator privileges
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -192,7 +192,7 @@ $EXPECTED_SHA = ""
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $headers = @{ "User-Agent" = "Luminesk-Installer" }
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/task-v1/luminesk/releases/latest" -Headers $headers -ErrorAction Stop
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest" -Headers $headers -ErrorAction Stop
     if ($release.tag_name -match 'v?(\d+\.\d+(?:\.\d+)?)') {
         $REMOTE_VER = $Matches[1]
     }

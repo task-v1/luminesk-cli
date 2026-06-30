@@ -35,8 +35,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://luminesk.taskov1ch.xyz"
-Issues = "https://github.com/task-v1/luminesk/issues"
-Repository = "https://github.com/task-v1/luminesk.git"
+Issues = "https://github.com/task-v1/luminesk-cli/issues"
+Repository = "https://github.com/task-v1/luminesk-cli.git"
 
 [project.scripts]
 nesk = "luminesk.main:main"

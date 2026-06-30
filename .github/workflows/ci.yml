@@ -4,9 +4,6 @@ on:
   push:
   pull_request:
 
-env:
-  LUMINESK_REGISTRY_URL: "https://gist.github.com/Taskov1ch/27b513878dc2a9c0c29f97423a3bc566/raw"
-
 jobs:
   test:
     name: Test (${{ matrix.os }})

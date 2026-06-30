@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://github.com/task-v1/luminesk/raw/refs/heads/dev/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
+<img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/dev/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
 
 Composer of Minecraft Bedrock Edition (MCBE) servers
 
-[![PyPI - Version](https://img.shields.io/pypi/v/luminesk?style=for-the-badge)](https://pypi.org/project/luminesk/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/luminesk?style=for-the-badge)](https://github.com/task-v1/luminesk/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/luminesk/ci.yml?style=for-the-badge)](https://github.com/task-v1/luminesk/actions)
+[![PyPI - Version](https://img.shields.io/pypi/v/luminesk?style=for-the-badge)](https://pypi.org/project/luminesk/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/luminesk-cli?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/actions)
 
 </div>
 
@@ -79,21 +79,21 @@ pipx install luminesk
 
 ## Download prebuilt binaries
 
-Prebuilt binaries are available in the [releases](https://github.com/task-v1/luminesk/releases) section:
-* **Windows (x64)**: [luminesk-windows-amd64.exe](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-windows-amd64.exe)
-* **Windows (ARM64)**: [luminesk-windows-arm64.exe](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-windows-arm64.exe)
-* **Linux (x64)**: [luminesk-linux-amd64](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-linux-amd64)
-* **Linux (ARM64)**: [luminesk-linux-arm64](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-linux-arm64)
-* **macOS (Intel/x64)**: [luminesk-darwin-amd64](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-darwin-amd64)
-* **macOS (Apple Silicon/ARM64)**: [luminesk-darwin-arm64](https://github.com/task-v1/luminesk/releases/latest/download/luminesk-darwin-arm64)
+Prebuilt binaries are available in the [releases](https://github.com/task-v1/luminesk-cli/releases) section:
+* **Windows (x64)**: [luminesk-windows-amd64.exe](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-windows-amd64.exe)
+* **Windows (ARM64)**: [luminesk-windows-arm64.exe](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-windows-arm64.exe)
+* **Linux (x64)**: [luminesk-linux-amd64](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-linux-amd64)
+* **Linux (ARM64)**: [luminesk-linux-arm64](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-linux-arm64)
+* **macOS (Intel/x64)**: [luminesk-darwin-amd64](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-darwin-amd64)
+* **macOS (Apple Silicon/ARM64)**: [luminesk-darwin-arm64](https://github.com/task-v1/luminesk-cli/releases/latest/download/luminesk-darwin-arm64)
 
 ---
 
 # Installation from source
 
 ```bash
-git clone https://github.com/task-v1/luminesk
-cd luminesk
+git clone https://github.com/task-v1/luminesk-cli
+cd luminesk-cli
 
 uv venv
 uv sync
@@ -216,4 +216,4 @@ The project status of Luminesk is currently **active development (Beta)**. The t
 
 The project is licensed under **GPL-3.0-or-later**.
 
-See [LICENSE](https://github.com/task-v1/luminesk/blob/main/LICENSE)
+See [LICENSE](https://github.com/task-v1/luminesk-cli/blob/main/LICENSE)

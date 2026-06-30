@@ -11,9 +11,6 @@ on:
         description: "Release version (e.g. v1.0.0)"
         required: true
 
-env:
-  LUMINESK_REGISTRY_URL: "https://gist.github.com/Taskov1ch/27b513878dc2a9c0c29f97423a3bc566/raw"
-
 jobs:
   guard:
     name: Guard (safety check)
