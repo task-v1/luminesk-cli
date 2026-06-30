@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/dev/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
+<img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli.svg" width="500rem" alt="Luminesk CLI" />
 
 Composer of Minecraft Bedrock Edition (MCBE) servers
 
