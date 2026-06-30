@@ -2,7 +2,6 @@ name: Deploy static content to Pages
 
 on:
   push:
-    # branches: ["dev"] # TODO: Uncomment this when we want to deploy from dev branch
     paths:
       - "docs/**"
   workflow_dispatch:
