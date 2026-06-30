@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. v1.0.0)"
+        required: true
+
+env:
+  LUMINESK_REGISTRY_URL: "https://gist.github.com/Taskov1ch/27b513878dc2a9c0c29f97423a3bc566/raw"
+
+jobs:
+  guard:
+    name: Guard (safety check)
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+
+    steps:
+      - name: Validate release source
+        id: check
+        run: |
+          echo "Ref: $GITHUB_REF"
+          echo "Event: $GITHUB_EVENT_NAME"
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    name: Build Release (${{ matrix.os }})
+    needs: guard
+    if: needs.guard.outputs.ok == 'true'
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          [
+             ubuntu-latest,
+             macos-latest,
+             windows-latest,
+             ubuntu-24.04-arm,
+             windows-11-arm,
+             macos-15-intel,
+          ]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install deps
+        run: uv sync --locked --extra build
+
+
+      - name: Build binary
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   OS_NAME="linux" ;;
+            macOS)   OS_NAME="darwin" ;;
+            Windows) OS_NAME="windows" ;;
+          esac
+
+          ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
+          if [[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]]; then
+            ARCH="amd64"
+          elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+            ARCH="arm64"
+          else
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+          fi
+
+          NAME="luminesk-$OS_NAME-$ARCH"
+
+          uv run pyinstaller \
+            --onefile \
+            --name "$NAME" \
+            --exclude-module setuptools \
+            --exclude-module distutils \
+            --exclude-module unittest \
+            --exclude-module tkinter \
+            luminesk/__main__.py
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "BINARY_NAME=$NAME.exe" >> $GITHUB_ENV
+          else
+            echo "BINARY_NAME=$NAME" >> $GITHUB_ENV
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binaries-${{ matrix.os }}
+          path: dist/${{ env.BINARY_NAME }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: binaries-*
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: release
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,179 @@
+.container {
+  position: relative;
+  min-height: calc(100vh - var(--ifm-navbar-height, 60px));
+  width: 100%;
+  background-color: #050505;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.logsContainer::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+.logsContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', Courier, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #121214;
+  user-select: none;
+  pointer-events: none;
+  padding: 1.5rem;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-all;
+  z-index: 1;
+}
+
+.spotlight {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 0, 88, 0.14) 0%, rgba(255, 0, 88, 0.04) 40%, rgba(0, 0, 0, 0) 70%);
+  mix-blend-mode: screen;
+  z-index: 2;
+  will-change: left, top;
+}
+
+.card {
+  position: relative;
+  z-index: 5;
+  max-width: 540px;
+  width: 100%;
+  padding: 3rem 2.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.glitchTitle {
+  font-family: 'Geist', 'Satoshi', sans-serif;
+  font-size: 7.5rem;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+  letter-spacing: -0.05em;
+  background: linear-gradient(135deg, #ffffff 30%, #a3a3ac 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: flicker 4s infinite;
+}
+
+.easterEgg1 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #f4f4f5;
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+}
+
+.easterEgg2 {
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #8e8e93;
+  margin: -0.5rem 0 0.5rem 0;
+  opacity: 0;
+  line-height: 1.4;
+}
+
+.buttonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.homeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--ifm-color-primary, #FF0058);
+  color: #ffffff !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.8rem 1.6rem;
+  border-radius: 0.75rem;
+  text-decoration: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 12px rgba(255, 0, 88, 0.2);
+  transition: background-color 0.2s, box-shadow 0.2s;
+  will-change: transform;
+}
+
+.homeButton:hover {
+  background-color: var(--ifm-color-primary-light, #FF3379);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 20px rgba(255, 0, 88, 0.35);
+}
+
+.homeButton:active {
+  transform: scale(0.96);
+}
+
+@keyframes flicker {
+
+  0%,
+  19.999%,
+  22%,
+  62.999%,
+  64%,
+  64.999%,
+  70%,
+  100% {
+    opacity: 0.99;
+    filter: drop-shadow(0 0 2px rgba(255, 0, 88, 0.3));
+  }
+
+  20%,
+  21.999%,
+  63%,
+  63.999%,
+  65%,
+  69.999% {
+    opacity: 0.45;
+    filter: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .glitchTitle {
+    font-size: 5.5rem;
+  }
+
+  .card {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .easterEgg1 {
+    font-size: 1.1rem;
+  }
+}

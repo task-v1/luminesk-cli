@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Others
+.idea/
+.python-version
+tmp/
+.pytest_cache/
+.codex/
+*.spec
+sources/
+report/
+servers/
+workspaces/
+luminesk-legacy/
+temp_*/
+
+# Docs
+node_modules/
+.docusaurus/
