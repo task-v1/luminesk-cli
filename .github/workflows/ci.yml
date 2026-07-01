@@ -21,13 +21,13 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
         run: uv sync --locked --extra dev
@@ -52,13 +52,13 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
         run: uv sync --locked --extra build
