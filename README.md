@@ -14,7 +14,7 @@
 
 Composer of Minecraft Bedrock Edition (MCBE) servers
 
-[![PyPI - Version](https://img.shields.io/pypi/v/luminesk?style=for-the-badge)](https://pypi.org/project/luminesk/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/luminesk-cli?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/actions)
+[![PyPI - Version](https://img.shields.io/pypi/v/luminesk-cli?style=for-the-badge)](https://pypi.org/project/luminesk-cli/) [![GitHub Release](https://img.shields.io/github/v/release/task-v1/luminesk-cli?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/releases/latest) [![Tests](https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?style=for-the-badge)](https://github.com/task-v1/luminesk-cli/actions)
 
 </div>
 
@@ -71,18 +71,18 @@ curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
 iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
 ```
 
-## Via [PyPI](https://pypi.org/project/luminesk/)
+## Via [PyPI](https://pypi.org/project/luminesk-cli/)
 
 ```bash
-pip install luminesk
+pip install luminesk-cli
 ```
 
 ```bash
-uv pip install luminesk
+uv pip install luminesk-cli
 ```
 
 ```bash
-pipx install luminesk
+pipx install luminesk-cli
 ```
 
 ---
@@ -181,18 +181,18 @@ nesk list
 
 Luminesk starts servers through **[Docker](https://www.docker.com/)**. Containers use `eclipse-temurin:21-jre` by default, mount the server directory into `/server`, use host networking on Linux and publish the default Bedrock port on Docker Desktop, and apply the server memory limit with Docker `--memory`.
 
-Create a server with a custom background memory limit and Java runtime:
+Create a server with a custom background memory limit and Docker image:
 
 ```bash
-nesk create -n "My Server" -d ./servers/my -c nukkit -t my-server --memory 2g --java 21
+nesk create -n "My Server" -d ./servers/my -c nukkit -t my-server --memory 2g --image eclipse-temurin:21-jre
 ```
 
-`--java` accepts either a numeric version, such as `17` or `21`, or a full Docker image name, such as `eclipse-temurin:21-jre`.
+`--image` accepts a full Docker image name, such as `eclipse-temurin:21-jre` or `eclipse-temurin:17-jre`.
 
-Change Java for a stopped server:
+Change Docker image for a stopped server:
 
 ```bash
-nesk change-java --tag my-server --java eclipse-temurin:17-jre
+nesk change-image my-server --image eclipse-temurin:17-jre
 ```
 
 Start and attach to logs immediately:
