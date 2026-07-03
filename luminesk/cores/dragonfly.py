@@ -26,7 +26,6 @@ class DragonflyCore(GoCore):
         console: Console | None = None,
         skip_if_hash: str | None = None,
     ) -> DownloadedCore | None:
-        # Fetch the latest tag and commit SHA from GitHub API
         import httpx
 
         from luminesk.utils.github_releases import fetch_json, parse_github_repo_url
@@ -40,8 +39,8 @@ class DragonflyCore(GoCore):
                 api_url = f"https://api.github.com/repos/{owner}/{repo}/tags"
                 tags = fetch_json(client, api_url)
                 if isinstance(tags, list) and tags:
-                    latest_tag = tags[0]["name"]
-                    latest_sha = tags[0]["commit"]["sha"]
+                    latest_tag = tags[0]["name"]  # type: ignore
+                    latest_sha = tags[0]["commit"]["sha"]  # type: ignore
         except Exception:
             pass
 
