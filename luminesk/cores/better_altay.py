@@ -9,8 +9,11 @@ class BetterAltayCore(PhpCore):
     name = "BetterAltay"
     required_setup = True
     description = {
-        "en": "A feature-rich optimized PHP server software for Minecraft: Bedrock Edition, a fork of Altay/PocketMine-MP.",
-        "ru": "Многофункциональное оптимизированное PHP-ядро для Minecraft Bedrock Edition, форк Altay/PocketMine-MP.",
+        "en": "A feature-rich, optimized PHP server software for Minecraft: Bedrock Edition, based on Altay/PocketMine-MP.",
+        "ru": "Многофункциональное оптимизированное серверное ПО на PHP для Minecraft: Bedrock Edition, основанное на Altay/PocketMine-MP.",
+        "uk": "Багатофункціональне оптимізоване серверне ПЗ на PHP для Minecraft: Bedrock Edition, засноване на Altay/PocketMine-MP.",
+        "ja": "Altay/PocketMine-MP をベースとした、多機能で最適化された Minecraft: Bedrock Edition 向け PHP サーバーソフトウェア。",
+        "zh": "基于 Altay/PocketMine-MP 的功能丰富且经过优化的 Minecraft: Bedrock Edition PHP 服务器软件。",
     }
     url = "https://github.com/Benedikt05/BetterAltay"
     config_file = "server.properties"

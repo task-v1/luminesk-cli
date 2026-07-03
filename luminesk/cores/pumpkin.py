@@ -16,7 +16,10 @@ class PumpkinCore(RustCore):
     name = "Pumpkin"
     description = {
         "en": "A Minecraft server built entirely in Rust, offering a fast, efficient, and customizable experience.",
-        "ru": "Высокопроизводительное ядро для Minecraft, полностью написанное на Rust.",
+        "ru": "Высокопроизводительное серверное ядро для Minecraft, полностью написанное на Rust.",
+        "uk": "Високопродуктивне серверне ядро для Minecraft, повністю написане на Rust.",
+        "ja": "Rust で完全に開発された、高速で効率的かつカスタマイズ可能な Minecraft サーバーソフトウェア。",
+        "zh": "完全使用 Rust 构建的 Minecraft 服务器，提供高速、高效且可定制的体验。",
     }
     url = "https://github.com/Pumpkin-MC/Pumpkin"
     config_file = "pumpkin.toml"

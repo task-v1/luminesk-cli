@@ -10,7 +10,10 @@ class PocketMineCore(PhpCore):
     required_setup = True
     description = {
         "en": "A highly customizable open-source server software for Minecraft: Bedrock Edition written in PHP.",
-        "ru": "Высокопроизводительное ядро для Minecraft Bedrock Edition с открытым исходным кодом на PHP.",
+        "ru": "Высоконастраиваемое серверное ПО с открытым исходным кодом для Minecraft: Bedrock Edition, написанное на PHP.",
+        "uk": "Високонастроюване серверне ПЗ з відкритим вихідним кодом для Minecraft: Bedrock Edition, написане на PHP.",
+        "ja": "PHP で開発された、Minecraft: Bedrock Edition 向けの高いカスタマイズ性を持つオープンソースサーバーソフトウェア。",
+        "zh": "使用 PHP 编写的高可定制开源 Minecraft: Bedrock Edition 服务器软件。",
     }
     url = "https://github.com/pmmp/PocketMine-MP"
     config_file = "server.properties"

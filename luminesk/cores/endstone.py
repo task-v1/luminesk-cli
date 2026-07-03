@@ -16,7 +16,10 @@ class EndstoneCore(PythonCore):
     required_setup = True
     description = {
         "en": "Endstone brings the Minecraft Bedrock Dedicated Server (BDS) into the Python/C++ ecosystem.",
-        "ru": "Интеграция оригинального Bedrock Dedicated Server (BDS) в экосистему Python/C++.",
+        "ru": "Endstone интегрирует Minecraft Bedrock Dedicated Server (BDS) в экосистему Python/C++.",
+        "uk": "Endstone інтегрує Minecraft Bedrock Dedicated Server (BDS) в екосистему Python/C++.",
+        "ja": "Endstone は、Minecraft Bedrock Dedicated Server（BDS）を Python/C++ エコシステムへ統合します。",
+        "zh": "Endstone 将 Minecraft Bedrock Dedicated Server（BDS）集成到 Python/C++ 生态系统中。",
     }
     url = "https://github.com/EndstoneMC/Endstone"
     config_file = "server.properties"
@@ -58,7 +61,11 @@ class EndstoneCore(PythonCore):
 
         executable_path = target_directory / ".venv" / "bin" / "endstone"
 
-        if skip_if_hash is not None and skip_if_hash == computed_hash and executable_path.is_file():
+        if (
+            skip_if_hash is not None
+            and skip_if_hash == computed_hash
+            and executable_path.is_file()
+        ):
             return None
 
         # We will create a local python venv and install endstone inside it using a Python 3.13 container

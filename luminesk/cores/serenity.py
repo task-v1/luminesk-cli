@@ -16,7 +16,10 @@ class SerenityCore(RustCore):
     name = "Serenity"
     description = {
         "en": "A high-performance Minecraft: Bedrock Edition server software written in TypeScript.",
-        "ru": "Высокопроизводительное TypeScript-ядро для Minecraft Bedrock Edition.",
+        "ru": "Высокопроизводительное серверное ПО для Minecraft: Bedrock Edition, написанное на TypeScript.",
+        "uk": "Високопродуктивне серверне ПЗ для Minecraft: Bedrock Edition, написане на TypeScript.",
+        "ja": "TypeScript で開発された高性能な Minecraft: Bedrock Edition 向けサーバーソフトウェア。",
+        "zh": "使用 TypeScript 编写的高性能 Minecraft: Bedrock Edition 服务器软件。",
     }
     url = "https://github.com/SerenityJS/serenity"
     config_file = "server.properties"
@@ -45,6 +48,7 @@ class SerenityCore(RustCore):
 
         if not download_link:
             from luminesk.core.messages import t
+
             raise RuntimeError(t("core.serenity.asset_not_found"))
 
         # Check if already installed and can skip
@@ -57,7 +61,11 @@ class SerenityCore(RustCore):
                 binary_name = str(p.relative_to(target_directory))
                 break
 
-        if skip_if_hash is not None and skip_if_hash == computed_hash and binary_path is not None:
+        if (
+            skip_if_hash is not None
+            and skip_if_hash == computed_hash
+            and binary_path is not None
+        ):
             return None
 
         tar_path = target_directory / "serenity.tar.gz"

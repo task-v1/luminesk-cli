@@ -12,8 +12,11 @@ class DragonflyCore(GoCore):
     id = "dragonfly"
     name = "Dragonfly"
     description = {
-        "en": "A heavily asynchronous server software for Minecraft: Bedrock Edition written in Go.",
-        "ru": "Высокопроизводительное асинхронное Go-ядро для Minecraft: Bedrock Edition.",
+        "en": "A highly asynchronous server software for Minecraft: Bedrock Edition written in Go.",
+        "ru": "Высокоасинхронное серверное ПО для Minecraft: Bedrock Edition, написанное на Go.",
+        "uk": "Високоасинхронне серверне ПЗ для Minecraft: Bedrock Edition, написане на Go.",
+        "ja": "Go で開発された、高度な非同期処理を備える Minecraft: Bedrock Edition 向けサーバーソフトウェア。",
+        "zh": "使用 Go 编写的高度异步 Minecraft: Bedrock Edition 服务器软件。",
     }
     url = "https://github.com/df-mc/dragonfly"
     config_file = "config.toml"
