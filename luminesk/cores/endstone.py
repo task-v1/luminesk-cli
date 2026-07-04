@@ -118,4 +118,4 @@ class EndstoneCore(PythonCore):
         return "python:3.13-slim"
 
     def get_run_command(self, executable_name: str) -> str:
-        return '.venv/bin/python -c "from endstone.cli import main; import sys; sys.exit(main())"'
+        return '.venv/bin/python -c "from endstone.cli import main; import sys; sys.argv = [\'endstone\', \'-y\']; sys.exit(main())"'

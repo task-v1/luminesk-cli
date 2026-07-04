@@ -290,8 +290,8 @@ wheels = [
 ]
 
 [[package]]
-name = "luminesk"
-version = "1.0.0"
+name = "luminesk-cli"
+version = "1.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "cyclopts" },
