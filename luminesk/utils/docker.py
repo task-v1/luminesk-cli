@@ -264,7 +264,13 @@ def send_docker_ctrl_c(container_name: str) -> None:
         'pids=$(pgrep -f "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" 2>/dev/null || '
         'pidof java php 2>/dev/null || '
         'ps -ef | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" | grep -v grep | awk "{print \\$2}" 2>/dev/null || '
-        'ps | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" | grep -v grep | awk "{print \\$1}" 2>/dev/null); '
+        'ps | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" | grep -v grep | awk "{print \\$1}" 2>/dev/null || '
+        'for p in /proc/[0-9]*; do '
+        '[ -d "$p" ] || continue; '
+        'pid=${p##*/}; [ "$pid" = "1" ] && continue; '
+        'name=$(cat "$p/comm" "$p/cmdline" 2>/dev/null); '
+        'case "$name" in *java*|*php*|*phar*|*pocketmine*|*dragonfly*|*pumpkin*|*endstone*) echo "$pid";; esac; '
+        'done); '
         'if [ -n "$pids" ]; then kill -2 $pids; fi'
     )
 
