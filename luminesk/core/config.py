@@ -122,7 +122,7 @@ class ManagedServer:
 
         self.name = self.name.strip()
         self.core_id = self.core_id.strip()
-        self.executable_name = self.executable_name.strip()
+        self.executable_name = self.executable_name.strip().replace("\\", "/")
         self.config_file = self.config_file.strip()
         self.port_way = self.port_way.strip()
         self.path = Path(self.path).expanduser().resolve()

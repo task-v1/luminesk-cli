@@ -127,3 +127,15 @@ def test_save_writes_sqlite_state(
     assert loaded_server is not None
     assert loaded_server.runtime_image == "17"
 
+
+def test_managed_server_normalizes_executable_name_separators(tmp_path: Path) -> None:
+    server = config.ManagedServer(
+        name="Test",
+        tag="test",
+        path=tmp_path,
+        core_id="serenity",
+        executable_name="serenityjs-ubuntu-latest\\serenityjs-latest",
+    )
+    assert server.executable_name == "serenityjs-ubuntu-latest/serenityjs-latest"
+
+

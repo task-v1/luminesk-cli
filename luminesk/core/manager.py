@@ -112,9 +112,9 @@ def create_server(
         core_hash=downloaded_core.hash,
         config_file=core.config_file,
         port_way=core.port_way,
-        executable_name=str(
-            downloaded_core.executable_path.relative_to(normalized_directory)
-        ),
+        executable_name=downloaded_core.executable_path.relative_to(
+            normalized_directory
+        ).as_posix(),
         runtime_image=runtime_image or DEFAULT_FALLBACK_IMAGE,
         memory_limit=memory_limit or DEFAULT_DOCKER_MEMORY_LIMIT,
     )
@@ -547,8 +547,8 @@ def upgrade_server_core(
         resolved_server, downloaded_core.executable_path
     )
     resolved_server.core_hash = downloaded_core.hash
-    resolved_server.executable_name = str(
-        downloaded_core.executable_path.relative_to(resolved_server.path)
+    resolved_server.executable_name = (
+        downloaded_core.executable_path.relative_to(resolved_server.path).as_posix()
     )
     config.save()
     return resolved_server, True
