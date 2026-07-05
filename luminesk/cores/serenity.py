@@ -11,7 +11,9 @@ from luminesk.models.manager import DownloadedCore
 from luminesk.utils.downloads import download_url
 
 
-class SerenityCore(RustCore):
+class SerenityCore(
+    RustCore
+):  # Ignore RustCore; Serenity is written in TypeScript, but we use RustCore because Serenity is a binary file.
     id = "serenity"
     name = "Serenity"
     description = {
@@ -58,7 +60,7 @@ class SerenityCore(RustCore):
         for p in target_directory.rglob("serenityjs-*"):
             if p.is_file():
                 binary_path = p
-                binary_name = str(p.relative_to(target_directory))
+                binary_name = p.relative_to(target_directory).as_posix()
                 break
 
         if (
@@ -84,7 +86,7 @@ class SerenityCore(RustCore):
         # Identify the extracted binary name
         for p in target_directory.rglob("serenityjs-*"):
             if p.is_file():
-                binary_name = str(p.relative_to(target_directory))
+                binary_name = p.relative_to(target_directory).as_posix()
 
                 try:
                     os.chmod(p, 0o755)

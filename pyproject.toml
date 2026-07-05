@@ -61,7 +61,7 @@ select = ["E", "F", "I", "W", "UP"]
 ignore = ["E501"]
 
 [tool.setuptools.packages.find]
-include = ["luminesk*", "scripts*"]
+include = ["luminesk*"]
 
 [tool.uv]
 package = true
