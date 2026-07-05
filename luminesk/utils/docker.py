@@ -260,17 +260,18 @@ def send_docker_command(container_name: str, command: str) -> None:
 
 
 def send_docker_ctrl_c(container_name: str) -> None:
+    # TODO: Fix this shitty code.
     cmd = (
-        'pids=$(pgrep -f "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" 2>/dev/null || '
-        'pidof java php 2>/dev/null || '
-        'ps -ef | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" | grep -v grep | awk "{print \\$2}" 2>/dev/null || '
-        'ps | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone" | grep -v grep | awk "{print \\$1}" 2>/dev/null || '
-        'for p in /proc/[0-9]*; do '
+        'pids=$(pgrep -f "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" 2>/dev/null || '
+        "pidof java php 2>/dev/null || "
+        'ps -ef | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" | grep -v grep | awk "{print \\$2}" 2>/dev/null || '
+        'ps | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" | grep -v grep | awk "{print \\$1}" 2>/dev/null || '
+        "for p in /proc/[0-9]*; do "
         '[ -d "$p" ] || continue; '
         'pid=${p##*/}; [ "$pid" = "1" ] && continue; '
         'name=$(cat "$p/comm" "$p/cmdline" 2>/dev/null); '
-        'case "$name" in *java*|*php*|*phar*|*pocketmine*|*dragonfly*|*pumpkin*|*endstone*) echo "$pid";; esac; '
-        'done); '
+        'case "$name" in *java*|*php*|*phar*|*pocketmine*|*dragonfly*|*pumpkin*|*endstone*|*serenity*|*allay*|*lumi*|*lunacy*|*nukkit*|*pnx*|*powernukkitx*|*altay*) echo "$pid";; esac; '
+        "done); "
         'if [ -n "$pids" ]; then kill -2 $pids; fi'
     )
 
@@ -360,7 +361,11 @@ def validate_runtime_image(image: str | None) -> str:
     normalized = normalize_runtime_image(image)
 
     # Reject version-only tags (starts with a digit, and contains no ":" or "/")
-    if "/" not in normalized and ":" not in normalized and (normalized[0].isdigit() if normalized else False):
+    if (
+        "/" not in normalized
+        and ":" not in normalized
+        and (normalized[0].isdigit() if normalized else False)
+    ):
         raise ValueError(t("docker.version_only_rejected", image=normalized))
 
     # Perform existence check
