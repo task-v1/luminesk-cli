@@ -110,6 +110,7 @@ translations = {
     "manager.core_not_in_registry": "在 Luminesk 注册表中未找到核心 '{core_id}'。",
     "manager.server_already_running": "服务器 '{tag}' 已经在运行中 (PID {pid})。",
     "manager.executable_not_found": "未找到核心可执行文件: '{executable_path}'。请重新创建服务器或重新下载核心。",
+    "manager.metadata_not_found": "未找到服务器元数据文件: '{metadata_path}'。请重新创建服务器或重新下载核心。",
     "manager.docker_started": "Docker 服务器已启动",
     "manager.tag_in_use": "标签 '{tag}' 已被使用。",
     "manager.directory_already_registered": "目录 '{directory}' 已经作为服务器 '{tag}' 注册。",

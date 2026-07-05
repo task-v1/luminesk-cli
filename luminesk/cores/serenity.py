@@ -24,8 +24,9 @@ class SerenityCore(
         "zh": "使用 TypeScript 编写的高性能 Minecraft: Bedrock Edition 服务器软件。",
     }
     url = "https://github.com/SerenityJS/serenity"
-    config_file = "server.properties"
-    port_way = "server-port"
+    config_file = "properties.json"
+    port_way = "raknet.port"
+    dont_create_config = True
 
     def download(
         self,

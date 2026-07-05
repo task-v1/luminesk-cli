@@ -110,6 +110,7 @@ translations = {
     "manager.core_not_in_registry": "コア '{core_id}' がLumineskレジストリに見つかりませんでした。",
     "manager.server_already_running": "サーバー '{tag}' はすでに実行されています (PID {pid})。",
     "manager.executable_not_found": "コア実行可能ファイルが見つかりませんでした: '{executable_path}'。サーバーを再作成するか、コアを再ダウンロードしてください。",
+    "manager.metadata_not_found": "サーバーのメタデータファイルが見つかりませんでした: '{metadata_path}'。サーバーを再作成するか、コアを再ダウンロードしてください。",
     "manager.docker_started": "Dockerサーバーが起動しました",
     "manager.tag_in_use": "タグ '{tag}' は既に使用されています。",
     "manager.directory_already_registered": "ディレクトリ '{directory}' はすでにサーバー '{tag}' として登録されています。",

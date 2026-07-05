@@ -110,6 +110,7 @@ translations = {
     "manager.core_not_in_registry": "Ядро '{core_id}' не найдено в реестре Luminesk.",
     "manager.server_already_running": "Сервер '{tag}' уже запущен (PID {pid}).",
     "manager.executable_not_found": "Исполняемый файл ядра не найден: '{executable_path}'. Пересоздайте сервер или скачайте ядро заново.",
+    "manager.metadata_not_found": "Файл метаданных сервера не найден: '{metadata_path}'. Пересоздайте сервер или скачайте ядро заново.",
     "manager.docker_started": "Docker-сервер запущен",
     "manager.tag_in_use": "Тег '{tag}' уже используется.",
     "manager.directory_already_registered": "Директория '{directory}' уже зарегистрирована как сервер '{tag}'.",

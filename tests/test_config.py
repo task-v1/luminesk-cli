@@ -139,3 +139,23 @@ def test_managed_server_normalizes_executable_name_separators(tmp_path: Path) ->
     assert server.executable_name == "serenityjs-ubuntu-latest/serenityjs-latest"
 
 
+def test_run_server_raises_metadata_not_found(tmp_path: Path) -> None:
+    from luminesk.core.manager import run_server
+    from luminesk.models.manager import ServerManagerError
+
+    server = config.ManagedServer(
+        name="Test",
+        tag="test",
+        path=tmp_path,
+        core_id="nukkit",
+        executable_name="server.jar",
+    )
+    user_config = config.UserConfig(servers={server.tag: server})
+
+    with pytest.raises(ServerManagerError) as exc_info:
+        run_server(user_config, server)
+
+    assert "core.json" in str(exc_info.value)
+
+
+

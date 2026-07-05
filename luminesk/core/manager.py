@@ -636,6 +636,13 @@ def run_server(
             t("manager.server_already_running", tag=server.tag, pid=runtime_view.pid)
         )
 
+    metadata_file = server.path / ".luminesk" / "core.json"
+
+    if not metadata_file.is_file():
+        raise ServerManagerError(
+            t("manager.metadata_not_found", metadata_path=metadata_file)
+        )
+
     if not server.executable_path.is_file():
         raise ServerManagerError(
             t("manager.executable_not_found", executable_path=server.executable_path)

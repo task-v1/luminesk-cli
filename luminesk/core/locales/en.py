@@ -110,6 +110,7 @@ translations = {
     "manager.core_not_in_registry": "Core '{core_id}' was not found in the Luminesk registry.",
     "manager.server_already_running": "Server '{tag}' is already running (PID {pid}).",
     "manager.executable_not_found": "Core executable was not found: '{executable_path}'. Recreate the server or download the core again.",
+    "manager.metadata_not_found": "Server metadata file was not found: '{metadata_path}'. Recreate the server or download the core again.",
     "manager.docker_started": "Docker server started",
     "manager.tag_in_use": "Tag '{tag}' is already in use.",
     "manager.directory_already_registered": "Directory '{directory}' is already registered as server '{tag}'.",
