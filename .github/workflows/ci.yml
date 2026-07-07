@@ -22,7 +22,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install Python dev dependencies
-        run: uv sync--extra dev
+        run: uv sync --extra dev
 
       - name: Lint (ruff)
         run: uv run ruff check .
@@ -87,7 +87,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
-        run: uv sync --locked --extra dev
+        run: uv sync --extra dev
 
       - name: Run tests
         run: uv run pytest
@@ -120,7 +120,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
-        run: uv sync --locked --extra build
+        run: uv sync --extra build
 
       - name: Build binary (smoke test only)
         shell: bash
@@ -164,3 +164,4 @@ jobs:
           # smoke tests
           ./"$BIN" --help
           ./"$BIN" --version
+          
