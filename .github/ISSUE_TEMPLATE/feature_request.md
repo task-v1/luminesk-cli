@@ -3,8 +3,9 @@ name: Feature request
 about: Suggest an idea or enhancement for this project
 title: "[Feature] ..."
 labels: enhancement
-assignees: Taskov1ch, Copilot
+assignees: Taskov1ch
 type: Feature
+
 ---
 
 **Is your feature request related to a problem?**

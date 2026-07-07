@@ -5,6 +5,7 @@ title: "[Bug] ..."
 labels: bug
 assignees: Taskov1ch, Copilot
 type: Bug
+
 ---
 
 **Describe the bug**
