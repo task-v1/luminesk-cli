@@ -1,6 +1,6 @@
 [project]
 name = "luminesk-cli"
-version = "1.0.3"
+version = "1.0.4"
 description = "Luminesk: MCBE server composer."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.13"
