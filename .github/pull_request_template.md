@@ -1,21 +1,37 @@
-## Summary
+## What does this PR change?
 
-<!-- Describe the change and why it is needed. -->
+<!-- Explain the user-facing or developer-facing outcome in 2-4 lines. -->
 
-## Changes
+## Why is this change needed?
 
-- 
+<!-- Link the issue/discussion/problem statement and explain motivation. -->
+
+## Scope of changes
+
+- [ ] CLI behavior
+- [ ] Runtime / Docker behavior
+- [ ] Core download or upgrade flow
+- [ ] Documentation (`/docs/docs/`)
+- [ ] CI / automation
+- [ ] Internal refactor (no behavior change)
 
 ## Validation
 
-- [ ] `~/.local/bin/uv run ruff check .`
-- [ ] `~/.local/bin/uv run pytest`
-- [ ] `pnpm --dir docs build`
+<!-- Replace placeholders with real command output summary. -->
+
+- [ ] `uv run ruff check .`
+- [ ] `uv run mypy luminesk`
+- [ ] `uv run pytest`
+- [ ] `pnpm --dir docs typecheck` (if docs site code changed)
+- [ ] `pnpm --dir docs build` (if docs/content changed)
 
 ## Documentation checklist
 
-- [ ] User-facing behavior changes are documented in `/docs/docs/`.
-- [ ] Command names/aliases/options match implementation.
-- [ ] Troubleshooting entries are updated for new failure modes.
-- [ ] README links point to canonical docs pages.
-- [ ] Cross-links were added to avoid duplicate/conflicting instructions.
+- [ ] Updated documentation for any user-visible behavior changes.
+- [ ] Verified commands/options in docs match implementation.
+- [ ] Added troubleshooting notes for new failure modes, if applicable.
+- [ ] Checked README links and references.
+
+## Risks and rollout notes
+
+<!-- Note compatibility concerns, migration notes, or follow-up work. -->
