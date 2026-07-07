@@ -22,7 +22,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install Python dev dependencies
-        run: uv sync --locked --extra dev
+        run: uv sync--extra dev
 
       - name: Lint (ruff)
         run: uv run ruff check .
