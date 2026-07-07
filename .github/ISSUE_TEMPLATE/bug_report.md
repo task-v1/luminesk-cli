@@ -1,32 +1,71 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: "[Bug] ..."
-labels: bug
-assignees: Taskov1ch, Copilot
-type: Bug
-
----
-
-**Describe the bug**
-A clear and concise description of what the bug is.
-
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Enter '...' command
-2. Do ...
-3. See error
-
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
-**Screenshots or other media**
-If applicable, add screenshots to help explain your problem.
-
-**Your Device:**
- - OS: [e.g. Arch Linux]
- - Version [e.g. 0.1]
- - Additional information [e.g. you have a fish shell]
-
-**Additional context**
-Add any other context about the problem here.
+description: Report broken behavior in Luminesk CLI.
+title: "[Bug]: "
+labels:
+  - bug
+assignees:
+  - Taskov1ch
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill out all relevant sections so we can reproduce and fix the problem quickly.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug summary
+      description: What is wrong?
+      placeholder: A short description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide exact commands and sequence.
+      placeholder: |
+        1. Run `nesk ...`
+        2. Run `nesk ...`
+        3. Observe error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and diagnostics
+      description: Paste output from `nesk diagnostic` and relevant command logs.
+      render: shell
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Ubuntu 24.04 / Windows 11 / macOS 15
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Luminesk CLI version
+      placeholder: 1.0.1
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, or anything else that can help.

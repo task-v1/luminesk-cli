@@ -1,12 +1,69 @@
-name: CI Testing
+name: CI
 
 on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Install Python dev dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Type check (mypy)
+        run: uv run mypy luminesk
+
+      - name: Formatting check (project scripts)
+        run: uv run ruff format --check scripts
+
+  docs:
+    name: Docs checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - name: Install docs dependencies
+        run: pnpm --dir docs install --frozen-lockfile
+
+      - name: Type check docs site
+        run: pnpm --dir docs typecheck
+
+      - name: Build docs site
+        run: pnpm --dir docs build
+
   test:
     name: Test (${{ matrix.os }})
+    needs: quality
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -37,7 +94,9 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: test
+    needs:
+      - test
+      - docs
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -62,7 +121,6 @@ jobs:
 
       - name: Install deps
         run: uv sync --locked --extra build
-
 
       - name: Build binary (smoke test only)
         shell: bash
