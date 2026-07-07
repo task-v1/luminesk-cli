@@ -1,43 +1,23 @@
 ---
 name: Feature request
-description: Suggest an improvement for Luminesk CLI.
-title: "[Feature]: "
-labels:
-  - enhancement
-assignees:
-  - Taskov1ch
-body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for the idea. Well-scoped requests help us prioritize and implement faster.
-  - type: textarea
-    id: problem
-    attributes:
-      label: Problem statement
-      description: What problem are you trying to solve?
-      placeholder: I want to ... because ...
-    validations:
-      required: true
-  - type: textarea
-    id: proposal
-    attributes:
-      label: Proposed solution
-      description: Describe your preferred behavior or command flow.
-    validations:
-      required: true
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: What other options did you evaluate?
-  - type: textarea
-    id: impact
-    attributes:
-      label: Expected impact
-      description: Who benefits and how?
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional context
-      description: Add examples, links, or references.
+about: Suggest an idea or enhancement for this project
+title: "[Feature] ..."
+labels: enhancement
+assignees: Taskov1ch, Copilot
+type: Feature
+---
+
+**Is your feature request related to a problem?**
+A clear and concise description of the problem. For example: "I'm always frustrated when ..."
+
+**Describe the solution you'd like**
+A clear and concise description of what you want to happen.
+
+**Describe alternatives you've considered**
+A clear and concise description of any alternative solutions or features you've considered.
+
+**Use case**
+Describe how this feature would be used and why it would be valuable.
+
+**Additional context**
+Add any other context, mockups, screenshots, or examples about the feature request here.
