@@ -109,7 +109,7 @@ export default function Hero() {
           </p>
 
           <div className={styles.buttonGroup}>
-            <Link to="/docs/intro" className={styles.primaryButton}>
+            <Link to="/docs" className={styles.primaryButton}>
               Get Started
               <ArrowRightIcon width="20" height="20" />
             </Link>
