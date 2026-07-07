@@ -61,7 +61,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
 
       - name: Install deps
-        run: uv sync --locked --extra build
+        run: uv sync --extra build
 
 
       - name: Build binary
