@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli.svg">
     <source media="(prefers-color-scheme: light)" srcset="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg">
-    <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli.svg" width="500" alt="Luminesk CLI">
+    <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk CLI">
   </picture>
 
   <p><strong>Composer of Minecraft Bedrock Edition (MCBE) servers</strong></p>
@@ -33,14 +33,7 @@ It handles server creation, runtime configuration, downloads, updates, diagnosti
 - Inspect server state, logs, and metadata from CLI commands.
 - Use consistent commands across Linux, macOS, and Windows.
 
-## Documentation
-
-Canonical documentation lives at:
-
-- **Website:** https://luminesk.taskov1ch.xyz
-- **Docs source:** `/docs/docs/`
-
-Start here:
+## Start here
 
 - [Getting Started](https://luminesk.taskov1ch.xyz/docs/getting-started)
 - [Installation](https://luminesk.taskov1ch.xyz/docs/installation)
