@@ -43,6 +43,25 @@ const config: Config = {
         theme: {
           customCss: './src/css/custom.css',
         },
+        sitemap: {
+          changefreq: 'weekly',
+          createSitemapItems: async (params) => {
+            const { defaultCreateSitemapItems } = params;
+            const items = await defaultCreateSitemapItems(params);
+            
+            return items.map((item) => {
+              if (item.url === 'https://luminesk.taskov1ch.xyz' || item.url === 'https://luminesk.taskov1ch.xyz/') {
+                return { ...item, priority: 1.0 };
+              }
+              
+              if (item.url.includes('/docs/getting-started') || item.url.includes('/docs/installation')) {
+                return { ...item, priority: 0.8 };
+              }
+              
+              return item;
+            });
+          },
+        },
       } satisfies Preset.Options,
     ],
   ],
