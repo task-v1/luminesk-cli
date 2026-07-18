@@ -1,4 +1,4 @@
-from luminesk.main import main
+from luminesk_cli.main import main
 
 if __name__ == "__main__":
     main()

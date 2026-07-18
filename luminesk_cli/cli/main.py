@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, TextIO
 
 from cyclopts import App, Parameter
-from luminesk.main import __version__
+from luminesk_cli.main import __version__
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
