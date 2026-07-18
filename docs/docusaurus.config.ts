@@ -26,10 +26,9 @@ const config: Config = {
       url: "https://luminesk.taskov1ch.xyz/",
     }),
   },
+  ],
 
-  future: {
-    v4: true,
-  },
+
 
   url: 'https://luminesk.taskov1ch.xyz',
   baseUrl: '/',
