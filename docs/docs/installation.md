@@ -36,12 +36,12 @@ pipx install luminesk-cli
 
 Download from [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest):
 
-- `luminesk-windows-amd64.exe`
-- `luminesk-windows-arm64.exe`
-- `luminesk-linux-amd64`
-- `luminesk-linux-arm64`
-- `luminesk-darwin-amd64`
-- `luminesk-darwin-arm64`
+- `luminesk_cli-windows-amd64.exe`
+- `luminesk_cli-windows-arm64.exe`
+- `luminesk_cli-linux-amd64`
+- `luminesk_cli-linux-arm64`
+- `luminesk_cli-darwin-amd64`
+- `luminesk_cli-darwin-arm64`
 
 ## Install from source
 

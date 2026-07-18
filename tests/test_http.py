@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from luminesk.utils.http import get_json_object_with_retries, request_with_retries
+from luminesk_cli.utils.http import get_json_object_with_retries, request_with_retries
 
 
 def test_request_with_retries_returns_final_error_response_open() -> None:

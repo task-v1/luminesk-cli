@@ -4,7 +4,7 @@ sidebar_position: 8
 
 # Configuration & Language
 
-Luminesk stores configuration and server state in a user-level config directory using SQLite.
+Luminesk-CLI stores configuration and server state in a user-level config directory using SQLite.
 
 ## What is stored
 

@@ -71,7 +71,7 @@ nesk list --core nukkit
 
 Most runtime commands accept an optional tag:
 
-- if omitted, Luminesk resolves by current directory;
+- if omitted, Luminesk-CLI resolves by current directory;
 - `stop` and `kill` can also target by PID.
 
 ## Loop mode safety

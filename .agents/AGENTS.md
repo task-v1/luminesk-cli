@@ -1,7 +1,7 @@
 # Project Rules & Guidelines
 
 ## About the Project
-**Luminesk** is a composer and management CLI tool for Minecraft Bedrock Edition (MCBE) servers.
+**Luminesk-CLI** is a composer and management CLI tool for Minecraft Bedrock Edition (MCBE) servers.
 It is designed to facilitate:
 - Local MCBE server development
 - Small-scale production deployments

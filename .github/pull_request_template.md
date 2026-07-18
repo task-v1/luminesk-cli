@@ -20,7 +20,7 @@
 <!-- Replace placeholders with real command output summary. -->
 
 - [ ] `uv run ruff check .`
-- [ ] `uv run mypy luminesk`
+- [ ] `uv run mypy luminesk_cli`
 - [ ] `uv run pytest`
 - [ ] `pnpm --dir docs typecheck` (if docs site code changed)
 - [ ] `pnpm --dir docs build` (if docs/content changed)

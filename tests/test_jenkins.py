@@ -1,9 +1,9 @@
 import httpx
 import pytest
 
-from luminesk.models.registry import Jenkins
-from luminesk.utils import jenkins
-from luminesk.utils.download_models import CoreDownloadInfo
+from luminesk_cli.models.registry import Jenkins
+from luminesk_cli.utils import jenkins
+from luminesk_cli.utils.download_models import CoreDownloadInfo
 
 
 def test_get_build_info_url() -> None:

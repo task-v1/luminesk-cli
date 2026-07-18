@@ -4,11 +4,11 @@ sidebar_position: 2
 
 # Getting Started
 
-This guide explains what Luminesk manages and what you need before creating your first server.
+This guide explains what Luminesk-CLI manages and what you need before creating your first server.
 
-## What Luminesk manages
+## What Luminesk-CLI manages
 
-Luminesk tracks each managed server by a **tag** and stores server metadata in a local SQLite-backed state database.
+Luminesk-CLI tracks each managed server by a **tag** and stores server metadata in a local SQLite-backed state database.
 
 Each server record includes:
 
@@ -25,13 +25,13 @@ Each server record includes:
 
 ## Supported operating model
 
-Luminesk is designed for:
+Luminesk-CLI is designed for:
 
 - local development;
 - private and small production-like deployments;
 - multi-server operations from one CLI.
 
-Luminesk is currently in **beta**. Validate your workloads before large production use.
+Luminesk-CLI is currently in **beta**. Validate your workloads before large production use.
 
 ## Verify your environment
 

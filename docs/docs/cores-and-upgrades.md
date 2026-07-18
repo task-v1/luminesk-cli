@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Cores & Upgrades
 
-A **core** is the server engine distribution Luminesk downloads and runs.
+A **core** is the server engine distribution Luminesk-CLI downloads and runs.
 
 ## List available cores
 
@@ -20,7 +20,7 @@ Run `nesk diagnostic` first to validate provider availability.
 nesk create --core nukkit --tag my-server --name "My Server" --dir ./servers/my
 ```
 
-If `--core` is omitted, Luminesk prompts interactively.
+If `--core` is omitted, Luminesk-CLI prompts interactively.
 
 ## Upgrade core
 

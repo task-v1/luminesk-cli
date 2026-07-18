@@ -3,9 +3,9 @@ from xml.etree import ElementTree as ET
 import httpx
 import pytest
 
-from luminesk.models.registry import Maven
-from luminesk.utils import maven
-from luminesk.utils.download_models import CoreDownloadInfo
+from luminesk_cli.models.registry import Maven
+from luminesk_cli.utils import maven
+from luminesk_cli.utils.download_models import CoreDownloadInfo
 
 
 def test_get_metadata_url() -> None:

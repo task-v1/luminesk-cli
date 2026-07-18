@@ -4,7 +4,7 @@ sidebar_position: 9
 
 # Runtime & Docker Model
 
-Luminesk runs server processes in Docker containers.
+Luminesk-CLI runs server processes in Docker containers.
 
 ## Default runtime behavior
 
@@ -29,7 +29,7 @@ Luminesk runs server processes in Docker containers.
 - You can also follow logs with Docker:
 
 ```bash
-docker logs --follow luminesk-<tag>
+docker logs --follow luminesk_cli-<tag>
 ```
 
 ## Loop mode
@@ -48,4 +48,4 @@ Use loop mode carefully in production-like environments and confirm your stop/ki
 - Docker binary must be available in PATH.
 - Server deletion requires stopped state.
 - Image change and core upgrade are intended for stopped servers.
-- Luminesk is currently beta software; validate changes before critical workloads.
+- Luminesk-CLI is currently beta software; validate changes before critical workloads.

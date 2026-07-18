@@ -1,7 +1,7 @@
 import pytest
 
-from luminesk.models.registry import CoreProvider, GitHubRelease, Jenkins, Maven
-from luminesk.utils import downloads, github_releases, jenkins, maven
+from luminesk_cli.models.registry import CoreProvider, GitHubRelease, Jenkins, Maven
+from luminesk_cli.utils import downloads, github_releases, jenkins, maven
 
 
 def test_get_availability_check_url_unsupported_type() -> None:

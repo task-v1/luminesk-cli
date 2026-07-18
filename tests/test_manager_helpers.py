@@ -4,9 +4,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from luminesk.core import manager
-from luminesk.core.config import ManagedServer, UserConfig
-from luminesk.core.manager import (
+from luminesk_cli.core import manager
+from luminesk_cli.core.config import ManagedServer, UserConfig
+from luminesk_cli.core.manager import (
     MAX_CORE_DOWNLOAD_BYTES,
     _extract_file_name_from_content_disposition,
     _file_hash_matches,
@@ -19,8 +19,8 @@ from luminesk.core.manager import (
     _validate_download_size,
     format_timedelta,
 )
-from luminesk.models.manager import ServerManagerError
-from luminesk.models.registry import CoreProvider
+from luminesk_cli.models.manager import ServerManagerError
+from luminesk_cli.models.registry import CoreProvider
 
 
 def test_format_timedelta() -> None:
@@ -135,7 +135,7 @@ def test_stop_server_stops_docker_container(monkeypatch, tmp_path: Path) -> None
     result = manager.stop_server(config=config, tag="test", force=True)
 
     assert result.signal_name == "SIGINT"
-    assert calls == ["stop:luminesk-test", "rm"]
+    assert calls == ["stop:luminesk_cli-test", "rm"]
     server = config.get_server_by_tag("test")
     assert server is not None
     assert server.runtime.status == "stopped"
@@ -164,7 +164,7 @@ def test_stop_server_docker_loop_without_force(monkeypatch, tmp_path: Path) -> N
 
     assert result.signal_name == "SIGINT"
     assert result.loop_active is True
-    assert calls == ["luminesk-test:ctrl_c"]
+    assert calls == ["luminesk_cli-test:ctrl_c"]
     assert server.runtime.status == "running"
 
 
@@ -188,7 +188,7 @@ def test_kill_server_uses_cross_platform_docker_kill(
     result = manager.kill_server(config=config, tag="test", force=True)
 
     assert result.signal_name == "SIGKILL"
-    assert calls == ["kill:luminesk-test", "rm"]
+    assert calls == ["kill:luminesk_cli-test", "rm"]
     server = config.get_server_by_tag("test")
     assert server is not None
     assert server.runtime.last_exit_code == 137
@@ -199,7 +199,7 @@ def test_delete_server_removes_registration_without_deleting_files(
 ) -> None:
     server_dir = tmp_path / "test"
     server_dir.mkdir()
-    metadata_dir = server_dir / ".luminesk"
+    metadata_dir = server_dir / ".luminesk_cli"
     metadata_dir.mkdir()
     executable_path = server_dir / "server.jar"
     executable_path.write_text("jar", encoding="utf-8")
@@ -264,7 +264,7 @@ def test_change_server_image_updates_image(monkeypatch, tmp_path: Path) -> None:
     )
     config = UserConfig(servers={server.tag: server})
     monkeypatch.setattr(manager.UserConfig, "save", lambda self: None)
-    monkeypatch.setattr("luminesk.utils.docker.docker_image_exists", lambda _: True)
+    monkeypatch.setattr("luminesk_cli.utils.docker.docker_image_exists", lambda _: True)
 
     updated = manager.change_server_image(config=config, server=server, image="eclipse-temurin:17-jre")
 
@@ -284,7 +284,7 @@ def _running_docker_config(tmp_path: Path) -> UserConfig:
         server.tag,
         pid=1234,
         docker_container_id="container-id",
-        docker_container_name="luminesk-test",
+        docker_container_name="luminesk_cli-test",
         docker_memory_limit="1g",
     )
     return config
@@ -338,7 +338,7 @@ def test_stop_server_by_directory(monkeypatch, tmp_path: Path) -> None:
     result = manager.stop_server(config=config, tag=None, force=True, directory=tmp_path)
 
     assert result.signal_name == "SIGINT"
-    assert calls == ["stop:luminesk-test", "rm"]
+    assert calls == ["stop:luminesk_cli-test", "rm"]
     server = config.get_server_by_tag("test")
     assert server is not None
     assert server.runtime.status == "stopped"
@@ -347,7 +347,7 @@ def test_stop_server_by_directory(monkeypatch, tmp_path: Path) -> None:
 def test_delete_server_by_directory(monkeypatch, tmp_path: Path) -> None:
     server_dir = tmp_path / "test"
     server_dir.mkdir()
-    metadata_dir = server_dir / ".luminesk"
+    metadata_dir = server_dir / ".luminesk_cli"
     metadata_dir.mkdir()
     executable_path = server_dir / "server.jar"
     executable_path.write_text("jar", encoding="utf-8")
@@ -370,7 +370,7 @@ def test_delete_server_by_directory(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_upgrade_server_core_missing_hash(monkeypatch, tmp_path: Path) -> None:
-    from luminesk.models.manager import DownloadedCore
+    from luminesk_cli.models.manager import DownloadedCore
 
     server_dir = tmp_path / "test"
     server_dir.mkdir()

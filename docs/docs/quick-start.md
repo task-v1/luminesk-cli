@@ -16,7 +16,7 @@ nesk diagnostic
 nesk create -n "My Server" -d ./servers/my -c nukkit -t my-server
 ```
 
-If you omit options, Luminesk prompts interactively.
+If you omit options, Luminesk-CLI prompts interactively.
 
 ## 3) Start the server
 

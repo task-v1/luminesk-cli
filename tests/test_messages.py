@@ -1,6 +1,6 @@
 import pytest
 
-from luminesk.core import messages
+from luminesk_cli.core import messages
 
 
 def test_normalize_language_defaults_to_english() -> None:
@@ -13,7 +13,7 @@ def test_set_language_and_translate() -> None:
     messages.set_language("en")
     assert messages.t("common.ok") == "OK"
     assert messages.t("cli.version.banner", version="1.2.3").startswith(
-        "Luminesk v1.2.3"
+        "Luminesk-CLI v1.2.3"
     )
     messages.set_language(messages.DEFAULT_LANGUAGE)
 

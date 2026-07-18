@@ -33,7 +33,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Type check (mypy)
-        run: uv run mypy luminesk
+        run: uv run mypy luminesk_cli
 
       - name: Formatting check (project scripts)
         run: uv run ruff format --check scripts
@@ -117,7 +117,7 @@ jobs:
             exit 1
           fi
 
-          NAME="luminesk-$OS_NAME-$ARCH"
+          NAME="luminesk_cli-$OS_NAME-$ARCH"
 
           echo "Building $NAME"
 
@@ -128,7 +128,7 @@ jobs:
             --exclude-module distutils \
             --exclude-module unittest \
             --exclude-module tkinter \
-            luminesk/__main__.py
+            luminesk_cli/__main__.py
 
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             BIN="dist/$NAME.exe"

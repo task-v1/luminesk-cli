@@ -4,13 +4,13 @@ sidebar_position: 11
 
 # FAQ
 
-## Is Luminesk production-ready?
+## Is Luminesk-CLI production-ready?
 
-Luminesk is in active beta. It is suitable for local development and smaller operational setups. Test carefully before high-risk production workloads.
+Luminesk-CLI is in active beta. It is suitable for local development and smaller operational setups. Test carefully before high-risk production workloads.
 
 ## Do I need Docker?
 
-Yes. Luminesk uses Docker to run managed server processes.
+Yes. Luminesk-CLI uses Docker to run managed server processes.
 
 ## Can I run multiple servers?
 

@@ -3,7 +3,7 @@ import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Luminesk CLI',
+  title: 'Luminesk-CLI',
   tagline: 'CLI manager for MCBE servers',
   favicon: 'img/favicon.ico',
   headTags: [
@@ -11,7 +11,7 @@ const config: Config = {
     tagName: "meta",
     attributes: {
       property: "og:site_name",
-      content: "Luminesk CLI",
+      content: "Luminesk-CLI",
     },
   },
   {
@@ -22,7 +22,7 @@ const config: Config = {
     innerHTML: JSON.stringify({
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "Luminesk CLI",
+      name: "Luminesk-CLI",
       url: "https://luminesk.taskov1ch.xyz/",
     }),
   },
@@ -33,7 +33,7 @@ const config: Config = {
   url: 'https://luminesk.taskov1ch.xyz',
   baseUrl: '/',
   organizationName: 'task-v1',
-  projectName: 'luminesk',
+  projectName: 'luminesk-cli',
 
   onBrokenLinks: 'throw',
 
@@ -94,7 +94,7 @@ const config: Config = {
     },
     navbar: {
       logo: {
-        alt: 'Luminesk CLI',
+        alt: 'Luminesk-CLI',
         src: 'img/logo.svg',
         width: 110,
         height: 22,
@@ -112,7 +112,7 @@ const config: Config = {
     footer: {
       style: 'dark',
       // links: [],
-      copyright: `<span class='primary'>Luminesk</span> is released under the
+      copyright: `<span class='primary'>Luminesk-CLI</span> is released under the
                 <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GNU GPLv3 License</a>.
                 The gradient background in the Hero section is created using
                 <a href="https://neat.firecms.co/" target="_blank" rel="noopener noreferrer">NEAT</a>.

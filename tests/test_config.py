@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from luminesk.core import config
+from luminesk_cli.core import config
 
 
 def test_managed_server_normalizes_tag(tmp_path: Path) -> None:
@@ -140,8 +140,8 @@ def test_managed_server_normalizes_executable_name_separators(tmp_path: Path) ->
 
 
 def test_run_server_raises_metadata_not_found(tmp_path: Path) -> None:
-    from luminesk.core.manager import run_server
-    from luminesk.models.manager import ServerManagerError
+    from luminesk_cli.core.manager import run_server
+    from luminesk_cli.models.manager import ServerManagerError
 
     server = config.ManagedServer(
         name="Test",

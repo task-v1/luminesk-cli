@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli.svg">
     <source media="(prefers-color-scheme: light)" srcset="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg">
-    <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk CLI">
+    <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk-CLI">
   </picture>
 
   <p><strong>Composer of Minecraft Bedrock Edition (MCBE) servers</strong></p>
@@ -19,9 +19,9 @@
 
 ---
 
-## What is Luminesk CLI?
+## What is Luminesk-CLI?
 
-Luminesk CLI (`nesk`) is a command-line tool for provisioning and operating MCBE servers.
+Luminesk-CLI (`nesk`) is a command-line tool for provisioning and operating MCBE servers.
 It handles server creation, runtime configuration, downloads, updates, diagnostics, and lifecycle actions through one unified interface.
 
 ## Key capabilities
@@ -81,7 +81,7 @@ For full command behavior, use the [Command Reference](https://luminesk.taskov1c
 
 ## Project status
 
-Luminesk is in active **beta** development.
+Luminesk-CLI is in active **beta** development.
 Validate behavior in your own environment before production-critical usage.
 
 ## License

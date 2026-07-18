@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from luminesk.utils.docker import (
+from luminesk_cli.utils.docker import (
     DOCKER_SERVER_DIR,
     build_docker_container_name,
     build_docker_run_command,
@@ -21,7 +21,7 @@ class LaunchTarget:
 
 
 def test_build_docker_container_name_sanitizes_tag() -> None:
-    assert build_docker_container_name(" My Server! ") == "luminesk-my-server"
+    assert build_docker_container_name(" My Server! ") == "luminesk_cli-my-server"
 
 
 def test_normalize_memory_limit() -> None:
@@ -46,7 +46,7 @@ def test_normalize_runtime_image() -> None:
 
 
 def test_build_docker_run_command_uses_memory_and_mount(monkeypatch) -> None:
-    monkeypatch.setattr("luminesk.utils.docker.platform.system", lambda: "Linux")
+    monkeypatch.setattr("luminesk_cli.utils.docker.platform.system", lambda: "Linux")
 
     command = build_docker_run_command(
         LaunchTarget(),
@@ -73,7 +73,7 @@ def test_build_docker_run_command_uses_memory_and_mount(monkeypatch) -> None:
 def test_build_docker_run_command_publishes_default_ports_off_linux(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr("luminesk.utils.docker.platform.system", lambda: "Windows")
+    monkeypatch.setattr("luminesk_cli.utils.docker.platform.system", lambda: "Windows")
 
     command = build_docker_run_command(
         LaunchTarget(),
@@ -89,7 +89,7 @@ def test_build_docker_run_command_publishes_default_ports_off_linux(
 def test_build_docker_run_command_parses_custom_ports_from_config(
     tmp_path, monkeypatch
 ) -> None:
-    monkeypatch.setattr("luminesk.utils.docker.platform.system", lambda: "Windows")
+    monkeypatch.setattr("luminesk_cli.utils.docker.platform.system", lambda: "Windows")
 
     # 1. Test properties config
     class PropertiesLaunchTarget:
@@ -107,7 +107,7 @@ def test_build_docker_run_command_parses_custom_ports_from_config(
 
     command = build_docker_run_command(
         PropertiesLaunchTarget(),
-        PropertiesLaunchTarget.path / ".luminesk" / "logs" / "my-server.log",
+        PropertiesLaunchTarget.path / ".luminesk_cli" / "logs" / "my-server.log",
         memory_limit="2g",
     )
     assert "25565:25565/udp" in command
@@ -129,7 +129,7 @@ def test_build_docker_run_command_parses_custom_ports_from_config(
 
     command2 = build_docker_run_command(
         YmlLaunchTarget(),
-        YmlLaunchTarget.path / ".luminesk" / "logs" / "my-server.log",
+        YmlLaunchTarget.path / ".luminesk_cli" / "logs" / "my-server.log",
         memory_limit="2g",
     )
     assert "19135:19135/udp" in command2
@@ -137,10 +137,10 @@ def test_build_docker_run_command_parses_custom_ports_from_config(
 
 
 def test_validate_runtime_image(monkeypatch) -> None:
-    from luminesk.utils.docker import validate_runtime_image
+    from luminesk_cli.utils.docker import validate_runtime_image
 
     # Mock docker_image_exists to return True unless the image is "nonexistent"
-    monkeypatch.setattr("luminesk.utils.docker.docker_image_exists", lambda img: img != "nonexistent")
+    monkeypatch.setattr("luminesk_cli.utils.docker.docker_image_exists", lambda img: img != "nonexistent")
 
     # Valid image names
     assert validate_runtime_image("eclipse-temurin:21-jre") == "eclipse-temurin:21-jre"

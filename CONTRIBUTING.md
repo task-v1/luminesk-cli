@@ -1,6 +1,6 @@
-# Contributing to Luminesk CLI
+# Contributing to Luminesk-CLI
 
-Thanks for helping improve Luminesk CLI.
+Thanks for helping improve Luminesk-CLI.
 
 ## Before you start
 
@@ -22,7 +22,7 @@ Run these before opening or updating a pull request:
 
 ```bash
 uv run ruff check .
-uv run mypy luminesk
+uv run mypy luminesk_cli
 uv run pytest
 ```
 

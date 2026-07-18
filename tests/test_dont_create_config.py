@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from luminesk.core import manager
-from luminesk.core.base import JavaCore
-from luminesk.core.config import UserConfig
-from luminesk.models.manager import DownloadedCore
+from luminesk_cli.core import manager
+from luminesk_cli.core.base import JavaCore
+from luminesk_cli.core.config import UserConfig
+from luminesk_cli.models.manager import DownloadedCore
 
 
 class DummyDontCreateConfigCore(JavaCore):

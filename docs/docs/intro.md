@@ -3,9 +3,9 @@ sidebar_position: 1
 slug: /
 ---
 
-# Luminesk CLI Documentation
+# Luminesk-CLI Documentation
 
-Luminesk CLI is a command-line tool for creating and operating Minecraft Bedrock Edition server instances with Docker.
+Luminesk-CLI is a command-line tool for creating and operating Minecraft Bedrock Edition server instances with Docker.
 
 Use this documentation as the canonical source for:
 

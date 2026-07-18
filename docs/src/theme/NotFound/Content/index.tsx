@@ -7,26 +7,26 @@ import type { Props } from '@theme/NotFound/Content';
 import styles from './styles.module.css';
 
 const LOG_DATA = [
-  '[Luminesk] Daemon v1.2.0 starting...',
-  '[Luminesk] Loading configuration: /etc/luminesk/daemon.json',
-  '[Luminesk] MCBE Server bridge listening on 0.0.0.0:19132',
-  '[Luminesk] Connection established with Nukkit runtime',
-  '[Luminesk] INFO: Thread pool size dynamically calibrated to 16 threads',
-  '[Luminesk] WARNING: High packet latency detected on route PEER_0',
-  '[Luminesk] CRITICAL: NullPointerException in com.luminesk.bridge.RouteManager.route()',
-  '[Luminesk] DEBUG: Stacktrace dump:',
-  '    at com.luminesk.bridge.RouteManager.route(RouteManager.java:84)',
-  '    at com.luminesk.bridge.Bridge.handlePacket(Bridge.java:192)',
+  '[Luminesk-CLI] Daemon v1.2.0 starting...',
+  '[Luminesk-CLI] Loading configuration: /etc/luminesk/daemon.json',
+  '[Luminesk-CLI] MCBE Server bridge listening on 0.0.0.0:19132',
+  '[Luminesk-CLI] Connection established with Nukkit runtime',
+  '[Luminesk-CLI] INFO: Thread pool size dynamically calibrated to 16 threads',
+  '[Luminesk-CLI] WARNING: High packet latency detected on route PEER_0',
+  '[Luminesk-CLI] CRITICAL: NullPointerException in com.luminesk_cli.bridge.RouteManager.route()',
+  '[Luminesk-CLI] DEBUG: Stacktrace dump:',
+  '    at com.luminesk_cli.bridge.RouteManager.route(RouteManager.java:84)',
+  '    at com.luminesk_cli.bridge.Bridge.handlePacket(Bridge.java:192)',
   '    at java.base/java.lang.Thread.run(Thread.java:829)',
-  '[Luminesk] SYSTEM: Attempting automatic hot-reload...',
-  '[Luminesk] ERROR: ROUTE_NOT_FOUND (404)',
-  '[Luminesk] SYSTEM: Memory state: 852MB / 2048MB',
-  '[Luminesk] WARNING: Nosferatu protocol activated due to route failure',
-  '[Luminesk] DEBUG: Pinging server at 127.0.0.1:19132 ... TIMEOUT',
-  '[Luminesk] ERROR: Target server is unresponsive',
-  '[Luminesk] INFO: Flushing routing table...',
-  '[Luminesk] FATAL: Server crashed. Exit code 404',
-  '[Luminesk] SYSTEM: Guided by Luminesk. Lost in the dark.'
+  '[Luminesk-CLI] SYSTEM: Attempting automatic hot-reload...',
+  '[Luminesk-CLI] ERROR: ROUTE_NOT_FOUND (404)',
+  '[Luminesk-CLI] SYSTEM: Memory state: 852MB / 2048MB',
+  '[Luminesk-CLI] WARNING: Nosferatu protocol activated due to route failure',
+  '[Luminesk-CLI] DEBUG: Pinging server at 127.0.0.1:19132 ... TIMEOUT',
+  '[Luminesk-CLI] ERROR: Target server is unresponsive',
+  '[Luminesk-CLI] INFO: Flushing routing table...',
+  '[Luminesk-CLI] FATAL: Server crashed. Exit code 404',
+  '[Luminesk-CLI] SYSTEM: Guided by Luminesk-CLI. Lost in the dark.'
 ];
 
 const generateLogs = (count = 15) => {

@@ -1,4 +1,4 @@
-from luminesk.core import diagnostic
+from luminesk_cli.core import diagnostic
 
 
 class FakeCore:

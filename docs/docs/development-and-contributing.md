@@ -23,7 +23,7 @@ cd luminesk-cli
 
 ```bash
 ~/.local/bin/uv sync --locked --extra build
-~/.local/bin/uv run pyinstaller --onefile --name luminesk luminesk/__main__.py
+~/.local/bin/uv run pyinstaller --onefile --name luminesk_cli luminesk_cli/__main__.py
 ```
 
 ## Documentation maintenance checklist

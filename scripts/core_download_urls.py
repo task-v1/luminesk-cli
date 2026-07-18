@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import httpx
 
-from luminesk.core.registry import registry
-from luminesk.utils.downloads import get_latest_download_url
+from luminesk_cli.core.registry import registry
+from luminesk_cli.utils.downloads import get_latest_download_url
 
 
 def main() -> int:

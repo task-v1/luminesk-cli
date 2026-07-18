@@ -1,4 +1,4 @@
-from luminesk.core.registry import registry
+from luminesk_cli.core.registry import registry
 
 
 def test_registry_get_all() -> None:
@@ -30,8 +30,8 @@ def test_registry_get_by_id() -> None:
 
 
 def test_core_provider_localized_description() -> None:
-    from luminesk.core import messages
-    from luminesk.models.registry import CoreProvider
+    from luminesk_cli.core import messages
+    from luminesk_cli.models.registry import CoreProvider
 
     core = CoreProvider(
         id="test-core",

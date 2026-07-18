@@ -77,7 +77,7 @@ export default function Landing() {
 
   return (
     <Layout
-      title="Luminesk CLI - CLI manager for MCBE servers"
+      title="Luminesk-CLI - CLI manager for MCBE servers"
       description="CLI manager for MCBE servers. Manage your servers with ease and efficiency.">
       <main ref={containerRef} className={styles.landingWrapper}>
         <Hero />

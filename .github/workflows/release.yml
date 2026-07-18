@@ -81,7 +81,7 @@ jobs:
         run: |
           OS_NAME="${{ matrix.os_name }}"
           ARCH="${{ matrix.arch }}"
-          NAME="luminesk-$OS_NAME-$ARCH"
+          NAME="luminesk_cli-$OS_NAME-$ARCH"
 
           uv run pyinstaller \
             --onefile \
@@ -90,7 +90,7 @@ jobs:
             --exclude-module distutils \
             --exclude-module unittest \
             --exclude-module tkinter \
-            luminesk/__main__.py
+            luminesk_cli/__main__.py
 
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             echo "BINARY_NAME=$NAME.exe" >> $GITHUB_ENV

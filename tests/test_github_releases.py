@@ -1,9 +1,9 @@
 import httpx
 import pytest
 
-from luminesk.models.registry import GitHubRelease
-from luminesk.utils import github_releases
-from luminesk.utils.download_models import CoreDownloadInfo
+from luminesk_cli.models.registry import GitHubRelease
+from luminesk_cli.utils import github_releases
+from luminesk_cli.utils.download_models import CoreDownloadInfo
 
 
 def test_parse_github_repo_url() -> None:

@@ -29,7 +29,7 @@ const featuresData = [
     spanClass: '',
     icon: <LoopIcon />,
     title: 'Loop Mode',
-    desc: 'Keep your servers highly available. If a crash occurs, Luminesk automatically restarts the engine.',
+    desc: 'Keep your servers highly available. If a crash occurs, Luminesk-CLI automatically restarts the engine.',
   },
   {
     spanClass: styles.span2,
@@ -100,7 +100,7 @@ export default function FeaturesBento() {
             Infrastructure in <span className={landingStyles.gradientText}>One Tool.</span>
           </h2>
           <p style={{ color: 'var(--ifm-color-secondary)', maxWidth: '50ch', fontSize: '1.25rem' }}>
-            Luminesk abstracts away the complexity of managing Nukkit-based servers so you can focus on building your plugins and communities.
+            Luminesk-CLI abstracts away the complexity of managing MCBE servers so you can focus on building your plugins and communities.
           </p>
         </div>
 

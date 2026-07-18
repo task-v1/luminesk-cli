@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from luminesk.core import launcher
-from luminesk.core.config import ManagedServer, UserConfig
+from luminesk_cli.core import launcher
+from luminesk_cli.core.config import ManagedServer, UserConfig
 
 
 def test_launch_server_detached_marks_docker_runtime(
@@ -45,14 +45,14 @@ def test_launch_server_detached_marks_docker_runtime(
     updated_server = config.get_server_by_tag(server.tag)
     assert updated_server is not None
     assert result.container_id == "container-id"
-    assert result.container_name == "luminesk-test"
+    assert result.container_name == "luminesk_cli-test"
     assert result.memory_limit == "768m"
     assert result.runtime_image == "eclipse-temurin:17-jre"
     assert "eclipse-temurin:17-jre" in calls[-1]
     assert updated_server.memory_limit == "768m"
     assert updated_server.runtime.pid == 1234
     assert updated_server.runtime.docker_container_id == "container-id"
-    assert updated_server.runtime.docker_container_name == "luminesk-test"
+    assert updated_server.runtime.docker_container_name == "luminesk_cli-test"
     assert updated_server.runtime.docker_memory_limit == "768m"
 
 

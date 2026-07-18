@@ -54,7 +54,7 @@ Starts a server.
 
 **Arguments**
 
-- `[tag]`: optional; if omitted, Luminesk resolves by current directory.
+- `[tag]`: optional; if omitted, Luminesk-CLI resolves by current directory.
 
 **Options**
 
@@ -147,7 +147,7 @@ Force-kills a server.
 
 ## `delete` (alias: `d`)
 
-Deletes a stopped server from Luminesk state.
+Deletes a stopped server from Luminesk-CLI state.
 
 **Arguments**
 
@@ -159,7 +159,7 @@ Deletes a stopped server from Luminesk state.
 
 **Expected outcome**
 
-- Removes Luminesk metadata and unregisters the server.
+- Removes Luminesk-CLI metadata and unregisters the server.
 - Refuses deletion when server is running/loop-active.
 
 ## `list` (aliases: `ls`, `l`)
