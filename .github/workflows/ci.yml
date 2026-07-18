@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+  workflow_call:
 
 permissions:
   contents: read

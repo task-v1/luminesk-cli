@@ -12,6 +12,9 @@ on:
         required: true
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   guard:
     name: Guard (safety check)
     runs-on: ubuntu-latest
@@ -35,7 +38,7 @@ jobs:
 
   build:
     name: Build Release (${{ matrix.os }}-${{ matrix.arch }})
-    needs: guard
+    needs: [guard, ci]
     if: needs.guard.outputs.ok == 'true'
     runs-on: ${{ matrix.os }}
 
@@ -120,23 +123,3 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: release
-    runs-on: ubuntu-latest
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: astral-sh/setup-uv@v7
-
-      - name: Build package
-        run: uv build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
