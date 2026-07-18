@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Annotated, TextIO
 
 from cyclopts import App, Parameter
-from luminesk_cli.main import __version__
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -24,6 +23,7 @@ from luminesk_cli.core.messages import (
     t,
 )
 from luminesk_cli.core.registry import registry
+from luminesk_cli.main import __version__
 from luminesk_cli.utils.docker import (
     DEFAULT_DOCKER_MEMORY_LIMIT,
     DEFAULT_FALLBACK_IMAGE,
