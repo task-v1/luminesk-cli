@@ -6,6 +6,26 @@ const config: Config = {
   title: 'Luminesk CLI',
   tagline: 'CLI manager for MCBE servers',
   favicon: 'img/favicon.ico',
+  headTags: [
+  {
+    tagName: "meta",
+    attributes: {
+      property: "og:site_name",
+      content: "Luminesk CLI",
+    },
+  },
+  {
+    tagName: "script",
+    attributes: {
+      type: "application/ld+json",
+    },
+    innerHTML: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "Luminesk CLI",
+      url: "https://luminesk.taskov1ch.xyz/",
+    }),
+  },
 
   future: {
     v4: true,
