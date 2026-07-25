@@ -82,7 +82,7 @@ case "$ARCH" in
     *) echo "${COLOR_PRIMARY}Error: Unsupported architecture: $ARCH${COLOR_RESET}" >&2; exit 1 ;;
 esac
 
-BINARY_NAME="luminesk-$OS-$ARCH"
+BINARY_NAME="luminesk_cli-$OS-$ARCH"
 DOWNLOAD_URL="https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 INSTALL_DIR="/usr/local/bin"
@@ -104,11 +104,11 @@ else
         USE_SUDO="sudo"
     fi
 fi
-TARGET_PATH="$INSTALL_DIR/nesk"
+TARGET_PATH="$INSTALL_DIR/luminesk_cli"
 
 # Paths to meta files (for system and user installation)
-SYSTEM_META_DIR="/usr/local/share/luminesk"
-USER_META_DIR="$HOME/.local/share/luminesk"
+SYSTEM_META_DIR="/usr/local/share/luminesk_cli"
+USER_META_DIR="$HOME/.local/share/luminesk_cli"
 SYSTEM_META_FILE="$SYSTEM_META_DIR/.metadata_one_line"
 USER_META_FILE="$USER_META_DIR/.metadata_one_line"
 
@@ -116,8 +116,8 @@ USER_META_FILE="$USER_META_DIR/.metadata_one_line"
 echo "${COLOR_PRIMARY}Luminesk analyzing system environment...${COLOR_RESET}"
 
 EXISTING_BIN=""
-if command -v nesk >/dev/null 2>&1; then
-    EXISTING_BIN="$(command -v nesk)"
+if command -v luminesk_cli >/dev/null 2>&1; then
+    EXISTING_BIN="$(command -v luminesk_cli)"
 fi
 
 # Check for a meta file that confirms installation via this script
@@ -133,7 +133,7 @@ if [ -n "$EXISTING_BIN" ] && [ "$IS_SCRIPT_INSTALL" = false ]; then
     echo "${COLOR_BORDER}╭──────────────────────────────────────────────────────────${COLOR_RESET}"
     echo "${COLOR_BORDER}│${COLOR_RESET} ${COLOR_PRIMARY}${COLOR_BOLD}FOREIGN INSTALLATION DETECTED${COLOR_RESET}"
     echo "${COLOR_BORDER}├──────────────────────────────────────────────────────────${COLOR_RESET}"
-    echo "${COLOR_BORDER}│${COLOR_RESET} 'nesk' is already installed at: ${COLOR_WARNING}$EXISTING_BIN${COLOR_RESET}"
+    echo "${COLOR_BORDER}│${COLOR_RESET} 'luminesk_cli' is already installed at: ${COLOR_WARNING}$EXISTING_BIN${COLOR_RESET}"
     echo "${COLOR_BORDER}│${COLOR_RESET} It was NOT installed via this one-line script."
     echo "${COLOR_BORDER}│${COLOR_RESET}"
     echo "${COLOR_BORDER}│${COLOR_RESET} ${COLOR_BOLD}Please resolve this conflict manually!${COLOR_RESET}"
@@ -167,7 +167,7 @@ if [ "$DELETE_MODE" = true ]; then
         if [ "$(id -u)" -ne 0 ]; then DEL_SUDO="sudo"; fi
 
         META_BIN="$(get_meta_val "$SYSTEM_META_FILE" "binary")"
-        [ -z "$META_BIN" ] && META_BIN="/usr/local/bin/nesk"
+        [ -z "$META_BIN" ] && META_BIN="/usr/local/bin/luminesk_cli"
 
         echo "Removing system binary and metadata..."
         $DEL_SUDO rm -f "$META_BIN"
@@ -178,7 +178,7 @@ if [ "$DELETE_MODE" = true ]; then
     # Remove user components, if present
     if [ -f "$USER_META_FILE" ]; then
         META_BIN="$(get_meta_val "$USER_META_FILE" "binary")"
-        [ -z "$META_BIN" ] && META_BIN="$HOME/.local/bin/nesk"
+        [ -z "$META_BIN" ] && META_BIN="$HOME/.local/bin/luminesk_cli"
 
         echo "Removing user binary and metadata..."
         rm -f "$META_BIN"
@@ -368,7 +368,7 @@ echo "${COLOR_SUCCESS}Success: Luminesk has been successfully installed.${COLOR_
 
 case ":$PATH:" in
     *:"$INSTALL_DIR":*)
-        echo "Run setup tasks with: nesk --help"
+        echo "Run setup tasks with: luminesk_cli --help"
         ;;
     *)
         echo "${COLOR_WARNING}Warning: $INSTALL_DIR is not in your PATH environment variable.${COLOR_RESET}"
