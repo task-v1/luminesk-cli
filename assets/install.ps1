@@ -77,32 +77,32 @@ switch ($RAW_ARCH) {
     }
 }
 
-$BINARY_NAME = "luminesk-$OS-$ARCH.exe"
+$BINARY_NAME = "luminesk_cli-$OS-$ARCH.exe"
 $DOWNLOAD_URL = "https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 # Check administrator privileges
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if ($isAdmin) {
-    $INSTALL_DIR = "$env:ProgramFiles\luminesk"
-    $SYSTEM_META_DIR = "$env:ProgramData\luminesk"
+    $INSTALL_DIR = "$env:ProgramFiles\luminesk_cli"
+    $SYSTEM_META_DIR = "$env:ProgramData\luminesk_cli"
     $SYSTEM_META_FILE = Join-Path $SYSTEM_META_DIR ".metadata_one_line"
 } else {
     $INSTALL_DIR = "$HOME\.local\bin"
-    $USER_META_DIR = "$HOME\.local\share\luminesk"
+    $USER_META_DIR = "$HOME\.local\share\luminesk_cli"
     $USER_META_FILE = Join-Path $USER_META_DIR ".metadata_one_line"
 }
-$TARGET_PATH = Join-Path $INSTALL_DIR "nesk.exe"
+$TARGET_PATH = Join-Path $INSTALL_DIR "luminesk_cli.exe"
 
 # Paths to check
-$SYS_META = "$env:ProgramData\luminesk\.metadata_one_line"
-$USR_META = "$HOME\.local\share\luminesk\.metadata_one_line"
+$SYS_META = "$env:ProgramData\luminesk_cli\.metadata_one_line"
+$USR_META = "$HOME\.local\share\luminesk_cli\.metadata_one_line"
 
 # Analyze environment
 Write-Host "${COLOR_PRIMARY}Luminesk analyzing system environment...${COLOR_RESET}"
 
-$cmd = Get-Command nesk -ErrorAction SilentlyContinue
-if (-not $cmd) { $cmd = Get-Command nesk.exe -ErrorAction SilentlyContinue }
+$cmd = Get-Command luminesk_cli -ErrorAction SilentlyContinue
+if (-not $cmd) { $cmd = Get-Command luminesk_cli.exe -ErrorAction SilentlyContinue }
 $EXISTING_BIN = $null
 if ($cmd) { $EXISTING_BIN = $cmd.Source }
 
@@ -118,7 +118,7 @@ if ($EXISTING_BIN -and -not $IS_SCRIPT_INSTALL) {
     Write-Host "${COLOR_BORDER}+----------------------------------------------------------${COLOR_RESET}"
     Write-Host "${COLOR_BORDER}|${COLOR_RESET} ${COLOR_PRIMARY}${COLOR_BOLD}FOREIGN INSTALLATION DETECTED${COLOR_RESET}"
     Write-Host "${COLOR_BORDER}+----------------------------------------------------------${COLOR_RESET}"
-    Write-Host "${COLOR_BORDER}|${COLOR_RESET} 'nesk' is already installed at: ${COLOR_WARNING}${EXISTING_BIN}${COLOR_RESET}"
+    Write-Host "${COLOR_BORDER}|${COLOR_RESET} 'luminesk_cli' is already installed at: ${COLOR_WARNING}${EXISTING_BIN}${COLOR_RESET}"
     Write-Host "${COLOR_BORDER}|${COLOR_RESET} It was NOT installed via this one-line script."
     Write-Host "${COLOR_BORDER}|${COLOR_RESET}"
     Write-Host "${COLOR_BORDER}|${COLOR_RESET} ${COLOR_BOLD}Please resolve this conflict manually!${COLOR_RESET}"
@@ -149,7 +149,7 @@ if ($DELETE_MODE) {
     # Remove user installation
     if (Test-Path $USR_META) {
         $metaBin = Get-MetaVal $USR_META "binary"
-        if (-not $metaBin) { $metaBin = "$HOME\.local\bin\nesk.exe" }
+        if (-not $metaBin) { $metaBin = "$HOME\.local\bin\luminesk_cli.exe" }
         Write-Host "Removing user binary and metadata..."
         Remove-Item -Force $metaBin -ErrorAction SilentlyContinue
         Remove-Item -Force $USR_META -ErrorAction SilentlyContinue
@@ -162,7 +162,7 @@ if ($DELETE_MODE) {
     # Remove system installation
     if (Test-Path $SYS_META) {
         $metaBin = Get-MetaVal $SYS_META "binary"
-        if (-not $metaBin) { $metaBin = "$env:ProgramFiles\luminesk\nesk.exe" }
+        if (-not $metaBin) { $metaBin = "$env:ProgramFiles\luminesk_cli\luminesk_cli.exe" }
         Write-Host "Removing system binary and metadata..."
         Remove-Item -Force $metaBin -ErrorAction SilentlyContinue
         Remove-Item -Force $SYS_META -ErrorAction SilentlyContinue
@@ -321,7 +321,7 @@ Write-Host "${COLOR_SUCCESS}Success: Luminesk has been successfully installed.${
 # Check PATH variable
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
 if ($currentPath -like "*$INSTALL_DIR*") {
-    Write-Host "Run setup tasks with: nesk --help"
+    Write-Host "Run setup tasks with: luminesk_cli --help"
 } else {
     Write-Host "${COLOR_WARNING}Warning: ${INSTALL_DIR} is not in your PATH environment variable.${COLOR_RESET}"
     Write-Host "To add it, run this command in PowerShell as Administrator:"
