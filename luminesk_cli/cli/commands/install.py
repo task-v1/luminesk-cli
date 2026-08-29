@@ -21,6 +21,7 @@ from luminesk_cli.infrastructure.recipe import (
     cleanup_materialized,
     ensure_empty_target,
     materialize_checkout,
+    materialize_local_recipe,
     normalize_git_source,
 )
 from luminesk_cli.infrastructure.state import (
@@ -97,7 +98,7 @@ def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> 
             return _emit_result(namespace, plan, None)
 
         _confirm(namespace, manifest.package.name, target, "local", lockfile)
-        copied = _copy_local_recipe(recipe_root, target)
+        copied = materialize_local_recipe(recipe_root, target)
 
         try:
             plan, state = TransactionalInstaller(
@@ -158,31 +159,6 @@ def _install_checkout(
         temporary.cleanup()
 
 
-def _copy_local_recipe(source: Path, target: Path) -> tuple[str, ...]:
-    target.mkdir(parents=True)
-    copied = []
-
-    for path in source.rglob("*"):
-        if any(part in {".git", ".luminesk_cli"} for part in path.relative_to(source).parts):
-            continue
-
-        if path.is_symlink():
-            raise ValidationError(f"local recipe contains a symlink: {path}")
-
-        relative = path.relative_to(source)
-        destination = target / relative
-
-        if path.is_dir():
-            destination.mkdir(parents=True, exist_ok=True)
-            continue
-
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(path.read_bytes())
-        copied.append(relative.as_posix())
-
-    return tuple(copied)
-
-
 def _confirm(
     namespace: Any,
     package_name: str,
@@ -190,9 +166,7 @@ def _confirm(
     trust: str,
     lockfile: Any,
 ) -> None:
-    build_enabled = any(
-        source.provider == "local-file" for source in lockfile.sources.values()
-    )
+    build_enabled = lockfile.build is not None
     summary = (
         f"Source package: {package_name}\n"
         f"Trust: {trust}\n"

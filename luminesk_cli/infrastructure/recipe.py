@@ -20,7 +20,8 @@ from luminesk_cli.domain.errors import (
     SecurityError,
 )
 from luminesk_cli.domain.manifest import SourceSpec
-from luminesk_cli.infrastructure.cache import ContentCache
+from luminesk_cli.domain.primitives import safe_relative_path
+from luminesk_cli.infrastructure.cache import ContentCache, digest_file
 from luminesk_cli.infrastructure.fetch import SecureFetcher
 from luminesk_cli.infrastructure.security.archive import ArchiveLimits, extract_archive
 from luminesk_cli.infrastructure.sources.common import request_json_object
@@ -47,6 +48,12 @@ class RecipeCheckout:
     revision: str
     tracking_ref: str | None
     tracked_files: tuple[str, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class MaterializedFile:
+    path: str
+    digest: str
 
 
 def normalize_git_source(value: str, explicit_ref: str | None = None) -> GitRecipeSource:
@@ -269,37 +276,78 @@ def materialize_checkout(
     target: Path,
     *,
     keep_git: bool = False,
-) -> tuple[str, ...]:
+) -> tuple[MaterializedFile, ...]:
     ensure_empty_target(target)
     target.mkdir(parents=True, exist_ok=True)
-    copied = []
+    copied: list[MaterializedFile] = []
 
-    for relative in checkout.tracked_files:
-        source = checkout.root / relative
-        destination = target / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-        copied.append(relative)
+    try:
+        for relative in checkout.tracked_files:
+            safe_relative_path(relative, "recipe.checkout.path")
+            source = checkout.root / relative
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+            digest, _ = digest_file(destination)
+            copied.append(MaterializedFile(relative, digest))
 
-    if keep_git:
-        shutil.copytree(checkout.root / ".git", target / ".git")
+        if keep_git:
+            git_source = checkout.root / ".git"
+
+            if not git_source.is_dir():
+                raise SecurityError("Git checkout metadata is missing")
+
+            _copy_tree_files(
+                git_source,
+                target / ".git",
+                copied,
+                prefix=".git",
+                max_size=MAX_RECIPE_SIZE,
+                max_files=MAX_RECIPE_FILES,
+            )
+    except BaseException:
+        cleanup_materialized(target, tuple(copied))
+        raise
 
     return tuple(copied)
 
 
-def cleanup_materialized(target: Path, copied: tuple[str, ...]) -> None:
+def materialize_local_recipe(source: Path, target: Path) -> tuple[MaterializedFile, ...]:
+    """Copy a bounded local recipe tree into an empty target."""
+
+    ensure_empty_target(target)
+    target.mkdir(parents=True, exist_ok=True)
+    copied: list[MaterializedFile] = []
+
+    try:
+        _copy_tree_files(
+            source,
+            target,
+            copied,
+            excluded={".git", ".luminesk_cli"},
+            max_size=MAX_RECIPE_SIZE,
+            max_files=MAX_RECIPE_FILES,
+        )
+    except BaseException:
+        cleanup_materialized(target, tuple(copied))
+        raise
+
+    return tuple(copied)
+
+
+def cleanup_materialized(
+    target: Path, copied: tuple[MaterializedFile, ...]
+) -> None:
     """Remove only unchanged checkout files after a failed remote install."""
 
-    for relative in reversed(copied):
-        path = target / relative
+    for item in reversed(copied):
+        path = target / item.path
 
         if path.is_file() and not path.is_symlink():
-            path.unlink()
+            digest, _ = digest_file(path)
 
-    git_directory = target / ".git"
-
-    if git_directory.is_dir():
-        shutil.rmtree(git_directory)
+            if digest == item.digest:
+                path.unlink()
 
     for directory in sorted(
         (path for path in target.rglob("*") if path.is_dir()),
@@ -324,6 +372,7 @@ def _validate_checkout(root: Path, tracked_files: tuple[str, ...]) -> None:
     total = 0
 
     for relative in tracked_files:
+        safe_relative_path(relative, "recipe.checkout.path")
         path = root / relative
 
         if path.is_symlink() or not path.is_file():
@@ -335,6 +384,59 @@ def _validate_checkout(root: Path, tracked_files: tuple[str, ...]) -> None:
 
         if total > MAX_RECIPE_SIZE:
             raise SecurityError("recipe checkout exceeds size limit", size=total)
+
+
+def _copy_tree_files(
+    source: Path,
+    target: Path,
+    copied: list[MaterializedFile],
+    *,
+    prefix: str = "",
+    excluded: set[str] | None = None,
+    max_size: int,
+    max_files: int,
+) -> None:
+    excluded = excluded or set()
+    count = 0
+    size = 0
+
+    for path in source.rglob("*"):
+        relative = path.relative_to(source)
+
+        if any(part in excluded for part in relative.parts):
+            continue
+
+        logical = Path(prefix) / relative if prefix else relative
+        logical_path = logical.as_posix()
+        safe_relative_path(logical_path, "recipe.local.path")
+
+        if path.is_symlink():
+            raise SecurityError("recipe symlinks are forbidden", path=logical_path)
+
+        destination = target / relative
+
+        if path.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+
+        if not path.is_file():
+            raise SecurityError(
+                "recipe special files are forbidden", path=logical_path
+            )
+
+        count += 1
+        size += path.stat().st_size
+
+        if count > max_files:
+            raise SecurityError("recipe contains too many files")
+
+        if size > max_size:
+            raise SecurityError("recipe exceeds size limit", size=size)
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, destination)
+        digest, _ = digest_file(destination)
+        copied.append(MaterializedFile(logical_path, digest))
 
 
 def _tracking_ref(root: Path, requested_ref: str | None) -> str | None:
