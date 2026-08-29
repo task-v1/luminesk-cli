@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -32,6 +32,7 @@ def request_metadata(
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     current_url = url
+    credential_host = urlsplit(url).hostname
 
     for redirect_count in range(MAX_METADATA_REDIRECTS + 1):
         validate_remote_url(
@@ -40,13 +41,60 @@ def request_metadata(
             allow_private_network=source.allow_private_network,
         )
 
+        request_headers = {
+            key: value
+            for key, value in (headers or {}).items()
+            if urlsplit(current_url).hostname == credential_host
+            or key.lower() not in {"authorization", "cookie"}
+        }
+
         try:
-            response = client.get(
+            with client.stream(
+                "GET",
                 current_url,
-                headers=headers,
+                headers=request_headers,
                 follow_redirects=False,
-            )
-            response.raise_for_status()
+            ) as response:
+                if response.is_redirect:
+                    location = response.headers.get("location")
+
+                    if not location:
+                        raise NetworkError(
+                            "metadata redirect has no Location header", url=current_url
+                        )
+
+                    if redirect_count == MAX_METADATA_REDIRECTS:
+                        raise NetworkError(
+                            "too many metadata redirects", url=current_url
+                        )
+
+                    current_url = urljoin(current_url, location)
+                    continue
+
+                response.raise_for_status()
+                declared_size = _metadata_content_length(response)
+
+                if declared_size is not None and declared_size > MAX_METADATA_SIZE:
+                    raise ResolutionError(
+                        "metadata response is too large", size=declared_size
+                    )
+
+                body = bytearray()
+
+                for chunk in response.iter_bytes(64 * 1024):
+                    body.extend(chunk)
+
+                    if len(body) > MAX_METADATA_SIZE:
+                        raise ResolutionError(
+                            "metadata response is too large", size=len(body)
+                        )
+
+                return httpx.Response(
+                    response.status_code,
+                    headers=response.headers,
+                    content=bytes(body),
+                    request=response.request,
+                )
         except httpx.HTTPStatusError as exc:
             raise NetworkError(
                 f"metadata request failed with HTTP {exc.response.status_code}",
@@ -58,39 +106,24 @@ def request_metadata(
                 f"metadata request failed: {exc}", url=current_url
             ) from exc
 
-        if response.is_redirect:
-            location = response.headers.get("location")
-
-            if not location:
-                raise NetworkError(
-                    "metadata redirect has no Location header", url=current_url
-                )
-
-            if redirect_count == MAX_METADATA_REDIRECTS:
-                raise NetworkError("too many metadata redirects", url=current_url)
-
-            current_url = urljoin(current_url, location)
-            continue
-
-        declared_size = response.headers.get("content-length")
-
-        if declared_size is not None:
-            try:
-                size = int(declared_size)
-            except ValueError as exc:
-                raise ResolutionError("invalid metadata Content-Length") from exc
-
-            if size > MAX_METADATA_SIZE:
-                raise ResolutionError("metadata response is too large", size=size)
-
-        if len(response.content) > MAX_METADATA_SIZE:
-            raise ResolutionError(
-                "metadata response is too large", size=len(response.content)
-            )
-
-        return response
-
     raise NetworkError("too many metadata redirects", url=current_url)
+
+
+def _metadata_content_length(response: httpx.Response) -> int | None:
+    raw_value = response.headers.get("content-length")
+
+    if raw_value is None:
+        return None
+
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ResolutionError("invalid metadata Content-Length") from exc
+
+    if value < 0:
+        raise ResolutionError("invalid metadata Content-Length")
+
+    return value
 
 
 def request_json_object(

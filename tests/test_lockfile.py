@@ -59,6 +59,21 @@ def test_lockfile_rejects_unpinned_image() -> None:
         parse_lockfile(content)
 
 
+def test_lockfile_rejects_digest_with_trailing_tag() -> None:
+    pinned = f"example:1@sha256:{'c' * 64}"
+    content = (
+        make_lockfile()
+        .to_bytes()
+        .replace(
+            pinned.encode(),
+            f"{pinned}:latest".encode(),
+        )
+    )
+
+    with pytest.raises(ValidationError, match="pinned"):
+        parse_lockfile(content)
+
+
 def test_lockfile_rejects_credentials() -> None:
     content = (
         make_lockfile()

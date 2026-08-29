@@ -19,6 +19,7 @@ from luminesk_cli.domain.primitives import (
     safe_relative_path,
     validate_digest,
     validate_https_url,
+    validate_pinned_image,
 )
 
 LOCKFILE_NAME = "luminesk.lock"
@@ -221,10 +222,7 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
     runtime_table = require_table(table["runtime"], "lockfile.runtime")
     reject_unknown(runtime_table, {"image"}, "lockfile.runtime")
     require_keys(runtime_table, {"image"}, "lockfile.runtime")
-    image = require_string(runtime_table["image"], "lockfile.runtime.image")
-
-    if "@sha256:" not in image:
-        raise ValidationError("lockfile.runtime.image must be pinned by sha256 digest")
+    image = validate_pinned_image(runtime_table["image"], "lockfile.runtime.image")
 
     recipe = None
 
@@ -265,12 +263,10 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
         images = {}
 
         for original, pinned_value in images_table.items():
-            pinned = require_string(pinned_value, f"lockfile.build.images.{original}")
-
-            if "@sha256:" not in pinned:
-                raise ValidationError(
-                    f"lockfile.build.images.{original} must be pinned by sha256 digest"
-                )
+            pinned = validate_pinned_image(
+                pinned_value,
+                f"lockfile.build.images.{original}",
+            )
 
             images[original] = pinned
 

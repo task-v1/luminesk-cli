@@ -7,7 +7,8 @@ import re
 import subprocess
 from collections.abc import Callable, Sequence
 
-from luminesk_cli.domain.errors import ResolutionError
+from luminesk_cli.domain.errors import ResolutionError, ValidationError
+from luminesk_cli.domain.primitives import validate_pinned_image
 
 IMAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$")
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -21,8 +22,13 @@ class OciImageResolver:
         if not IMAGE_RE.fullmatch(image):
             raise ResolutionError("runtime image reference is invalid", image=image)
 
-        if "@sha256:" in image:
-            return image
+        if "@" in image:
+            try:
+                return validate_pinned_image(image, "runtime.image")
+            except ValidationError as exc:
+                raise ResolutionError(
+                    "runtime image digest is invalid", image=image
+                ) from exc
 
         digests = self._inspect(image)
 
@@ -77,7 +83,12 @@ class OciImageResolver:
         ):
             raise ResolutionError("Docker returned invalid repository digests")
 
-        return value
+        try:
+            return [
+                validate_pinned_image(item, "docker.image.repoDigest") for item in value
+            ]
+        except ValidationError as exc:
+            raise ResolutionError("Docker returned invalid repository digests") from exc
 
     def _run(
         self,

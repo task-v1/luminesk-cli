@@ -78,13 +78,27 @@ def _extract_zip(
 
     with zipfile.ZipFile(archive) as handle:
         members = handle.infolist()
+        names: set[str] = set()
 
         for count, member in enumerate(members, start=1):
             mode = member.external_attr >> 16
+            kind = stat.S_IFMT(mode)
+
+            if member.filename in names:
+                raise SecurityError(
+                    "archive contains duplicate members", path=member.filename
+                )
+
+            names.add(member.filename)
 
             if stat.S_ISLNK(mode):
                 raise SecurityError(
                     "archive symlinks are forbidden", path=member.filename
+                )
+
+            if kind not in {0, stat.S_IFREG, stat.S_IFDIR}:
+                raise SecurityError(
+                    "archive special files are forbidden", path=member.filename
                 )
 
             total += member.file_size

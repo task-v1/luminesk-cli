@@ -137,12 +137,21 @@ def verify_package(path: Path) -> ServerPackage:
         if not names or names.count(METADATA_NAME) != 1:
             raise ValidationError("package must contain exactly one metadata.json")
 
+        if len(set(names)) != len(names):
+            raise SecurityError("package contains duplicate members")
+
         for member in members:
             mode = member.external_attr >> 16
+            kind = stat.S_IFMT(mode)
 
             if stat.S_ISLNK(mode):
                 raise SecurityError(
                     "package symlinks are forbidden", path=member.filename
+                )
+
+            if kind not in {0, stat.S_IFREG, stat.S_IFDIR}:
+                raise SecurityError(
+                    "package special files are forbidden", path=member.filename
                 )
 
             if member.filename != METADATA_NAME:

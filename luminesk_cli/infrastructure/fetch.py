@@ -95,11 +95,12 @@ class SecureFetcher:
         credential_host = urlsplit(current_url).hostname
 
         for redirect_count in range(MAX_REDIRECTS + 1):
-            request_headers = dict(headers or {})
-
-            if urlsplit(current_url).hostname != credential_host:
-                request_headers.pop("Authorization", None)
-                request_headers.pop("Cookie", None)
+            request_headers = {
+                key: value
+                for key, value in (headers or {}).items()
+                if urlsplit(current_url).hostname == credential_host
+                or key.lower() not in {"authorization", "cookie"}
+            }
 
             try:
                 with client.stream(

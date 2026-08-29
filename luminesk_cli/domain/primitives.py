@@ -11,6 +11,9 @@ from urllib.parse import urlsplit
 from luminesk_cli.domain.errors import ValidationError
 
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+OCI_PINNED_IMAGE_RE = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9._/:~-]{0,254}@sha256:[0-9a-f]{64}$"
+)
 PACKAGE_NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$")
 SEMVER_RE = re.compile(
     r"^(?:0|[1-9][0-9]*)\."
@@ -20,6 +23,14 @@ SEMVER_RE = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 PLATFORM_RE = re.compile(r"^[a-z0-9]+/[a-z0-9][a-z0-9_-]*$")
+WINDOWS_RESERVED_NAMES = {
+    "AUX",
+    "CON",
+    "NUL",
+    "PRN",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+}
 
 
 def fail(path: str, message: str, value: Any = None) -> NoReturn:
@@ -106,20 +117,29 @@ def require_keys(table: dict[str, Any], required: set[str], path: str) -> None:
 
 def safe_relative_path(value: Any, path: str, *, allow_dot: bool = False) -> str:
     text = require_string(value, path)
-    posix = PurePosixPath(text.replace("\\", "/"))
+    posix = PurePosixPath(text)
     windows = PureWindowsPath(text)
 
-    if "\x00" in text:
-        fail(path, "NUL bytes are not allowed")
+    if any(ord(character) < 32 or ord(character) == 127 for character in text):
+        fail(path, "control characters are not allowed")
+
+    if allow_dot and text == ".":
+        return text
 
     if posix.is_absolute() or windows.is_absolute() or windows.drive:
         fail(path, "must be a relative path")
 
-    if any(part in {"", ".", ".."} for part in posix.parts):
-        if allow_dot and text == ".":
-            return text
+    if "\\" in text or posix.as_posix() != text:
+        fail(path, "must use canonical POSIX separators")
 
+    if any(part in {"", ".", ".."} for part in posix.parts):
         fail(path, "must be normalized and may not contain '.' or '..'")
+
+    for part in posix.parts:
+        stem = part.split(".", 1)[0].upper()
+
+        if stem in WINDOWS_RESERVED_NAMES or part.rstrip(" .") != part:
+            fail(path, "is not portable across supported platforms")
 
     return posix.as_posix()
 
@@ -137,6 +157,15 @@ def validate_digest(value: Any, path: str) -> str:
     return digest
 
 
+def validate_pinned_image(value: Any, path: str) -> str:
+    image = require_string(value, path)
+
+    if not OCI_PINNED_IMAGE_RE.fullmatch(image):
+        fail(path, "expected an OCI image pinned by a lowercase sha256 digest")
+
+    return image
+
+
 def validate_https_url(
     value: Any,
     path: str,
@@ -144,6 +173,10 @@ def validate_https_url(
     allow_http: bool = False,
 ) -> str:
     url = require_string(value, path)
+
+    if any(ord(character) < 32 or ord(character) == 127 for character in url):
+        fail(path, "control characters are not allowed")
+
     parsed = urlsplit(url)
     schemes = {"https"}
 
@@ -155,6 +188,14 @@ def validate_https_url(
 
     if parsed.username is not None or parsed.password is not None:
         fail(path, "credentials are not allowed in URLs")
+
+    try:
+        parsed.port
+    except ValueError:
+        fail(path, "contains an invalid port")
+
+    if parsed.fragment:
+        fail(path, "fragments are not allowed in URLs")
 
     return url
 
