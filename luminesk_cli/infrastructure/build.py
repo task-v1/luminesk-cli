@@ -110,6 +110,9 @@ class DeclarativeBuilder:
                 resolved = lockfile.sources.get(source.id)
 
                 if resolved is None:
+                    if source.platforms and lockfile.target not in source.platforms:
+                        continue
+
                     raise ValidationError(f"lockfile is missing source {source.id}")
 
                 blob = self.cache.restore(resolved.digest)

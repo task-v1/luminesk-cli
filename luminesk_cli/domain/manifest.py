@@ -90,6 +90,7 @@ class SourceSpec:
     extract: bool = False
     allow_http: bool = False
     allow_private_network: bool = False
+    platforms: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -353,6 +354,7 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
         "extract",
         "allow_http",
         "allow_private_network",
+        "platforms",
     }
 
     for index, raw_source in enumerate(require_array(value, "sources")):
@@ -421,7 +423,17 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
                 table.get("allow_private_network", False),
                 f"{path}.allow_private_network",
             ),
+            platforms=_string_array(
+                table.get("platforms", []), f"{path}.platforms"
+            ),
         )
+        for platform_index, platform_name in enumerate(source.platforms):
+            if not PLATFORM_RE.fullmatch(platform_name):
+                fail(
+                    f"{path}.platforms[{platform_index}]",
+                    "expected os/architecture",
+                )
+
         _validate_provider_fields(source, path)
         result.append(source)
 

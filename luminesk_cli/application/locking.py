@@ -66,6 +66,7 @@ class LockService:
             sources = {
                 source.id: self._resolve_source(source, recipe_root, client)
                 for source in manifest.sources
+                if not source.platforms or target_platform in source.platforms
             }
         finally:
             if owned_client:

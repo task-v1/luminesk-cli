@@ -103,6 +103,13 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(recover)
     recover.set_defaults(handler="luminesk_cli.cli.commands.update:recover")
 
+    migrate = commands.add_parser("migrate", help="Migrate a Nesk 1.x instance.")
+    migrate.add_argument("identifier", help="Legacy TAG or instance PATH.")
+    migrate.add_argument("--dry-run", action="store_true")
+    migrate.add_argument("--cleanup", action="store_true", help="Archive legacy core.json after migration.")
+    _automation_options(migrate)
+    migrate.set_defaults(handler="luminesk_cli.cli.commands.migrate:run")
+
     cache = commands.add_parser("cache", help="Inspect the content-addressed cache.")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
     cache_verify = cache_commands.add_parser("verify", help="Verify every cached blob.")

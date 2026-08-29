@@ -1,0 +1,30 @@
+manifest_version = 1
+[package]
+name = "better-altay"
+version = "1.0.0"
+platforms = ["linux/amd64", "linux/arm64"]
+[[sources]]
+id = "core"
+provider = "github-release"
+repository = "Benedikt05/BetterAltay"
+version = "latest"
+asset = "BetterAltay.phar"
+target = "server.phar"
+[runtime]
+driver = "docker"
+image = "ghcr.io/pmmp/pocketmine-mp:4"
+command = ["php", "server.phar", "--no-wizard"]
+[[runtime.mounts]]
+source = "."
+target = "/server"
+mode = "rw"
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+[[checks]]
+id = "core-present"
+phase = "post-build"
+kind = "file"
+path = "server.phar"

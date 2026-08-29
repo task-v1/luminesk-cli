@@ -64,5 +64,12 @@ ignore = ["E501"]
 [tool.setuptools.packages.find]
 include = ["luminesk_cli*"]
 
+[tool.setuptools.package-data]
+"luminesk_cli.compatibility_recipes" = [
+  "*/Dockerfile",
+  "*/build.marker",
+  "*/luminesk.toml",
+]
+
 [tool.uv]
 package = true

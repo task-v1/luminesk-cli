@@ -1,0 +1,35 @@
+manifest_version = 1
+[package]
+name = "endstone"
+version = "1.0.0"
+platforms = ["linux/amd64", "linux/arm64"]
+[[sources]]
+id = "source"
+provider = "local-file"
+path = "build.marker"
+target = ".build/endstone"
+[build]
+driver = "dockerfile"
+file = "Dockerfile"
+output = "/nesk-out"
+timeout = 1200
+cpu = 2
+memory = "2g"
+[build.permissions]
+network = true
+[runtime]
+driver = "docker"
+image = "python:3.13-slim"
+command = [".venv/bin/endstone", "-y"]
+[[runtime.mounts]]
+source = "."
+target = "/server"
+mode = "rw"
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+[permissions]
+build = true
+host_commands = false
