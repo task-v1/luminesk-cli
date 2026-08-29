@@ -1,0 +1,32 @@
+# Bundled Nesk 2.0 recipe.
+manifest_version = 1
+[package]
+name = "nukkit"
+version = "1.0.0"
+platforms = ["linux/amd64", "linux/arm64"]
+[[sources]]
+id = "core"
+provider = "maven"
+repository = "https://repo.opencollab.dev/maven-snapshots"
+group = "cn.nukkit"
+artifact = "nukkit"
+version = "1.0-SNAPSHOT"
+target = "server.jar"
+[runtime]
+driver = "docker"
+image = "eclipse-temurin:21-jre"
+command = ["java", "-jar", "server.jar"]
+[[runtime.mounts]]
+source = "."
+target = "/server"
+mode = "rw"
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+[[checks]]
+id = "core-present"
+phase = "post-build"
+kind = "file"
+path = "server.jar"

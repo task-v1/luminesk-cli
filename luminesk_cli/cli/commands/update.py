@@ -33,9 +33,6 @@ from luminesk_cli.infrastructure.state import (
 
 
 def run(namespace: Any) -> int:
-    if namespace.command == "upgrade-core" and namespace.component is None:
-        namespace.component = "core"
-
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
 

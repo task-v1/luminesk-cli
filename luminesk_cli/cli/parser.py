@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     install = commands.add_parser(
         "install",
-        aliases=["i", "create"],
+        aliases=["i"],
         help="Install a local or Git recipe transactionally.",
     )
     install.add_argument("source", nargs="?", help="OWNER/REPO, Git URL, or local recipe.")
@@ -81,7 +81,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     update = commands.add_parser(
         "update",
-        aliases=["upgrade-core"],
         help="Resolve and apply updates transactionally.",
     )
     update.add_argument("component", nargs="?", help="Optional source id to update.")
@@ -106,13 +105,6 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(recover)
     recover.set_defaults(handler="luminesk_cli.cli.commands.update:recover")
-
-    migrate = commands.add_parser("migrate", help="Migrate a Nesk 1.x instance.")
-    migrate.add_argument("identifier", help="Legacy TAG or instance PATH.")
-    migrate.add_argument("--dry-run", action="store_true")
-    migrate.add_argument("--cleanup", action="store_true", help="Archive legacy core.json after migration.")
-    _automation_options(migrate)
-    migrate.set_defaults(handler="luminesk_cli.cli.commands.migrate:run")
 
     cache = commands.add_parser("cache", help="Inspect the content-addressed cache.")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
@@ -143,7 +135,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     search = commands.add_parser(
         "search",
-        aliases=["cores"],
         help="Search the Git-backed recipe catalog.",
     )
     search.add_argument("query", nargs="?")
@@ -160,14 +151,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = commands.add_parser(
         "doctor",
-        aliases=["diagnostic"],
         help="Check required and optional tools.",
     )
     _automation_options(doctor)
     doctor.set_defaults(handler="luminesk_cli.cli.commands.doctor:run")
 
     start = commands.add_parser("start", help="Start the current recipe instance.")
-    start.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
     start.add_argument("--dir", default=None, help="Instance directory.")
     start.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     start.add_argument("--no-wait", action="store_true", help="Skip readiness checks.")
@@ -175,7 +164,6 @@ def build_parser() -> argparse.ArgumentParser:
     start.set_defaults(handler="luminesk_cli.cli.commands.runtime:start")
 
     stop = commands.add_parser("stop", help="Stop the current recipe instance.")
-    stop.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
     stop.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(stop)
     stop.set_defaults(handler="luminesk_cli.cli.commands.runtime:stop")
@@ -199,54 +187,9 @@ def build_parser() -> argparse.ArgumentParser:
     logs.set_defaults(handler="luminesk_cli.cli.commands.runtime:logs")
 
     attach = commands.add_parser("attach", help="Attach to the current recipe instance.")
-    attach.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
     attach.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(attach)
     attach.set_defaults(handler="luminesk_cli.cli.commands.runtime:attach")
-
-    change_image = commands.add_parser(
-        "change-image", help="Deprecated 1.x image compatibility command."
-    )
-    change_image.add_argument("target", nargs="?")
-    change_image.add_argument("--image", "-i")
-    _automation_options(change_image)
-    change_image.set_defaults(
-        handler="luminesk_cli.cli.commands.legacy:change_image"
-    )
-
-    kill = commands.add_parser("kill", help="Deprecated 1.x force-stop command.")
-    kill.add_argument("target", nargs="?")
-    kill.add_argument("--force", "-f", action="store_true")
-    _automation_options(kill)
-    kill.set_defaults(handler="luminesk_cli.cli.commands.legacy:kill")
-
-    delete = commands.add_parser(
-        "delete", help="Deprecated 1.x metadata removal command."
-    )
-    delete.add_argument("target", nargs="?")
-    delete.add_argument("--yes", "-y", action="store_true")
-    _automation_options(delete)
-    delete.set_defaults(handler="luminesk_cli.cli.commands.legacy:delete")
-
-    list_instances = commands.add_parser(
-        "list", help="List instances from the 1.x compatibility index."
-    )
-    list_instances.add_argument("--tag")
-    list_instances.add_argument("--status", choices=["running", "stopped"])
-    list_instances.add_argument("--core")
-    _automation_options(list_instances)
-    list_instances.set_defaults(
-        handler="luminesk_cli.cli.commands.legacy:list_instances"
-    )
-
-    change_language = commands.add_parser(
-        "change-lang", help="Deprecated 1.x language setting."
-    )
-    change_language.add_argument("language")
-    _automation_options(change_language)
-    change_language.set_defaults(
-        handler="luminesk_cli.cli.commands.legacy:change_language"
-    )
 
     return parser
 

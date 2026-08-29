@@ -1,0 +1,29 @@
+# Bundled Nesk 2.0 recipe.
+manifest_version = 1
+[package]
+name = "serenity"
+version = "1.0.0"
+platforms = ["linux/amd64"]
+[[sources]]
+id = "core"
+provider = "github-release"
+repository = "SerenityJS/serenity"
+version = "latest"
+asset = "*ubuntu*.tar.gz"
+target = "serenity"
+extract = true
+[runtime]
+driver = "docker"
+image = "debian:bookworm-slim"
+command = ["./serenity/serenity"]
+[[runtime.mounts]]
+source = "."
+target = "/server"
+mode = "rw"
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+[permissions]
+build = false

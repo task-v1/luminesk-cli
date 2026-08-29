@@ -10,9 +10,6 @@ from luminesk_cli.domain.manifest import MANIFEST_NAME
 
 
 def start(namespace: Any) -> int:
-    if namespace.target is not None:
-        return _legacy("start", [namespace.target])
-
     root = _instance_root(namespace.dir)
     _, manifest = recipe(root)
     values = parse_inputs(manifest, namespace.set)
@@ -34,9 +31,6 @@ def start(namespace: Any) -> int:
 
 
 def stop(namespace: Any) -> int:
-    if namespace.target is not None:
-        return _legacy("stop", [namespace.target])
-
     root = _instance_root(namespace.dir)
     state = DockerRuntime().stop(root)
     emit(namespace, {"status": state.runtime.status}, f"Stopped {state.tag}")
@@ -92,9 +86,6 @@ def logs(namespace: Any) -> int:
 
 
 def attach(namespace: Any) -> int:
-    if namespace.target is not None:
-        return _legacy("attach", [namespace.target])
-
     if namespace.json or namespace.non_interactive:
         raise ValidationError("attach requires an interactive terminal")
 
@@ -115,9 +106,3 @@ def _instance_root(value: str | None) -> Path:
             return candidate
 
     raise ValidationError(f"no {MANIFEST_NAME} found from {current} to filesystem root")
-
-
-def _legacy(command: str, arguments: list[str]) -> int:
-    from luminesk_cli.cli.commands.legacy import run_runtime
-
-    return run_runtime(command, arguments[0])

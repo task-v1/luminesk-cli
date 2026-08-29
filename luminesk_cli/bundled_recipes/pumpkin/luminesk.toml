@@ -1,0 +1,40 @@
+# Bundled Nesk 2.0 recipe.
+manifest_version = 1
+[package]
+name = "pumpkin"
+version = "1.0.0"
+platforms = ["linux/amd64", "linux/arm64"]
+[[sources]]
+id = "core-amd64"
+provider = "github-release"
+repository = "Pumpkin-MC/Pumpkin"
+version = "nightly"
+asset = "pumpkin-X64-Linux"
+target = "pumpkin"
+platforms = ["linux/amd64"]
+[[sources]]
+id = "core-arm64"
+provider = "github-release"
+repository = "Pumpkin-MC/Pumpkin"
+version = "nightly"
+asset = "pumpkin-ARM64-Linux"
+target = "pumpkin"
+platforms = ["linux/arm64"]
+[runtime]
+driver = "docker"
+image = "debian:bookworm-slim"
+command = ["./pumpkin"]
+[[runtime.mounts]]
+source = "."
+target = "/server"
+mode = "rw"
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+[[checks]]
+id = "core-present"
+phase = "post-build"
+kind = "file"
+path = "pumpkin"
