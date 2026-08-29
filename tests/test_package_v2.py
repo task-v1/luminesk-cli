@@ -21,7 +21,7 @@ def test_declarative_build_creates_verified_deterministic_package(
         encoding="utf-8",
     )
     manifest = parse_manifest(
-        b'''\
+        b"""\
 manifest_version = 1
 [package]
 name = "fixture-server"
@@ -55,7 +55,7 @@ id = "core-present"
 phase = "post-build"
 kind = "file"
 path = "server.jar"
-'''
+"""
     )
     cache = ContentCache(tmp_path / "cache")
     lockfile = LockService(
@@ -79,7 +79,7 @@ def test_template_rejects_environment_interpolation(tmp_path: Path) -> None:
     (recipe / "fixture.jar").write_bytes(b"server")
     (recipe / "template.txt").write_text("${HOME}", encoding="utf-8")
     manifest = parse_manifest(
-        b'''\
+        b"""\
 manifest_version = 1
 [package]
 name = "fixture-server"
@@ -97,7 +97,7 @@ template = true
 driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["./server.jar"]
-'''
+"""
     )
     cache = ContentCache(tmp_path / "cache")
     lockfile = LockService(cache, image_resolver=OciImageResolver()).create(

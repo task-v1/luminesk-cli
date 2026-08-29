@@ -368,9 +368,7 @@ def _backup_transaction_files(
         ),
     )
     paths = {
-        change.path
-        for change in plan.changes
-        if change.action in {"replace", "remove"}
+        change.path for change in plan.changes if change.action in {"replace", "remove"}
     }
     paths.update(manifest.update.backup)
 
@@ -448,9 +446,7 @@ def _rollback(
         write_ownership(root, old_ownership)
 
 
-def _create_ownership(
-    files: tuple[PackageFile, ...], root: Path
-) -> OwnershipLedger:
+def _create_ownership(files: tuple[PackageFile, ...], root: Path) -> OwnershipLedger:
     entries = {}
 
     for item in files:

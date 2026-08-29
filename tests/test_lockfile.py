@@ -49,8 +49,10 @@ def test_lockfile_round_trip_is_canonical(tmp_path: Path) -> None:
 
 
 def test_lockfile_rejects_unpinned_image() -> None:
-    content = make_lockfile().to_bytes().replace(
-        f'example:1@sha256:{"c" * 64}'.encode(), b"example:latest"
+    content = (
+        make_lockfile()
+        .to_bytes()
+        .replace(f"example:1@sha256:{'c' * 64}".encode(), b"example:latest")
     )
 
     with pytest.raises(ValidationError, match="pinned"):
@@ -58,8 +60,10 @@ def test_lockfile_rejects_unpinned_image() -> None:
 
 
 def test_lockfile_rejects_credentials() -> None:
-    content = make_lockfile().to_bytes().replace(
-        b"https://example.org", b"https://user:secret@example.org"
+    content = (
+        make_lockfile()
+        .to_bytes()
+        .replace(b"https://example.org", b"https://user:secret@example.org")
     )
 
     with pytest.raises(ValidationError, match="credentials"):
@@ -73,9 +77,7 @@ def test_lockfile_round_trips_pinned_build_images() -> None:
         target=original.target,
         sources=original.sources,
         runtime=original.runtime,
-        build=BuildLock(
-            images={"golang:1.26": f"golang@sha256:{'d' * 64}"}
-        ),
+        build=BuildLock(images={"golang:1.26": f"golang@sha256:{'d' * 64}"}),
     )
 
     assert parse_lockfile(original.to_bytes()) == original

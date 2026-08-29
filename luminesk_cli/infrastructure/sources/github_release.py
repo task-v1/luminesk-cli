@@ -109,7 +109,11 @@ def _select_asset(assets: Any, pattern: str) -> dict[str, Any]:
         name = raw_asset.get("name")
         url = raw_asset.get("browser_download_url")
 
-        if isinstance(name, str) and isinstance(url, str) and fnmatch.fnmatch(name, pattern):
+        if (
+            isinstance(name, str)
+            and isinstance(url, str)
+            and fnmatch.fnmatch(name, pattern)
+        ):
             matches.append(raw_asset)
 
     if not matches:
@@ -124,9 +128,7 @@ def _select_asset(assets: Any, pattern: str) -> dict[str, Any]:
     return matches[0]
 
 
-def _resolution_from_release(
-    source: SourceSpec, release: dict[str, Any]
-) -> Resolution:
+def _resolution_from_release(source: SourceSpec, release: dict[str, Any]) -> Resolution:
     asset = _select_asset(release.get("assets"), source.asset or "")
     tag = release.get("tag_name")
     url = asset.get("browser_download_url")

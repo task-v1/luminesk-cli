@@ -35,7 +35,9 @@ def recipe(directory: str | Path) -> tuple[Path, Manifest]:
     return root, load_manifest(root / MANIFEST_NAME)
 
 
-def frozen_lock(root: Path, manifest: Manifest, content_cache: ContentCache) -> Lockfile:
+def frozen_lock(
+    root: Path, manifest: Manifest, content_cache: ContentCache
+) -> Lockfile:
     lockfile = load_lockfile(root / LOCKFILE_NAME)
 
     if lockfile.manifest_digest != manifest.digest:

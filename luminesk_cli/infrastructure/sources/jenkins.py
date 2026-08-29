@@ -22,9 +22,7 @@ class JenkinsResolver:
         job_url = f"{source.url.rstrip('/')}/job/{source.job.strip('/')}"
         build_selector = str(source.build or "lastSuccessfulBuild")
         build_url = f"{job_url}/{build_selector}"
-        metadata = request_json_object(
-            client, f"{build_url}/api/json", source
-        )
+        metadata = request_json_object(client, f"{build_url}/api/json", source)
         artifact = _select_artifact(metadata.get("artifacts"), source.asset)
         build_number = metadata.get("number")
         revision = _source_revision(metadata, build_number)
@@ -66,7 +64,9 @@ def _select_artifact(artifacts: Any, pattern: str) -> dict[str, Any]:
         if not isinstance(relative_path, str) or not isinstance(file_name, str):
             continue
 
-        if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(relative_path, pattern):
+        if fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(
+            relative_path, pattern
+        ):
             matches.append(item)
 
     if not matches:

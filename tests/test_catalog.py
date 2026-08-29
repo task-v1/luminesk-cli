@@ -9,7 +9,7 @@ from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.catalog import load_catalog, parse_catalog_entry
 from luminesk_cli.domain.errors import ValidationError
 
-ENTRY = b'''\
+ENTRY = b"""\
 catalog_version = 1
 name = "fixture"
 namespace = "community"
@@ -19,7 +19,7 @@ maintainers = ["github:example"]
 license = "MIT"
 trust = "community"
 description = "Fixture recipe"
-'''
+"""
 
 
 def test_catalog_is_strict_and_rejects_duplicate_names(tmp_path: Path) -> None:

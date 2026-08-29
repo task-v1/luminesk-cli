@@ -65,8 +65,7 @@ def resolve_build_images(
         raise SecurityError("Dockerfile escapes recipe root")
 
     return {
-        image: resolver.resolve(image)
-        for image in dockerfile_base_images(dockerfile)
+        image: resolver.resolve(image) for image in dockerfile_base_images(dockerfile)
     }
 
 

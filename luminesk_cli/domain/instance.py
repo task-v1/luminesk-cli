@@ -95,8 +95,7 @@ class OwnershipLedger:
         return {
             "ownershipVersion": self.ownership_version,
             "files": {
-                path: entry.to_dict()
-                for path, entry in sorted(self.files.items())
+                path: entry.to_dict() for path, entry in sorted(self.files.items())
             },
         }
 
@@ -135,12 +134,8 @@ def parse_state(content: bytes) -> InstanceState:
     reject_unknown(recipe_table, {"source", "revision"}, "state.recipe")
     require_keys(recipe_table, {"source", "revision"}, "state.recipe")
     runtime_table = require_table(table["runtime"], "state.runtime")
-    reject_unknown(
-        runtime_table, {"driver", "containerId", "status"}, "state.runtime"
-    )
-    require_keys(
-        runtime_table, {"driver", "containerId", "status"}, "state.runtime"
-    )
+    reject_unknown(runtime_table, {"driver", "containerId", "status"}, "state.runtime")
+    require_keys(runtime_table, {"driver", "containerId", "status"}, "state.runtime")
     driver = require_string(runtime_table["driver"], "state.runtime.driver")
     status = require_string(runtime_table["status"], "state.runtime.status")
 
@@ -186,9 +181,7 @@ def parse_state(content: bytes) -> InstanceState:
         ),
         created_at=require_string(table["createdAt"], "state.createdAt"),
         updated_at=require_string(table["updatedAt"], "state.updatedAt"),
-        last_readiness_at=_optional_nullable_string(
-            table, "lastReadinessAt", "state"
-        ),
+        last_readiness_at=_optional_nullable_string(table, "lastReadinessAt", "state"),
         pending_transaction=_optional_nullable_string(
             table, "pendingTransaction", "state"
         ),
@@ -204,9 +197,7 @@ def parse_ownership(content: bytes) -> OwnershipLedger:
     table = require_table(value, "ownership")
     reject_unknown(table, {"ownershipVersion", "files"}, "ownership")
     require_keys(table, {"ownershipVersion", "files"}, "ownership")
-    version = require_int(
-        table["ownershipVersion"], "ownership.ownershipVersion"
-    )
+    version = require_int(table["ownershipVersion"], "ownership.ownershipVersion")
 
     if version != OWNERSHIP_VERSION:
         raise ValidationError(f"unsupported ownership version {version}")
@@ -237,9 +228,7 @@ def parse_ownership(content: bytes) -> OwnershipLedger:
     return OwnershipLedger(files=files)
 
 
-def _optional_nullable_string(
-    table: dict[str, Any], key: str, path: str
-) -> str | None:
+def _optional_nullable_string(table: dict[str, Any], key: str, path: str) -> str | None:
     value = table[key]
 
     if value is None:

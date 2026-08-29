@@ -404,7 +404,9 @@ def _record_tree(
             raise SecurityError("build output symlinks are forbidden", path=str(path))
 
         if not (path.is_file() or path.is_dir()):
-            raise SecurityError("build output special files are forbidden", path=str(path))
+            raise SecurityError(
+                "build output special files are forbidden", path=str(path)
+            )
 
         relative = path.relative_to(payload).as_posix()
 
@@ -490,7 +492,9 @@ def _copy_build_context(source: Path, destination: Path) -> None:
             continue
 
         if path.is_symlink():
-            raise SecurityError("build context symlinks are forbidden", path=str(relative))
+            raise SecurityError(
+                "build context symlinks are forbidden", path=str(relative)
+            )
 
         target = destination / relative
         count += 1
@@ -503,7 +507,9 @@ def _copy_build_context(source: Path, destination: Path) -> None:
             continue
 
         if not path.is_file():
-            raise SecurityError("build context contains a special file", path=str(relative))
+            raise SecurityError(
+                "build context contains a special file", path=str(relative)
+            )
 
         size += path.stat().st_size
 

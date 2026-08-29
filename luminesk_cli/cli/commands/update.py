@@ -140,7 +140,9 @@ def outdated(namespace: Any) -> int:
         "No updates available."
         if not updates
         else "Available updates:\n"
-        + "\n".join(f"  {item['component']}: {item['from']} -> {item['to']}" for item in updates),
+        + "\n".join(
+            f"  {item['component']}: {item['from']} -> {item['to']}" for item in updates
+        ),
     )
     return 0
 

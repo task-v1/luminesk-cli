@@ -75,9 +75,7 @@ def test_install_is_transactional_and_idempotent(tmp_path: Path) -> None:
     assert not (target / ".luminesk_cli/transaction.json").exists()
     assert any(change.action == "create" for change in plan.changes)
 
-    second_plan, second_state = installer.install(
-        manifest, lockfile, package, target
-    )
+    second_plan, second_state = installer.install(manifest, lockfile, package, target)
 
     assert second_state is not None
     assert second_state.instance_id == state.instance_id
@@ -113,9 +111,7 @@ def test_failed_update_restores_files_and_metadata(tmp_path: Path) -> None:
         tmp_path, "1.0.0", b"version one"
     )
     target = tmp_path / "instance"
-    TransactionalInstaller().install(
-        first_manifest, first_lock, first_package, target
-    )
+    TransactionalInstaller().install(first_manifest, first_lock, first_package, target)
     old_state = load_state(target)
     old_ownership = load_ownership(target)
     second_manifest, second_lock, second_package = make_package(
@@ -161,9 +157,7 @@ def test_dry_run_does_not_create_target(tmp_path: Path) -> None:
 def test_failed_post_install_check_rolls_back_new_instance(tmp_path: Path) -> None:
     from dataclasses import replace
 
-    manifest, lockfile, package = make_package(
-        tmp_path, "1.0.0", b"server"
-    )
+    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"server")
     manifest = replace(
         manifest,
         checks=(
@@ -187,9 +181,7 @@ def test_failed_post_install_check_rolls_back_new_instance(tmp_path: Path) -> No
 def test_installer_rejects_package_bound_to_another_lock(tmp_path: Path) -> None:
     from dataclasses import replace
 
-    manifest, lockfile, package = make_package(
-        tmp_path, "1.0.0", b"server"
-    )
+    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"server")
     package = replace(
         package,
         metadata=replace(

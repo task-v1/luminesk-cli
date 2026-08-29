@@ -265,9 +265,7 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
         images = {}
 
         for original, pinned_value in images_table.items():
-            pinned = require_string(
-                pinned_value, f"lockfile.build.images.{original}"
-            )
+            pinned = require_string(pinned_value, f"lockfile.build.images.{original}")
 
             if "@sha256:" not in pinned:
                 raise ValidationError(

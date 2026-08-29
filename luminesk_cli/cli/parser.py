@@ -56,9 +56,13 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(lock)
     lock.set_defaults(handler="luminesk_cli.cli.commands.lock:run")
 
-    plan = commands.add_parser("plan", help="Show install/update changes without writes.")
+    plan = commands.add_parser(
+        "plan", help="Show install/update changes without writes."
+    )
     plan.add_argument("--dir", default=".", help="Instance directory.")
-    plan.add_argument("--frozen", action="store_true", help="Use the existing lock offline.")
+    plan.add_argument(
+        "--frozen", action="store_true", help="Use the existing lock offline."
+    )
     plan.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     _automation_options(plan)
     plan.set_defaults(handler="luminesk_cli.cli.commands.plan:run")
@@ -68,14 +72,20 @@ def build_parser() -> argparse.ArgumentParser:
         aliases=["i"],
         help="Install a local or Git recipe transactionally.",
     )
-    install.add_argument("source", nargs="?", help="OWNER/REPO, Git URL, or local recipe.")
+    install.add_argument(
+        "source", nargs="?", help="OWNER/REPO, Git URL, or local recipe."
+    )
     install.add_argument("--dir", default=None, help="Target instance directory.")
     install.add_argument("--ref", default=None, help="Git branch, tag, or commit.")
     install.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     install.add_argument("--dry-run", action="store_true")
-    install.add_argument("--frozen", action="store_true", help="Use lock and cache only.")
+    install.add_argument(
+        "--frozen", action="store_true", help="Use lock and cache only."
+    )
     install.add_argument("--keep-git", action="store_true")
-    install.add_argument("--yes", action="store_true", help="Accept the displayed trust plan.")
+    install.add_argument(
+        "--yes", action="store_true", help="Accept the displayed trust plan."
+    )
     _automation_options(install)
     install.set_defaults(handler="luminesk_cli.cli.commands.install:run")
 
@@ -101,7 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(diff)
     diff.set_defaults(handler="luminesk_cli.cli.commands.update:diff")
 
-    recover = commands.add_parser("recover", help="Roll back an interrupted transaction.")
+    recover = commands.add_parser(
+        "recover", help="Roll back an interrupted transaction."
+    )
     recover.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(recover)
     recover.set_defaults(handler="luminesk_cli.cli.commands.update:recover")
@@ -168,7 +180,9 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(stop)
     stop.set_defaults(handler="luminesk_cli.cli.commands.runtime:stop")
 
-    restart = commands.add_parser("restart", help="Restart the current recipe instance.")
+    restart = commands.add_parser(
+        "restart", help="Restart the current recipe instance."
+    )
     restart.add_argument("--dir", default=None, help="Instance directory.")
     restart.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     restart.add_argument("--no-wait", action="store_true")
@@ -186,7 +200,9 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(logs)
     logs.set_defaults(handler="luminesk_cli.cli.commands.runtime:logs")
 
-    attach = commands.add_parser("attach", help="Attach to the current recipe instance.")
+    attach = commands.add_parser(
+        "attach", help="Attach to the current recipe instance."
+    )
     attach.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(attach)
     attach.set_defaults(handler="luminesk_cli.cli.commands.runtime:attach")

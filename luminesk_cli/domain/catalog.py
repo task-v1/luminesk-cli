@@ -45,7 +45,9 @@ class CatalogEntry:
         return f"{self.namespace}/{self.name}"
 
 
-def parse_catalog_entry(content: bytes, *, source: str = "catalog entry") -> CatalogEntry:
+def parse_catalog_entry(
+    content: bytes, *, source: str = "catalog entry"
+) -> CatalogEntry:
     if len(content) > MAX_CATALOG_ENTRY_SIZE:
         raise ValidationError(f"{source} exceeds the catalog entry size limit")
 
@@ -156,9 +158,7 @@ def load_catalog(directory: Path) -> tuple[CatalogEntry, ...]:
         entry = parse_catalog_entry(path.read_bytes(), source=str(path))
 
         if entry.qualified_name in qualified_names:
-            raise ValidationError(
-                f"duplicate catalog entry: {entry.qualified_name}"
-            )
+            raise ValidationError(f"duplicate catalog entry: {entry.qualified_name}")
 
         qualified_names.add(entry.qualified_name)
         entries.append(entry)

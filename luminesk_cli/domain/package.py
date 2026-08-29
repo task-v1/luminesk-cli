@@ -135,8 +135,12 @@ def parse_package_metadata(content: bytes) -> PackageMetadata:
     for index, raw_file in enumerate(raw_files):
         path = f"package.files[{index}]"
         item = require_table(raw_file, path)
-        reject_unknown(item, {"path", "type", "mode", "size", "digest", "ownership"}, path)
-        require_keys(item, {"path", "type", "mode", "size", "digest", "ownership"}, path)
+        reject_unknown(
+            item, {"path", "type", "mode", "size", "digest", "ownership"}, path
+        )
+        require_keys(
+            item, {"path", "type", "mode", "size", "digest", "ownership"}, path
+        )
         item_path = safe_relative_path(item["path"], f"{path}.path")
         item_type = require_string(item["type"], f"{path}.type")
         ownership = require_string(item["ownership"], f"{path}.ownership")
@@ -164,7 +168,9 @@ def parse_package_metadata(content: bytes) -> PackageMetadata:
             PackageFile(
                 path=item_path,
                 type=item_type,  # type: ignore[arg-type]
-                mode=require_int(item["mode"], f"{path}.mode", minimum=0, maximum=0o777),
+                mode=require_int(
+                    item["mode"], f"{path}.mode", minimum=0, maximum=0o777
+                ),
                 size=require_int(item["size"], f"{path}.size", minimum=0),
                 digest=digest,
                 ownership=ownership,  # type: ignore[arg-type]
@@ -174,9 +180,7 @@ def parse_package_metadata(content: bytes) -> PackageMetadata:
     recipe_revision = table.get("recipeRevision")
 
     if recipe_revision is not None:
-        recipe_revision = require_string(
-            recipe_revision, "package.recipeRevision"
-        )
+        recipe_revision = require_string(recipe_revision, "package.recipeRevision")
 
     return PackageMetadata(
         name=require_string(table["name"], "package.name"),

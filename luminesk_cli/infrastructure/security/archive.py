@@ -83,7 +83,9 @@ def _extract_zip(
             mode = member.external_attr >> 16
 
             if stat.S_ISLNK(mode):
-                raise SecurityError("archive symlinks are forbidden", path=member.filename)
+                raise SecurityError(
+                    "archive symlinks are forbidden", path=member.filename
+                )
 
             total += member.file_size
             _check_limits(

@@ -141,7 +141,9 @@ def verify_package(path: Path) -> ServerPackage:
             mode = member.external_attr >> 16
 
             if stat.S_ISLNK(mode):
-                raise SecurityError("package symlinks are forbidden", path=member.filename)
+                raise SecurityError(
+                    "package symlinks are forbidden", path=member.filename
+                )
 
             if member.filename != METADATA_NAME:
                 if not member.filename.startswith(PAYLOAD_PREFIX):

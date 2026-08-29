@@ -143,9 +143,7 @@ class SecureFetcher:
                     status=exc.response.status_code,
                 ) from exc
             except httpx.RequestError as exc:
-                raise NetworkError(
-                    f"download failed: {exc}", url=current_url
-                ) from exc
+                raise NetworkError(f"download failed: {exc}", url=current_url) from exc
 
         raise NetworkError("too many redirects", url=current_url)
 

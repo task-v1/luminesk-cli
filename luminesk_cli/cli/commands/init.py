@@ -8,7 +8,7 @@ from luminesk_cli.cli.commands.common import emit
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.manifest import MANIFEST_NAME
 
-SKELETON = '''\
+SKELETON = """\
 manifest_version = 1
 
 [package]
@@ -52,7 +52,7 @@ rollback_on_failure = true
 [permissions]
 build = false
 host_commands = false
-'''
+"""
 
 
 def run(namespace: Any) -> int:

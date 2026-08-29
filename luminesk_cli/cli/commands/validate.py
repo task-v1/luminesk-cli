@@ -59,8 +59,7 @@ def run(namespace: Any) -> int:
     emit(
         namespace,
         {"validation": results},
-        "Validation passed: "
-        + ", ".join(str(item["phase"]) for item in results),
+        "Validation passed: " + ", ".join(str(item["phase"]) for item in results),
     )
     return 0
 

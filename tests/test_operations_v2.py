@@ -39,7 +39,7 @@ def test_live_readiness_check_updates_state(tmp_path: Path) -> None:
     root = tmp_path / "instance"
     root.mkdir()
     (root / "luminesk.toml").write_text(
-        '''\
+        """\
 manifest_version = 1
 [package]
 name = "readiness-fixture"
@@ -59,7 +59,7 @@ phase = "readiness"
 kind = "log-regex"
 pattern = "Done"
 timeout = 1
-''',
+""",
         encoding="utf-8",
     )
     manifest = load_manifest(root / "luminesk.toml")

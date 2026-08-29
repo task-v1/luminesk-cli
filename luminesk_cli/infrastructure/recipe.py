@@ -56,7 +56,9 @@ class MaterializedFile:
     digest: str
 
 
-def normalize_git_source(value: str, explicit_ref: str | None = None) -> GitRecipeSource:
+def normalize_git_source(
+    value: str, explicit_ref: str | None = None
+) -> GitRecipeSource:
     source = value.strip()
     requested_ref = explicit_ref
 
@@ -107,9 +109,7 @@ def checkout_recipe(
     return _checkout_with_git(source, destination)
 
 
-def _checkout_with_git(
-    source: GitRecipeSource, destination: Path
-) -> RecipeCheckout:
+def _checkout_with_git(source: GitRecipeSource, destination: Path) -> RecipeCheckout:
     destination.mkdir(parents=True)
     _git(destination, "init", "--quiet")
     _git(destination, "remote", "add", "origin", source.clone_url)
@@ -312,7 +312,9 @@ def materialize_checkout(
     return tuple(copied)
 
 
-def materialize_local_recipe(source: Path, target: Path) -> tuple[MaterializedFile, ...]:
+def materialize_local_recipe(
+    source: Path, target: Path
+) -> tuple[MaterializedFile, ...]:
     """Copy a bounded local recipe tree into an empty target."""
 
     ensure_empty_target(target)
@@ -335,9 +337,7 @@ def materialize_local_recipe(source: Path, target: Path) -> tuple[MaterializedFi
     return tuple(copied)
 
 
-def cleanup_materialized(
-    target: Path, copied: tuple[MaterializedFile, ...]
-) -> None:
+def cleanup_materialized(target: Path, copied: tuple[MaterializedFile, ...]) -> None:
     """Remove only unchanged checkout files after a failed remote install."""
 
     for item in reversed(copied):
@@ -420,9 +420,7 @@ def _copy_tree_files(
             continue
 
         if not path.is_file():
-            raise SecurityError(
-                "recipe special files are forbidden", path=logical_path
-            )
+            raise SecurityError("recipe special files are forbidden", path=logical_path)
 
         count += 1
         size += path.stat().st_size

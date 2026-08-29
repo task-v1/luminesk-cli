@@ -60,9 +60,7 @@ class UpdateService:
         root = root.resolve()
         install_plan = self.installer.plan(package, root)
         recipe_plan = (
-            self.recipe_updater.plan(checkout, root)
-            if checkout is not None
-            else None
+            self.recipe_updater.plan(checkout, root) if checkout is not None else None
         )
 
         if dry_run:
@@ -94,7 +92,9 @@ class UpdateService:
             )
 
             if state is None:
-                raise TransactionError("update did not produce committed instance state")
+                raise TransactionError(
+                    "update did not produce committed instance state"
+                )
 
             if was_running:
                 state = self.runtime.start(root, wait_for_readiness=True)

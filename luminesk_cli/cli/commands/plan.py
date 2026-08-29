@@ -36,5 +36,9 @@ def run(namespace: Any) -> int:
         f"  {change.action:8} {change.path} — {change.reason}"
         for change in plan.changes
     )
-    emit(namespace, {"plan": {"operation": plan.operation, "changes": changes}}, "\n".join(lines))
+    emit(
+        namespace,
+        {"plan": {"operation": plan.operation, "changes": changes}},
+        "\n".join(lines),
+    )
     return 0

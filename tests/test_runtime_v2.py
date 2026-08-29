@@ -17,7 +17,7 @@ from luminesk_cli.domain.lockfile import Lockfile, RuntimeLock, write_lockfile
 from luminesk_cli.domain.manifest import Check, load_manifest
 from luminesk_cli.infrastructure.state import load_state, write_state
 
-MANIFEST = '''\
+MANIFEST = """\
 manifest_version = 1
 [package]
 name = "runtime-fixture"
@@ -55,7 +55,7 @@ phase = "readiness"
 kind = "log-regex"
 pattern = "Done"
 timeout = 2
-'''
+"""
 
 
 def prepare_instance(root: Path) -> tuple[Lockfile, InstanceState]:
@@ -66,9 +66,7 @@ def prepare_instance(root: Path) -> tuple[Lockfile, InstanceState]:
         manifest_digest=manifest.digest,
         target="linux/amd64",
         sources={},
-        runtime=RuntimeLock(
-            image=f"example/server@sha256:{'a' * 64}"
-        ),
+        runtime=RuntimeLock(image=f"example/server@sha256:{'a' * 64}"),
     )
     write_lockfile(root / "luminesk.lock", lockfile)
     state = InstanceState(

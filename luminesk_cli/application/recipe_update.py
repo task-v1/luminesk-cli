@@ -54,13 +54,17 @@ class RecipeUpdater:
 
             if not destination.exists():
                 changes.append(
-                    PlanChange("create", relative, "new tracked recipe file", incoming_digest)
+                    PlanChange(
+                        "create", relative, "new tracked recipe file", incoming_digest
+                    )
                 )
                 continue
 
             if not destination.is_file() or destination.is_symlink():
                 changes.append(
-                    PlanChange("conflict", relative, "recipe target is not a regular file")
+                    PlanChange(
+                        "conflict", relative, "recipe target is not a regular file"
+                    )
                 )
                 continue
 
@@ -76,11 +80,15 @@ class RecipeUpdater:
 
             if old is not None and old.digest == current_digest:
                 changes.append(
-                    PlanChange("replace", relative, "tracked recipe file changed upstream")
+                    PlanChange(
+                        "replace", relative, "tracked recipe file changed upstream"
+                    )
                 )
             else:
                 changes.append(
-                    PlanChange("conflict", relative, "tracked recipe file has local changes")
+                    PlanChange(
+                        "conflict", relative, "tracked recipe file has local changes"
+                    )
                 )
 
         for relative, entry in ledger.files.items():
@@ -102,7 +110,9 @@ class RecipeUpdater:
                     continue
 
             changes.append(
-                PlanChange("conflict", relative, "removed recipe file has local changes")
+                PlanChange(
+                    "conflict", relative, "removed recipe file has local changes"
+                )
             )
 
         return Plan(operation="update", target=str(root), changes=tuple(changes))

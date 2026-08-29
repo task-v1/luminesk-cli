@@ -42,7 +42,7 @@ def test_local_cli_install_emits_json_and_writes_instance(
     root.mkdir()
     (root / "server.jar.in").write_bytes(b"server")
     (root / "luminesk.toml").write_text(
-        '''\
+        """\
 manifest_version = 1
 [package]
 name = "cli-fixture"
@@ -56,7 +56,7 @@ target = "server.jar"
 driver = "docker"
 image = "fixture/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["java", "-jar", "server.jar"]
-''',
+""",
         encoding="utf-8",
     )
 
@@ -92,9 +92,7 @@ def test_keep_git_reports_missing_optional_executable(
         raise AssertionError("missing Git was not reported")
 
 
-def test_normal_checkout_uses_api_path_without_git(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_normal_checkout_uses_api_path_without_git(tmp_path: Path, monkeypatch) -> None:
     source = GitRecipeSource(
         canonical="github:owner/repo",
         clone_url="https://github.com/owner/repo.git",

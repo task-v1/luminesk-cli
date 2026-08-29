@@ -52,7 +52,10 @@ class LockService:
     ) -> Lockfile:
         target_platform = target or current_platform()
 
-        if manifest.package.platforms and target_platform not in manifest.package.platforms:
+        if (
+            manifest.package.platforms
+            and target_platform not in manifest.package.platforms
+        ):
             raise ResolutionError(
                 f"recipe does not support target {target_platform}",
                 target=target_platform,
@@ -93,7 +96,9 @@ class LockService:
             manifest_digest=manifest.digest,
             target=target_platform,
             sources=sources,
-            runtime=RuntimeLock(image=self.image_resolver.resolve(manifest.runtime.image)),
+            runtime=RuntimeLock(
+                image=self.image_resolver.resolve(manifest.runtime.image)
+            ),
             build=(
                 BuildLock(
                     images=resolve_build_images(

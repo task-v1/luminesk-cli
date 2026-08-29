@@ -78,9 +78,7 @@ def _version_metadata_url(source: SourceSpec, version: str) -> str:
     return f"{_metadata_url(source).removesuffix('maven-metadata.xml')}{version}/maven-metadata.xml"
 
 
-def _artifact_url(
-    source: SourceSpec, version: str, resolved_version: str
-) -> str:
+def _artifact_url(source: SourceSpec, version: str, resolved_version: str) -> str:
     assert source.repository is not None
     assert source.artifact is not None
     packaging = source.packaging or "jar"
@@ -140,7 +138,11 @@ def _snapshot_version(
         item_classifier = node.findtext("classifier") or None
         value = node.findtext("value")
 
-        if extension == packaging and item_classifier == normalized_classifier and value:
+        if (
+            extension == packaging
+            and item_classifier == normalized_classifier
+            and value
+        ):
             return value.strip()
 
     base_version = metadata.findtext("version")

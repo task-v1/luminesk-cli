@@ -5,7 +5,7 @@ import pytest
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.manifest import MAX_MANIFEST_SIZE, parse_manifest
 
-VALID_MANIFEST = b'''\
+VALID_MANIFEST = b"""\
 manifest_version = 1
 
 [package]
@@ -41,7 +41,7 @@ name = "bedrock"
 host = "${input.port}"
 container = "${input.port}"
 protocol = "udp"
-'''
+"""
 
 
 def test_parse_valid_manifest() -> None:
@@ -57,12 +57,20 @@ def test_parse_valid_manifest() -> None:
 @pytest.mark.parametrize(
     ("old", "new", "field"),
     [
-        (b'manifest_version = 1', b'manifest_version = 2', "manifest_version"),
+        (b"manifest_version = 1", b"manifest_version = 2", "manifest_version"),
         (b'name = "pnx-basic"', b'name = "PNX Basic"', "package.name"),
         (b'version = "1.0.0"', b'version = "latest"', "package.version"),
         (b'target = "server.jar"', b'target = "../server.jar"', "target"),
-        (b'command = ["java", "-jar", "server.jar"]', b'command = "java -jar server.jar"', "command"),
-        (b'image = "eclipse-temurin:21-jre"', b'image = "x"\nunknown = true', "unknown"),
+        (
+            b'command = ["java", "-jar", "server.jar"]',
+            b'command = "java -jar server.jar"',
+            "command",
+        ),
+        (
+            b'image = "eclipse-temurin:21-jre"',
+            b'image = "x"\nunknown = true',
+            "unknown",
+        ),
     ],
 )
 def test_manifest_rejects_invalid_schema(old: bytes, new: bytes, field: str) -> None:

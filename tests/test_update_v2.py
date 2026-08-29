@@ -114,9 +114,7 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
     )
     target = tmp_path / "instance"
     target.mkdir()
-    (target / "luminesk.toml").write_bytes(
-        (old_recipe / "luminesk.toml").read_bytes()
-    )
+    (target / "luminesk.toml").write_bytes((old_recipe / "luminesk.toml").read_bytes())
     _, old_state = TransactionalInstaller().install(
         old_manifest,
         old_lock,
@@ -133,9 +131,7 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
         ),
     )
     write_state(target, old_state)
-    _, new_manifest, new_lock, new_package = make_release(
-        tmp_path, "2.0.0", b"broken"
-    )
+    _, new_manifest, new_lock, new_package = make_release(tmp_path, "2.0.0", b"broken")
     runtime = FailingThenRecoveringRuntime(new_package.digest)
     service = UpdateService(runtime=runtime)  # type: ignore[arg-type]
 

@@ -74,7 +74,9 @@ def validate_remote_url(
     if not addresses:
         raise SecurityError(f"remote host {host} resolved to no addresses", url=url)
 
-    blocked = sorted(address for address in addresses if not _is_public_address(address))
+    blocked = sorted(
+        address for address in addresses if not _is_public_address(address)
+    )
 
     if blocked:
         raise SecurityError(

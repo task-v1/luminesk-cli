@@ -24,10 +24,7 @@ def test_semver_constraints_and_stable_channel() -> None:
 
     assert version_matches("v2.0.0", ">=2.0.0,<3.0.0", "stable")
     assert not version_matches("v2.0.0-beta.1", None, "stable")
-    assert (
-        select_highest_version(versions, ">=1.0.0,<3.0.0", "stable")
-        == "v2.0.0"
-    )
+    assert select_highest_version(versions, ">=1.0.0,<3.0.0", "stable") == "v2.0.0"
 
 
 def test_github_release_requires_unambiguous_asset() -> None:
@@ -47,9 +44,7 @@ def test_github_release_requires_unambiguous_asset() -> None:
         ],
     }
     client = httpx.Client(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(200, json=payload)
-        )
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
     )
     source = SourceSpec(
         id="core",
@@ -68,7 +63,7 @@ def test_local_source_lock_has_real_digest(tmp_path: Path) -> None:
     artifact = tmp_path / "fixture.jar"
     artifact.write_bytes(b"server")
     manifest = parse_manifest(
-        b'''\
+        b"""\
 manifest_version = 1
 [package]
 name = "local-server"
@@ -82,7 +77,7 @@ target = "server.jar"
 driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["./server.jar"]
-'''
+"""
     )
     service = LockService(
         ContentCache(tmp_path / "cache"),

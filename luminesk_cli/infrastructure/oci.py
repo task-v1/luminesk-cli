@@ -31,9 +31,7 @@ class OciImageResolver:
             digests = self._inspect(image)
 
         if not digests:
-            raise ResolutionError(
-                "runtime image has no repository digest", image=image
-            )
+            raise ResolutionError("runtime image has no repository digest", image=image)
 
         repository = image.split("@", 1)[0]
 
@@ -43,9 +41,7 @@ class OciImageResolver:
             last_slash = repository.rfind("/")
             last_colon = repository.rfind(":")
             repository_name = (
-                repository[:last_colon]
-                if last_colon > last_slash
-                else repository
+                repository[:last_colon] if last_colon > last_slash else repository
             )
 
         matching = [
@@ -76,7 +72,9 @@ class OciImageResolver:
         except json.JSONDecodeError as exc:
             raise ResolutionError("Docker returned invalid image metadata") from exc
 
-        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
             raise ResolutionError("Docker returned invalid repository digests")
 
         return value

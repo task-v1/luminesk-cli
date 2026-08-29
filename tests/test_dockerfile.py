@@ -11,7 +11,9 @@ from luminesk_cli.infrastructure.dockerfile import (
 )
 
 
-def test_dockerfile_images_ignore_named_stages_and_are_rewritten(tmp_path: Path) -> None:
+def test_dockerfile_images_ignore_named_stages_and_are_rewritten(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "Dockerfile"
     path.write_text(
         "FROM --platform=linux/amd64 golang:1.26 AS build\n"

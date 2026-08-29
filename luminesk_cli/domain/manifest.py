@@ -35,9 +35,7 @@ SOURCE_PROVIDERS = frozenset(
 )
 FILE_MODES = frozenset({"managed", "preserve", "generated", "data"})
 CHECK_PHASES = frozenset({"post-build", "post-install", "readiness"})
-CHECK_KINDS = frozenset(
-    {"file", "process-alive", "log-regex", "tcp", "command"}
-)
+CHECK_KINDS = frozenset({"file", "process-alive", "log-regex", "tcp", "command"})
 
 
 @dataclass(slots=True, frozen=True)
@@ -269,7 +267,16 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
         spec = require_table(raw_input, path)
         reject_unknown(
             spec,
-            {"type", "default", "prompt", "min", "max", "pattern", "required", "secret"},
+            {
+                "type",
+                "default",
+                "prompt",
+                "min",
+                "max",
+                "pattern",
+                "required",
+                "secret",
+            },
             path,
         )
         require_keys(spec, {"type"}, path)
@@ -376,9 +383,7 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
         if provider not in SOURCE_PROVIDERS:
             fail(f"{path}.provider", f"unsupported provider: {provider}")
 
-        allow_http = require_bool(
-            table.get("allow_http", False), f"{path}.allow_http"
-        )
+        allow_http = require_bool(table.get("allow_http", False), f"{path}.allow_http")
         url = optional_string(table, "url", path)
 
         if url is not None:
@@ -426,9 +431,7 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
                 table.get("allow_private_network", False),
                 f"{path}.allow_private_network",
             ),
-            platforms=_string_array(
-                table.get("platforms", []), f"{path}.platforms"
-            ),
+            platforms=_string_array(table.get("platforms", []), f"{path}.platforms"),
         )
         for platform_index, platform_name in enumerate(source.platforms):
             if not PLATFORM_RE.fullmatch(platform_name):
@@ -447,9 +450,7 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
 
 
 def _validate_provider_fields(source: SourceSpec, path: str) -> None:
-    if source.provider == "github-release" and not (
-        source.repository and source.asset
-    ):
+    if source.provider == "github-release" and not (source.repository and source.asset):
         fail(path, "github-release requires repository and asset")
 
     if source.provider == "maven" and not (
@@ -476,7 +477,9 @@ def _parse_files(value: Any) -> tuple[FileSpec, ...]:
     for index, raw_file in enumerate(require_array(value, "files")):
         path = f"files[{index}]"
         table = require_table(raw_file, path)
-        reject_unknown(table, {"source", "target", "mode", "template", "executable"}, path)
+        reject_unknown(
+            table, {"source", "target", "mode", "template", "executable"}, path
+        )
         require_keys(table, {"source", "target"}, path)
         target = safe_relative_path(table["target"], f"{path}.target")
         mode = require_string(table.get("mode", "managed"), f"{path}.mode")
@@ -543,7 +546,9 @@ def _parse_runtime(value: Any) -> Runtime:
 
     mounts = []
 
-    for index, raw_mount in enumerate(require_array(table.get("mounts", []), f"{path}.mounts")):
+    for index, raw_mount in enumerate(
+        require_array(table.get("mounts", []), f"{path}.mounts")
+    ):
         item_path = f"{path}.mounts[{index}]"
         mount = require_table(raw_mount, item_path)
         reject_unknown(mount, {"source", "target", "mode"}, item_path)
@@ -565,7 +570,9 @@ def _parse_runtime(value: Any) -> Runtime:
 
     ports = []
 
-    for index, raw_port in enumerate(require_array(table.get("ports", []), f"{path}.ports")):
+    for index, raw_port in enumerate(
+        require_array(table.get("ports", []), f"{path}.ports")
+    ):
         item_path = f"{path}.ports[{index}]"
         port = require_table(raw_port, item_path)
         reject_unknown(port, {"name", "host", "container", "protocol"}, item_path)
@@ -592,7 +599,9 @@ def _parse_runtime(value: Any) -> Runtime:
         command=command,
         workdir=require_string(table.get("workdir", "/server"), f"{path}.workdir"),
         memory=optional_string(table, "memory", path),
-        stop_signal=require_string(table.get("stop_signal", "SIGINT"), f"{path}.stop_signal"),
+        stop_signal=require_string(
+            table.get("stop_signal", "SIGINT"), f"{path}.stop_signal"
+        ),
         stop_timeout=require_int(
             table.get("stop_timeout", 30), f"{path}.stop_timeout", minimum=1
         ),
@@ -624,7 +633,11 @@ def _parse_port_value(value: Any, path: str) -> int | str:
 def _parse_build(value: Any) -> Build:
     path = "build"
     table = require_table(value, path)
-    reject_unknown(table, {"driver", "file", "output", "timeout", "cpu", "memory", "permissions"}, path)
+    reject_unknown(
+        table,
+        {"driver", "file", "output", "timeout", "cpu", "memory", "permissions"},
+        path,
+    )
     require_keys(table, {"driver", "file", "output"}, path)
     driver = require_string(table["driver"], f"{path}.driver")
 
@@ -743,7 +756,9 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
                 host=optional_string(table, "host", path),
                 port=port,
                 command=command,
-                timeout=require_int(table.get("timeout", 30), f"{path}.timeout", minimum=1),
+                timeout=require_int(
+                    table.get("timeout", 30), f"{path}.timeout", minimum=1
+                ),
             )
         )
 
@@ -753,8 +768,12 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
 def _parse_update(value: Any) -> UpdatePolicy:
     path = "update"
     table = require_table(value, path)
-    reject_unknown(table, {"strategy", "backup", "retain_backups", "rollback_on_failure"}, path)
-    strategy = require_string(table.get("strategy", "transactional"), f"{path}.strategy")
+    reject_unknown(
+        table, {"strategy", "backup", "retain_backups", "rollback_on_failure"}, path
+    )
+    strategy = require_string(
+        table.get("strategy", "transactional"), f"{path}.strategy"
+    )
 
     if strategy != "transactional":
         fail(f"{path}.strategy", "only transactional updates are supported")
@@ -762,7 +781,9 @@ def _parse_update(value: Any) -> UpdatePolicy:
     return UpdatePolicy(
         backup=tuple(
             safe_relative_path(item, f"{path}.backup[{index}]")
-            for index, item in enumerate(require_array(table.get("backup", []), f"{path}.backup"))
+            for index, item in enumerate(
+                require_array(table.get("backup", []), f"{path}.backup")
+            )
         ),
         retain_backups=require_int(
             table.get("retain_backups", 3),

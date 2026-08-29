@@ -49,7 +49,9 @@ def run(namespace: Any) -> int:
         return _install_external_local(namespace, recipe_root, target)
 
     if namespace.frozen:
-        raise ValidationError("remote Git install cannot resolve a recipe with --frozen")
+        raise ValidationError(
+            "remote Git install cannot resolve a recipe with --frozen"
+        )
 
     target = Path(namespace.dir or ".").expanduser().resolve()
     ensure_empty_target(target)
