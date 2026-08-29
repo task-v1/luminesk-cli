@@ -131,13 +131,25 @@ def _parse_source(source_id: str, value: Any) -> ResolvedSource:
         {"provider", "version", "sourceRevision", "url", "size", "digest", "target"},
         path,
     )
+    provider = require_string(table["provider"], f"{path}.provider")
+    raw_url = require_string(table["url"], f"{path}.url")
+
+    if provider == "local-file":
+        if not raw_url.startswith("local:"):
+            raise ValidationError(f"{path}.url: local-file URL must start with local:")
+
+        safe_relative_path(raw_url.removeprefix("local:"), f"{path}.url")
+        url = raw_url
+    else:
+        url = validate_https_url(raw_url, f"{path}.url")
+
     return ResolvedSource(
-        provider=require_string(table["provider"], f"{path}.provider"),
+        provider=provider,
         version=require_string(table["version"], f"{path}.version"),
         source_revision=require_string(
             table["sourceRevision"], f"{path}.sourceRevision"
         ),
-        url=validate_https_url(table["url"], f"{path}.url"),
+        url=url,
         size=require_int(table["size"], f"{path}.size", minimum=0),
         digest=validate_digest(table["digest"], f"{path}.digest"),
         target=safe_relative_path(table["target"], f"{path}.target"),
