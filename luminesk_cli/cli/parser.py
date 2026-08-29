@@ -119,6 +119,27 @@ def build_parser() -> argparse.ArgumentParser:
     cache_verify = cache_commands.add_parser("verify", help="Verify every cached blob.")
     _automation_options(cache_verify)
     cache_verify.set_defaults(handler="luminesk_cli.cli.commands.cache:verify")
+    cache_prune = cache_commands.add_parser("prune", help="Remove old cached blobs.")
+    cache_prune.add_argument(
+        "--max-age",
+        type=int,
+        default=30,
+        metavar="DAYS",
+        help="Remove blobs at least this many days old.",
+    )
+    cache_prune.add_argument("--dry-run", action="store_true")
+    _automation_options(cache_prune)
+    cache_prune.set_defaults(handler="luminesk_cli.cli.commands.cache:prune")
+
+    import_parser = commands.add_parser(
+        "import", help="Rebuild the global index from local instance state."
+    )
+    import_parser.add_argument("path", help="Instance path or scan root.")
+    import_parser.add_argument("--scan", action="store_true")
+    _automation_options(import_parser)
+    import_parser.set_defaults(
+        handler="luminesk_cli.cli.commands.instance_index:import_instances"
+    )
 
     search = commands.add_parser(
         "search",

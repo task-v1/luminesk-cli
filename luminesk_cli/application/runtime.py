@@ -216,6 +216,27 @@ class DockerRuntime:
         for check in checks:
             self._wait_check(root, state, check, values)
 
+    def check_readiness(self, root: Path) -> InstanceState:
+        """Run the declared readiness policy against the live instance."""
+
+        root = root.resolve()
+        state, manifest = _load_instance(root)
+
+        if state.runtime.status != "running" or not state.runtime.container_id:
+            raise RuntimeOperationError("instance is not running")
+
+        if not self.is_running(state.runtime.container_id):
+            raise RuntimeOperationError("instance container is not running")
+
+        self.wait_ready(root, manifest, state, state.inputs)
+        checked = replace(
+            state,
+            last_readiness_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
+        )
+        write_state(root, checked)
+        return checked
+
     def _wait_check(
         self,
         root: Path,

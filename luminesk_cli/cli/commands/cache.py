@@ -21,3 +21,17 @@ def verify(namespace: Any) -> int:
         f"Verified {count} cached blob(s).",
     )
     return 0
+
+
+def prune(namespace: Any) -> int:
+    count, size = cache().prune(
+        max_age_seconds=namespace.max_age * 24 * 60 * 60,
+        dry_run=namespace.dry_run,
+    )
+    verb = "Would remove" if namespace.dry_run else "Removed"
+    emit(
+        namespace,
+        {"pruned": count, "bytes": size, "dryRun": namespace.dry_run},
+        f"{verb} {count} cached blob(s), {size} byte(s).",
+    )
+    return 0

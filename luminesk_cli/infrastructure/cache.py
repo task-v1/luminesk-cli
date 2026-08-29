@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from filelock import FileLock
+from filelock import Timeout as FileLockTimeout
 
-from luminesk_cli.domain.errors import SecurityError
+from luminesk_cli.domain.errors import SecurityError, ValidationError
 from luminesk_cli.domain.primitives import validate_digest
 
 HASH_CHUNK_SIZE = 256 * 1024
@@ -120,3 +122,53 @@ class ContentCache:
                 corrupt.append(str(path))
 
         return count, tuple(corrupt)
+
+    def prune(
+        self,
+        *,
+        max_age_seconds: int,
+        dry_run: bool = False,
+        now: float | None = None,
+    ) -> tuple[int, int]:
+        """Remove old regular blobs while respecting per-digest process locks."""
+
+        if max_age_seconds < 0:
+            raise ValidationError("cache prune max age may not be negative")
+
+        cutoff = (time.time() if now is None else now) - max_age_seconds
+        count = 0
+        size = 0
+
+        if not self.blobs.exists():
+            return 0, 0
+
+        for path in self.blobs.glob("*/*"):
+            if path.is_symlink() or not path.is_file():
+                continue
+
+            stat_result = path.stat()
+
+            if stat_result.st_mtime > cutoff:
+                continue
+
+            digest = f"sha256:{path.name}"
+
+            try:
+                with self.lock_for(digest).acquire(timeout=0):
+                    if not dry_run:
+                        path.unlink(missing_ok=True)
+            except FileLockTimeout:
+                continue
+
+            count += 1
+            size += stat_result.st_size
+
+        if not dry_run:
+            for directory in self.blobs.iterdir():
+                if directory.is_dir():
+                    try:
+                        directory.rmdir()
+                    except OSError:
+                        pass
+
+        return count, size

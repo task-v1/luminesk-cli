@@ -161,6 +161,15 @@ class InstanceIndex:
             return ()
 
         with sqlite3.connect(self.path, timeout=30) as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS instances_v2 (
+                    instance_id TEXT PRIMARY KEY,
+                    tag TEXT NOT NULL UNIQUE,
+                    path TEXT NOT NULL UNIQUE
+                )
+                """
+            )
             rows = connection.execute(
                 "SELECT instance_id, tag, path FROM instances_v2 ORDER BY tag"
             ).fetchall()

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from luminesk_cli.cli.commands.common import cache, emit, recipe, resolve_lock
-from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
+from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, load_lockfile
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import digest_file
@@ -44,13 +44,9 @@ def run(namespace: Any) -> int:
         results.append({"phase": "instance", "ok": True})
 
     if "readiness" in phases:
-        state = load_state(root)
+        from luminesk_cli.application.runtime import DockerRuntime
 
-        if state is None or state.runtime.status != "running":
-            raise RuntimeOperationError("instance is not running")
-
-        if state.last_readiness_at is None:
-            raise RuntimeOperationError("instance has no successful readiness result")
+        state = DockerRuntime().check_readiness(root)
 
         results.append(
             {
@@ -89,6 +85,13 @@ def _validate_instance(root: Path, manifest_digest: str) -> None:
 
     if state is None:
         raise ValidationError("instance state is missing")
+
+    if Path(state.root).resolve() != root.resolve():
+        raise ValidationError(
+            "instance root marker does not match its current directory",
+            recorded=state.root,
+            actual=str(root.resolve()),
+        )
 
     lockfile = load_lockfile(root / LOCKFILE_NAME)
 
