@@ -215,3 +215,34 @@ def verify_package(path: Path) -> ServerPackage:
         size=package_size,
         metadata=metadata,
     )
+
+
+def extract_package(package: ServerPackage, destination: Path) -> None:
+    """Extract a previously verified payload without trusting archive paths."""
+
+    verified = verify_package(package.path)
+
+    if verified.digest != package.digest:
+        raise SecurityError("package changed after verification")
+
+    if destination.exists() and any(destination.iterdir()):
+        raise ValidationError("package staging destination must be empty")
+
+    destination.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(package.path) as archive:
+        for item in verified.metadata.files:
+            target = destination / item.path
+
+            if item.type == "directory":
+                target.mkdir(parents=True, exist_ok=True)
+                target.chmod(item.mode)
+                continue
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            member = archive.getinfo(f"{PAYLOAD_PREFIX}{item.path}")
+
+            with archive.open(member, "r") as source, target.open("xb") as output:
+                shutil.copyfileobj(source, output, length=256 * 1024)
+
+            target.chmod(item.mode)

@@ -1,0 +1,454 @@
+"""Plan-first transactional package installation and update application."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import uuid
+from collections.abc import Callable
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+
+from luminesk_cli.domain.errors import ConflictError, TransactionError
+from luminesk_cli.domain.instance import (
+    InstanceState,
+    OwnershipEntry,
+    OwnershipLedger,
+    RecipeState,
+    RuntimeState,
+)
+from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, write_lockfile
+from luminesk_cli.domain.manifest import Manifest
+from luminesk_cli.domain.package import PackageFile, ServerPackage
+from luminesk_cli.domain.plan import Plan, PlanChange
+from luminesk_cli.infrastructure.cache import digest_file
+from luminesk_cli.infrastructure.package import extract_package
+from luminesk_cli.infrastructure.state import (
+    OWNERSHIP_FILE,
+    STATE_FILE,
+    InstanceIndex,
+    atomic_write,
+    canonical_json_bytes,
+    load_ownership,
+    load_state,
+    state_directory,
+    write_ownership,
+    write_state,
+)
+
+ApplyHook = Callable[[str], None]
+
+
+class TransactionalInstaller:
+    def __init__(
+        self,
+        *,
+        index: InstanceIndex | None = None,
+        apply_hook: ApplyHook | None = None,
+    ) -> None:
+        self.index = index
+        self.apply_hook = apply_hook
+
+    def plan(self, package: ServerPackage, target: Path) -> Plan:
+        root = target.resolve()
+        ownership = load_ownership(root)
+        changes = _plan_changes(package.metadata.files, root, ownership)
+        return Plan(
+            operation="update" if load_state(root) is not None else "install",
+            target=str(root),
+            changes=changes,
+            requires_downtime=load_state(root) is not None,
+        )
+
+    def install(
+        self,
+        manifest: Manifest,
+        lockfile: Lockfile,
+        package: ServerPackage,
+        target: Path,
+        *,
+        tag: str | None = None,
+        dry_run: bool = False,
+    ) -> tuple[Plan, InstanceState | None]:
+        root = target.resolve()
+        old_state = load_state(root)
+
+        if old_state is not None and old_state.pending_transaction is not None:
+            raise TransactionError(
+                "instance has an unfinished transaction; recover it first",
+                transaction=old_state.pending_transaction,
+            )
+
+        plan = self.plan(package, root)
+
+        if plan.has_conflicts:
+            conflicts = [
+                change.path for change in plan.changes if change.action == "conflict"
+            ]
+            raise ConflictError(
+                "install plan contains user-file conflicts", conflicts=conflicts
+            )
+
+        if dry_run:
+            return plan, old_state
+
+        transaction_id = uuid.uuid4().hex
+        local_state = state_directory(root)
+        staging = local_state / "staging" / transaction_id
+        payload = staging / "payload"
+        backup = local_state / "backups" / transaction_id
+        journal = local_state / "transaction.json"
+
+        if journal.exists():
+            raise TransactionError(
+                "instance has an unfinished transaction journal; recover it first"
+            )
+
+        extract_package(package, payload)
+        old_ownership = load_ownership(root)
+        _backup_transaction_files(root, backup, plan, manifest)
+        _backup_metadata(root, backup)
+        now = datetime.now(UTC).isoformat()
+        pending_state = _new_state(
+            manifest,
+            lockfile,
+            package,
+            root,
+            tag=tag,
+            old_state=old_state,
+            now=now,
+            pending_transaction=transaction_id,
+        )
+        atomic_write(
+            journal,
+            canonical_json_bytes(
+                {
+                    "transactionVersion": 1,
+                    "id": transaction_id,
+                    "operation": plan.operation,
+                    "target": str(root),
+                    "packageDigest": package.digest,
+                    "phase": "pending",
+                    "changes": [
+                        {"action": change.action, "path": change.path}
+                        for change in plan.changes
+                    ],
+                }
+            ),
+        )
+        write_state(root, pending_state)
+
+        try:
+            _apply_plan(root, payload, plan, package.metadata.files, self.apply_hook)
+            new_ownership = _create_ownership(package.metadata.files, root)
+            write_lockfile(root / LOCKFILE_NAME, lockfile)
+            write_ownership(root, new_ownership)
+            committed_state = replace(pending_state, pending_transaction=None)
+            write_state(root, committed_state)
+            journal.unlink()
+            shutil.rmtree(staging)
+        except BaseException as exc:
+            try:
+                _rollback(root, backup, plan, old_state, old_ownership)
+                journal.unlink(missing_ok=True)
+            except BaseException as rollback_exc:
+                raise TransactionError(
+                    "install failed and rollback was incomplete",
+                    original=str(exc),
+                    rollback=str(rollback_exc),
+                    transaction=transaction_id,
+                ) from exc
+
+            raise TransactionError(
+                f"install failed and was rolled back: {exc}",
+                transaction=transaction_id,
+            ) from exc
+
+        _prune_backups(local_state / "backups", manifest.update.retain_backups)
+
+        if self.index is not None:
+            self.index.register(committed_state)
+
+        return plan, committed_state
+
+
+def _plan_changes(
+    files: tuple[PackageFile, ...],
+    root: Path,
+    ownership: OwnershipLedger,
+) -> tuple[PlanChange, ...]:
+    changes = []
+    new_paths = {item.path for item in files}
+
+    for item in files:
+        target = root / item.path
+
+        if item.type == "directory":
+            if not target.exists():
+                action = "create"
+                reason = "declared package directory is absent"
+            elif target.is_dir() and not target.is_symlink():
+                action = "preserve"
+                reason = "existing directory is retained"
+            else:
+                action = "conflict"
+                reason = "a non-directory occupies the declared directory path"
+
+            changes.append(PlanChange(action, item.path, reason))  # type: ignore[arg-type]
+            continue
+
+        if not target.exists() and not target.is_symlink():
+            changes.append(
+                PlanChange("create", item.path, "managed file is absent", item.digest)
+            )
+            continue
+
+        if not target.is_file() or target.is_symlink():
+            changes.append(
+                PlanChange("conflict", item.path, "target is not a regular file")
+            )
+            continue
+
+        current_digest, _ = digest_file(target)
+
+        if current_digest == item.digest:
+            changes.append(
+                PlanChange(
+                    "preserve",
+                    item.path,
+                    "installed content already matches",
+                    current_digest,
+                )
+            )
+            continue
+
+        if item.ownership in {"preserve", "data"}:
+            changes.append(
+                PlanChange(
+                    "preserve",
+                    item.path,
+                    "user-preserved content is not overwritten",
+                    current_digest,
+                )
+            )
+            continue
+
+        old_entry = ownership.files.get(item.path)
+
+        if old_entry is not None and old_entry.digest == current_digest:
+            changes.append(
+                PlanChange(
+                    "replace",
+                    item.path,
+                    "unchanged managed file has a new package version",
+                    item.digest,
+                )
+            )
+        else:
+            changes.append(
+                PlanChange(
+                    "conflict",
+                    item.path,
+                    "managed file was modified outside Nesk",
+                    current_digest,
+                )
+            )
+
+    for path, entry in ownership.files.items():
+        if path in new_paths or entry.mode not in {"managed", "generated"}:
+            continue
+
+        target = root / path
+
+        if not target.exists():
+            continue
+
+        if target.is_file() and not target.is_symlink():
+            current_digest, _ = digest_file(target)
+
+            if current_digest == entry.digest:
+                changes.append(
+                    PlanChange("remove", path, "managed file left the package")
+                )
+                continue
+
+        changes.append(
+            PlanChange("conflict", path, "removed package file has local changes")
+        )
+
+    return tuple(changes)
+
+
+def _apply_plan(
+    root: Path,
+    payload: Path,
+    plan: Plan,
+    files: tuple[PackageFile, ...],
+    hook: ApplyHook | None,
+) -> None:
+    metadata = {item.path: item for item in files}
+
+    for change in plan.changes:
+        target = root / change.path
+
+        if change.action == "create" and metadata[change.path].type == "directory":
+            target.mkdir(parents=True, exist_ok=True)
+        elif change.action in {"create", "replace"}:
+            source = payload / change.path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(source, target)
+            target.chmod(metadata[change.path].mode)
+        elif change.action == "remove":
+            target.unlink(missing_ok=True)
+
+        if hook is not None and change.action not in {"preserve", "conflict"}:
+            hook(change.path)
+
+
+def _backup_transaction_files(
+    root: Path,
+    backup: Path,
+    plan: Plan,
+    manifest: Manifest,
+) -> None:
+    paths = {
+        change.path
+        for change in plan.changes
+        if change.action in {"replace", "remove"}
+    }
+    paths.update(manifest.update.backup)
+
+    for relative in sorted(paths):
+        source = root / relative
+
+        if not source.exists() or source.is_symlink():
+            continue
+
+        destination = backup / "payload" / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        if source.is_dir():
+            shutil.copytree(source, destination, symlinks=False)
+        elif source.is_file():
+            shutil.copy2(source, destination)
+
+
+def _backup_metadata(root: Path, backup: Path) -> None:
+    for source in (
+        root / LOCKFILE_NAME,
+        state_directory(root) / STATE_FILE,
+        state_directory(root) / OWNERSHIP_FILE,
+    ):
+        if source.is_file():
+            destination = backup / "metadata" / source.name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+
+
+def _rollback(
+    root: Path,
+    backup: Path,
+    plan: Plan,
+    old_state: InstanceState | None,
+    old_ownership: OwnershipLedger,
+) -> None:
+    for change in reversed(plan.changes):
+        target = root / change.path
+        saved = backup / "payload" / change.path
+
+        if saved.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink(missing_ok=True)
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+
+            if saved.is_dir():
+                shutil.copytree(saved, target)
+            else:
+                shutil.copy2(saved, target)
+        elif change.action == "create":
+            if target.is_dir():
+                try:
+                    target.rmdir()
+                except OSError:
+                    pass
+            else:
+                target.unlink(missing_ok=True)
+
+    lock_backup = backup / "metadata" / LOCKFILE_NAME
+
+    if lock_backup.is_file():
+        shutil.copy2(lock_backup, root / LOCKFILE_NAME)
+    else:
+        (root / LOCKFILE_NAME).unlink(missing_ok=True)
+
+    if old_state is None:
+        (state_directory(root) / STATE_FILE).unlink(missing_ok=True)
+        (state_directory(root) / OWNERSHIP_FILE).unlink(missing_ok=True)
+    else:
+        write_state(root, old_state)
+        write_ownership(root, old_ownership)
+
+
+def _create_ownership(
+    files: tuple[PackageFile, ...], root: Path
+) -> OwnershipLedger:
+    entries = {}
+
+    for item in files:
+        target = root / item.path
+        digest = None
+
+        if item.type == "file" and target.is_file():
+            digest, _ = digest_file(target)
+
+        entries[item.path] = OwnershipEntry(mode=item.ownership, digest=digest)
+
+    return OwnershipLedger(files=entries)
+
+
+def _new_state(
+    manifest: Manifest,
+    lockfile: Lockfile,
+    package: ServerPackage,
+    root: Path,
+    *,
+    tag: str | None,
+    old_state: InstanceState | None,
+    now: str,
+    pending_transaction: str,
+) -> InstanceState:
+    return InstanceState(
+        instance_id=(old_state.instance_id if old_state else str(uuid.uuid4())),
+        name=manifest.package.name,
+        tag=tag or (old_state.tag if old_state else manifest.package.name),
+        root=str(root),
+        applied_lock_digest=lockfile.digest,
+        installed_package_digest=package.digest,
+        recipe=RecipeState(
+            source=lockfile.recipe.source if lockfile.recipe else None,
+            revision=lockfile.recipe.revision if lockfile.recipe else None,
+        ),
+        runtime=old_state.runtime if old_state else RuntimeState(),
+        created_at=old_state.created_at if old_state else now,
+        updated_at=now,
+        last_readiness_at=(old_state.last_readiness_at if old_state else None),
+        pending_transaction=pending_transaction,
+    )
+
+
+def _prune_backups(directory: Path, retain: int) -> None:
+    if not directory.exists():
+        return
+
+    backups = sorted(
+        (path for path in directory.iterdir() if path.is_dir()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    for old_backup in backups[retain:]:
+        shutil.rmtree(old_backup)
