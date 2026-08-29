@@ -2,141 +2,256 @@ name: CI
 
 on:
   push:
-    paths-ignore:
-      - 'docs/**'
+    branches: [main, "2.0"]
   pull_request:
-    paths-ignore:
-      - 'docs/**'
+  workflow_dispatch:
   workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  PYTHONUTF8: "1"
+  UV_FROZEN: "1"
+
 jobs:
   quality:
-    name: Quality checks
+    name: Quality and typing
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Install Python dev dependencies
+      - name: Install locked development environment
         run: uv sync --locked --extra dev
 
-      - name: Lint (ruff)
+      - name: Verify lockfile
+        run: uv lock --check
+
+      - name: Verify project formatting policy
+        run: uv run python scripts/format.py
+
+      - name: Lint
         run: uv run ruff check .
 
-      - name: Type check (mypy)
-        run: uv run mypy luminesk_cli
+      - name: Verify Ruff formatting
+        run: uv run ruff format --check .
 
-      - name: Formatting check (project scripts)
-        run: uv run ruff format --check scripts
+      - name: Type check production and tests
+        run: uv run mypy .
 
-
-  test:
-    name: Test (${{ matrix.os }})
+  tests:
+    name: Tests (${{ matrix.name }})
     needs: quality
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
-        os:
-          [
-            ubuntu-latest,
-            macos-latest,
-            windows-latest,
-            ubuntu-24.04-arm,
-            windows-11-arm,
-            macos-15-intel,
-          ]
-
+        include:
+          - name: linux-amd64-py313
+            runner: ubuntu-latest
+            python: "3.13"
+          - name: linux-amd64-py314
+            runner: ubuntu-latest
+            python: "3.14"
+          - name: linux-arm64-py313
+            runner: ubuntu-24.04-arm
+            python: "3.13"
+          - name: macos-arm64-py313
+            runner: macos-latest
+            python: "3.13"
+          - name: macos-amd64-py313
+            runner: macos-15-intel
+            python: "3.13"
+          - name: windows-amd64-py313
+            runner: windows-latest
+            python: "3.13"
+          - name: windows-arm64-py313
+            runner: windows-11-arm
+            python: "3.13"
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
+      - name: Check out source
+        uses: actions/checkout@v7
         with:
-          python-version: "3.13"
+          persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
 
-      - name: Install deps
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked development environment
         run: uv sync --locked --extra dev
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run Nesk 2.0 suite
+        run: >-
+          uv run pytest
+          --strict-config
+          --strict-markers
+          -W error::ResourceWarning
+          --junitxml=test-results.xml
 
-  build:
-    name: Build (${{ matrix.os }})
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          [
-            ubuntu-latest,
-            macos-latest,
-            windows-latest,
-            ubuntu-24.04-arm,
-            windows-11-arm,
-            macos-15-intel,
-          ]
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.name }}
+          path: test-results.xml
+          if-no-files-found: error
+          retention-days: 14
 
+  coverage:
+    name: Coverage gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Install deps
-        run: uv sync --locked --extra build
+      - name: Install locked development environment
+        run: uv sync --locked --extra dev
 
-      - name: Build binary (smoke test only)
-        shell: bash
+      - name: Measure branch coverage
+        run: >-
+          uv run pytest
+          --cov=luminesk_cli
+          --cov-branch
+          --cov-report=term-missing
+          --cov-report=xml
+          --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 14
+
+  package:
+    name: Wheel and installed CLI
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Build canonical artifacts
+        run: uv build
+
+      - name: Verify wheel contents and metadata
+        run: uv run python scripts/verify_wheel.py dist/*.whl
+
+      - name: Install wheel into a clean environment
         run: |
-          case "$RUNNER_OS" in
-            Linux)   OS_NAME="linux" ;;
-            macOS)   OS_NAME="darwin" ;;
-            Windows) OS_NAME="windows" ;;
-          esac
+          uv venv .wheel-venv --python 3.13
+          uv pip install --python .wheel-venv/bin/python dist/*.whl
 
-          ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-          if [[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]]; then
-            ARCH="amd64"
-          elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-            ARCH="arm64"
-          else
-            echo "Unsupported architecture: $ARCH"
-            exit 1
-          fi
+      - name: Smoke test installed command surface
+        run: |
+          .wheel-venv/bin/nesk --version
+          .wheel-venv/bin/nesk --help
+          .wheel-venv/bin/nesk search --json
 
-          NAME="luminesk_cli-$OS_NAME-$ARCH"
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
 
-          echo "Building $NAME"
+  cold-path:
+    name: Cold import budget
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-          uv run pyinstaller \
-            --onefile \
-            --name "$NAME" \
-            --exclude-module setuptools \
-            --exclude-module distutils \
-            --exclude-module unittest \
-            --exclude-module tkinter \
-            luminesk_cli/__main__.py
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
 
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            BIN="dist/$NAME.exe"
-          else
-            BIN="dist/$NAME"
-          fi
-          chmod +x "$BIN" || true
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-          # smoke tests
-          ./"$BIN" --help
-          ./"$BIN" --version
+      - name: Install locked runtime
+        run: uv sync --locked
+
+      - name: Enforce version/help import and timing budgets
+        run: uv run python scripts/check_cold_path.py
+
+  required:
+    name: CI required gate
+    if: always()
+    needs: [quality, tests, coverage, package, cold-path]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to pass
+        run: |
+          test "${{ needs.quality.result }}" = "success"
+          test "${{ needs.tests.result }}" = "success"
+          test "${{ needs.coverage.result }}" = "success"
+          test "${{ needs.package.result }}" = "success"
+          test "${{ needs['cold-path'].result }}" = "success"
