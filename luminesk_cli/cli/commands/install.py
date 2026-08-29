@@ -15,6 +15,8 @@ from luminesk_cli.cli.commands.common import (
     resolve_lock,
 )
 from luminesk_cli.domain.errors import ConflictError, ValidationError
+from luminesk_cli.domain.lockfile import Lockfile
+from luminesk_cli.domain.manifest import Manifest
 from luminesk_cli.infrastructure.recipe import (
     RecipeCheckout,
     checkout_recipe,
@@ -92,6 +94,7 @@ def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> 
     root, manifest = recipe(recipe_root)
     lockfile = resolve_lock(root, manifest, frozen=namespace.frozen)
     values = parse_inputs(manifest, namespace.set)
+    _confirm(namespace, manifest.package.name, target, "local", lockfile, manifest)
     temporary, package = build_package(root, manifest, lockfile, values)
 
     try:
@@ -99,7 +102,6 @@ def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> 
             plan = TransactionalInstaller().plan(package, target)
             return _emit_result(namespace, plan, None)
 
-        _confirm(namespace, manifest.package.name, target, "local", lockfile)
         copied = materialize_local_recipe(recipe_root, target)
 
         try:
@@ -131,6 +133,14 @@ def _install_checkout(
         recipe_tracking=checkout.tracking_ref is not None,
     )
     values = parse_inputs(manifest, namespace.set)
+    _confirm(
+        namespace,
+        manifest.package.name,
+        target,
+        "github-api",
+        lockfile,
+        manifest,
+    )
     temporary, package = build_package(root, manifest, lockfile, values)
 
     try:
@@ -139,7 +149,6 @@ def _install_checkout(
         if namespace.dry_run:
             return _emit_result(namespace, plan, None)
 
-        _confirm(namespace, manifest.package.name, target, "direct", lockfile)
         copied = materialize_checkout(
             checkout,
             target,
@@ -166,14 +175,23 @@ def _confirm(
     package_name: str,
     target: Path,
     trust: str,
-    lockfile: Any,
+    lockfile: Lockfile,
+    manifest: Manifest,
 ) -> None:
     build_enabled = lockfile.build is not None
+    build_network = bool(
+        manifest.build is not None and manifest.build.permissions.network
+    )
+    protected = ", ".join(manifest.update.backup) or "none"
     summary = (
         f"Source package: {package_name}\n"
         f"Trust: {trust}\n"
         f"Revision: {lockfile.recipe.revision if lockfile.recipe else 'local'}\n"
-        f"Build code: {'declared' if build_enabled else 'none/remote artifacts'}\n"
+        f"Build code: {'declared' if build_enabled else 'none'}\n"
+        f"Build network: {'enabled' if build_network else 'disabled'}\n"
+        f"Runtime image: {lockfile.runtime.image}\n"
+        f"Recipe files: {len(manifest.files)}\n"
+        f"Protected paths: {protected}\n"
         f"Writes: {target}\n"
         f"Downloads: {len(lockfile.sources)} artifact(s)"
     )

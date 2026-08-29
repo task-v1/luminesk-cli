@@ -67,7 +67,7 @@ before an unattended update.
 
 ```bash
 nesk validate --dir ./recipe --static --json --non-interactive
-nesk install OWNER/RECIPE --dir ./instance --dry-run --json --non-interactive
+nesk install OWNER/RECIPE --dir ./instance --dry-run --yes --json --non-interactive
 nesk status --dir ./instance --json --non-interactive
 ```
 

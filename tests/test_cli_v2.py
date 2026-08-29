@@ -4,8 +4,13 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from luminesk_cli.cli.entry import main
+from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
+from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.infrastructure import recipe as recipe_module
 from luminesk_cli.infrastructure.recipe import (
     GitRecipeSource,
@@ -46,7 +51,7 @@ def test_local_cli_install_emits_json_and_writes_instance(
 manifest_version = 1
 [package]
 name = "cli-fixture"
-version = "1.0.0"
+version = "2.0.0"
 [[sources]]
 id = "core"
 provider = "local-file"
@@ -121,3 +126,84 @@ def test_normal_checkout_uses_api_path_without_git(tmp_path: Path, monkeypatch) 
     )
 
     assert checkout_recipe(source, tmp_path / "recipe") == expected
+
+
+def test_remote_recipe_is_confirmed_before_build(tmp_path: Path, monkeypatch) -> None:
+    from luminesk_cli.cli.commands import install as install_command
+
+    manifest = parse_manifest(
+        b"""\
+manifest_version = 1
+[package]
+name = "remote-fixture"
+version = "2.0.0"
+[[sources]]
+id = "artifact"
+provider = "local-file"
+path = "artifact.bin"
+target = "server.bin"
+[runtime]
+driver = "docker"
+image = "example/server:2"
+command = ["server"]
+"""
+    )
+    lockfile = Lockfile(
+        manifest_digest=manifest.digest,
+        target="linux/amd64",
+        sources={},
+        runtime=RuntimeLock(image=f"example/server@sha256:{'a' * 64}"),
+        recipe=RecipeLock(
+            source="github:owner/repo",
+            revision="b" * 40,
+            ref="main",
+            tracking=True,
+        ),
+    )
+    source = GitRecipeSource(
+        canonical="github:owner/repo",
+        clone_url="https://github.com/owner/repo.git",
+        owner="owner",
+        repository="repo",
+        requested_ref="main",
+    )
+    checkout = RecipeCheckout(
+        root=tmp_path / "checkout",
+        source=source,
+        revision="b" * 40,
+        tracking_ref="main",
+        tracked_files=("luminesk.toml",),
+    )
+    events: list[str] = []
+    monkeypatch.setattr(install_command, "recipe", lambda root: (root, manifest))
+    monkeypatch.setattr(
+        install_command,
+        "resolve_lock",
+        lambda *args, **kwargs: lockfile,
+    )
+    monkeypatch.setattr(install_command, "parse_inputs", lambda *args: {})
+    monkeypatch.setattr(
+        install_command,
+        "_confirm",
+        lambda *args: events.append("confirm"),
+    )
+
+    def fail_build(*args):
+        events.append("build")
+        raise RuntimeError("build marker")
+
+    monkeypatch.setattr(install_command, "build_package", fail_build)
+    namespace = SimpleNamespace(
+        frozen=False,
+        set=[],
+        dry_run=True,
+        json=False,
+        yes=True,
+        non_interactive=True,
+        keep_git=False,
+    )
+
+    with pytest.raises(RuntimeError, match="build marker"):
+        install_command._install_checkout(namespace, checkout, tmp_path / "target")
+
+    assert events == ["confirm", "build"]
