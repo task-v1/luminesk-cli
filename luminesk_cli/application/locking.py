@@ -44,6 +44,8 @@ class LockService:
         *,
         recipe_source: str | None = None,
         recipe_revision: str | None = None,
+        recipe_ref: str | None = None,
+        recipe_tracking: bool = False,
         target: str | None = None,
     ) -> Lockfile:
         target_platform = target or current_platform()
@@ -77,7 +79,12 @@ class LockService:
                     "recipe source and revision must be provided together"
                 )
 
-            recipe = RecipeLock(source=recipe_source, revision=recipe_revision)
+            recipe = RecipeLock(
+                source=recipe_source,
+                revision=recipe_revision,
+                ref=recipe_ref,
+                tracking=recipe_tracking,
+            )
 
         return Lockfile(
             manifest_digest=manifest.digest,

@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -43,6 +45,7 @@ class SecureFetcher:
         expected_size: int | None = None,
         allow_http: bool = False,
         allow_private_network: bool = False,
+        headers: Mapping[str, str] | None = None,
     ) -> CachedBlob:
         if expected_digest is not None:
             cached = self.cache.restore(expected_digest)
@@ -65,6 +68,7 @@ class SecureFetcher:
                 expected_size=expected_size,
                 allow_http=allow_http,
                 allow_private_network=allow_private_network,
+                headers=headers,
             )
         finally:
             if owned_client:
@@ -80,6 +84,7 @@ class SecureFetcher:
         expected_size: int | None,
         allow_http: bool,
         allow_private_network: bool,
+        headers: Mapping[str, str] | None,
     ) -> CachedBlob:
         current_url = validate_remote_url(
             url,
@@ -87,11 +92,21 @@ class SecureFetcher:
             allow_private_network=allow_private_network,
             resolver=self._address_resolver,
         )
+        credential_host = urlsplit(current_url).hostname
 
         for redirect_count in range(MAX_REDIRECTS + 1):
+            request_headers = dict(headers or {})
+
+            if urlsplit(current_url).hostname != credential_host:
+                request_headers.pop("Authorization", None)
+                request_headers.pop("Cookie", None)
+
             try:
                 with client.stream(
-                    "GET", current_url, follow_redirects=False
+                    "GET",
+                    current_url,
+                    follow_redirects=False,
+                    headers=request_headers,
                 ) as response:
                     if response.is_redirect:
                         location = response.headers.get("location")

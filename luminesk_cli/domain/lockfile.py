@@ -30,6 +30,8 @@ MAX_LOCKFILE_SIZE = 4 * 1024 * 1024
 class RecipeLock:
     source: str
     revision: str
+    ref: str | None = None
+    tracking: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -87,6 +89,8 @@ class Lockfile:
             result["recipe"] = {
                 "source": self.recipe.source,
                 "revision": self.recipe.revision,
+                "ref": self.recipe.ref,
+                "tracking": self.recipe.tracking,
             }
 
         return result
@@ -209,13 +213,29 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
 
     if "recipe" in table:
         recipe_table = require_table(table["recipe"], "lockfile.recipe")
-        reject_unknown(recipe_table, {"source", "revision"}, "lockfile.recipe")
+        reject_unknown(
+            recipe_table,
+            {"source", "revision", "ref", "tracking"},
+            "lockfile.recipe",
+        )
         require_keys(recipe_table, {"source", "revision"}, "lockfile.recipe")
+        ref = recipe_table.get("ref")
+
+        if ref is not None:
+            ref = require_string(ref, "lockfile.recipe.ref")
+
+        tracking = recipe_table.get("tracking", False)
+
+        if not isinstance(tracking, bool):
+            raise ValidationError("lockfile.recipe.tracking must be a boolean")
+
         recipe = RecipeLock(
             source=require_string(recipe_table["source"], "lockfile.recipe.source"),
             revision=require_string(
                 recipe_table["revision"], "lockfile.recipe.revision"
             ),
+            ref=ref,
+            tracking=tracking,
         )
 
     return Lockfile(
