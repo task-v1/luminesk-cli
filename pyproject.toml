@@ -27,7 +27,6 @@ classifiers = [
   "Topic :: System :: Systems Administration",
 ]
 dependencies = [
-  "cyclopts>=4.20.0",
   "filelock>=3.20.3",
   "httpx>=0.28.1",
   "platformdirs>=4.10.0",
@@ -70,6 +69,7 @@ include = ["luminesk_cli*"]
   "*/build.marker",
   "*/luminesk.toml",
 ]
+"luminesk_cli.community_catalog" = ["recipes/*.toml"]
 
 [tool.uv]
 package = true

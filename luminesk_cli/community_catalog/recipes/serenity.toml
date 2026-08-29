@@ -1,0 +1,10 @@
+catalog_version = 1
+name = "serenity"
+namespace = "official"
+repository = "https://github.com/task-v1/luminesk-cli"
+manifest = "luminesk_cli/compatibility_recipes/serenity/luminesk.toml"
+maintainers = ["github:task-v1"]
+license = "GPL-3.0-or-later"
+trust = "official"
+description = "Serenity safe archive extraction recipe"
+type = "core"

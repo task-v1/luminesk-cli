@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     install = commands.add_parser(
         "install",
-        aliases=["i"],
+        aliases=["i", "create"],
         help="Install a local or Git recipe transactionally.",
     )
     install.add_argument("source", nargs="?", help="OWNER/REPO, Git URL, or local recipe.")
@@ -79,7 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(install)
     install.set_defaults(handler="luminesk_cli.cli.commands.install:run")
 
-    update = commands.add_parser("update", help="Resolve and apply updates transactionally.")
+    update = commands.add_parser(
+        "update",
+        aliases=["upgrade-core"],
+        help="Resolve and apply updates transactionally.",
+    )
     update.add_argument("component", nargs="?", help="Optional source id to update.")
     update.add_argument("--dir", default=None, help="Instance directory.")
     update.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
@@ -116,7 +120,28 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(cache_verify)
     cache_verify.set_defaults(handler="luminesk_cli.cli.commands.cache:verify")
 
-    doctor = commands.add_parser("doctor", help="Check required and optional tools.")
+    search = commands.add_parser(
+        "search",
+        aliases=["cores"],
+        help="Search the Git-backed recipe catalog.",
+    )
+    search.add_argument("query", nargs="?")
+    search.add_argument("--type", choices=["core", "template"], default=None)
+    search.add_argument("--catalog", default=None, help="Alternate catalog directory.")
+    _automation_options(search)
+    search.set_defaults(handler="luminesk_cli.cli.commands.catalog:search")
+
+    info = commands.add_parser("info", help="Show one catalog recipe.")
+    info.add_argument("name", help="NAME or NAMESPACE/NAME.")
+    info.add_argument("--catalog", default=None, help="Alternate catalog directory.")
+    _automation_options(info)
+    info.set_defaults(handler="luminesk_cli.cli.commands.catalog:info")
+
+    doctor = commands.add_parser(
+        "doctor",
+        aliases=["diagnostic"],
+        help="Check required and optional tools.",
+    )
     _automation_options(doctor)
     doctor.set_defaults(handler="luminesk_cli.cli.commands.doctor:run")
 
@@ -158,23 +183,49 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(attach)
     attach.set_defaults(handler="luminesk_cli.cli.commands.runtime:attach")
 
-    for name in (
-        "diagnostic",
-        "cores",
-        "create",
-        "upgrade-core",
-        "change-image",
-        "kill",
-        "delete",
-        "list",
-        "change-lang",
-    ):
-        legacy = commands.add_parser(name, help=f"Compatibility command: {name}.", add_help=False)
-        legacy.add_argument("legacy_args", nargs=argparse.REMAINDER)
-        legacy.set_defaults(
-            handler="luminesk_cli.cli.commands.legacy:run",
-            legacy_command=name,
-        )
+    change_image = commands.add_parser(
+        "change-image", help="Deprecated 1.x image compatibility command."
+    )
+    change_image.add_argument("target", nargs="?")
+    change_image.add_argument("--image", "-i")
+    _automation_options(change_image)
+    change_image.set_defaults(
+        handler="luminesk_cli.cli.commands.legacy:change_image"
+    )
+
+    kill = commands.add_parser("kill", help="Deprecated 1.x force-stop command.")
+    kill.add_argument("target", nargs="?")
+    kill.add_argument("--force", "-f", action="store_true")
+    _automation_options(kill)
+    kill.set_defaults(handler="luminesk_cli.cli.commands.legacy:kill")
+
+    delete = commands.add_parser(
+        "delete", help="Deprecated 1.x metadata removal command."
+    )
+    delete.add_argument("target", nargs="?")
+    delete.add_argument("--yes", "-y", action="store_true")
+    _automation_options(delete)
+    delete.set_defaults(handler="luminesk_cli.cli.commands.legacy:delete")
+
+    list_instances = commands.add_parser(
+        "list", help="List instances from the 1.x compatibility index."
+    )
+    list_instances.add_argument("--tag")
+    list_instances.add_argument("--status", choices=["running", "stopped"])
+    list_instances.add_argument("--core")
+    _automation_options(list_instances)
+    list_instances.set_defaults(
+        handler="luminesk_cli.cli.commands.legacy:list_instances"
+    )
+
+    change_language = commands.add_parser(
+        "change-lang", help="Deprecated 1.x language setting."
+    )
+    change_language.add_argument("language")
+    _automation_options(change_language)
+    change_language.set_defaults(
+        handler="luminesk_cli.cli.commands.legacy:change_language"
+    )
 
     return parser
 

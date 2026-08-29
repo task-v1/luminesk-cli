@@ -118,8 +118,6 @@ def _instance_root(value: str | None) -> Path:
 
 
 def _legacy(command: str, arguments: list[str]) -> int:
-    from luminesk_cli.cli.main import app, init_cli_language
+    from luminesk_cli.cli.commands.legacy import run_runtime
 
-    init_cli_language()
-    app([command, *arguments])
-    return 0
+    return run_runtime(command, arguments[0])
