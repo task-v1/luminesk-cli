@@ -44,7 +44,6 @@ You own every file inside `docs/`, including but not limited to:
 - Deployment guides
 - Troubleshooting guides
 - FAQ
-- Migration guides
 - Reference documentation
 
 Maintain a consistent writing style and structure throughout the documentation.
@@ -127,7 +126,7 @@ Whenever you edit documentation, also review nearby documentation for:
 - missing cross references;
 - missing examples;
 - missing configuration descriptions;
-- missing migration notes;
+- missing breaking-change notes;
 - missing troubleshooting information.
 
 Improve these issues proactively whenever reasonable.
@@ -191,7 +190,7 @@ The following are documentation defects:
 - Missing CLI documentation
 - Missing API documentation
 - Missing configuration descriptions
-- Missing migration instructions
+- Missing breaking-change documentation
 - Missing troubleshooting guidance
 - Undocumented limitations
 - Undocumented breaking changes

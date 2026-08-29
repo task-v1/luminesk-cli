@@ -5,7 +5,14 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-RETIRED_DIRECTORIES = {"core", "cores", "migration", "models", "utils"}
+RETIRED_DIRECTORIES = {
+    "compatibility_recipes",
+    "core",
+    "cores",
+    "migration",
+    "models",
+    "utils",
+}
 DOMAIN_FORBIDDEN_IMPORTS = {"filelock", "httpx", "platformdirs", "rich"}
 
 
@@ -16,8 +23,8 @@ def main() -> int:
     for directory in RETIRED_DIRECTORIES:
         retired = package / directory
 
-        if retired.exists() and any(retired.rglob("*.py")):
-            violations.append(f"retired 1.x directory exists: {directory}")
+        if retired.exists():
+            violations.append(f"retired package directory exists: {directory}")
 
     for path in package.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

@@ -6,7 +6,7 @@ sidebar_position: 7
 
 `luminesk.toml` is the only recipe entrypoint. Unknown keys are errors. The
 declaration `manifest_version = 1` is the current file-format revision used by
-Nesk 2.0; it is not a product compatibility switch.
+Nesk 2.0; it is not a product-version marker.
 
 ## Main tables
 

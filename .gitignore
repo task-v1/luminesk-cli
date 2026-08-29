@@ -22,7 +22,6 @@ sources/
 report/
 servers/
 workspaces/
-luminesk_cli-legacy/
 temp_*/
 
 # Docs

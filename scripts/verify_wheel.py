@@ -21,7 +21,14 @@ REQUIRED_RECIPE_IDS = {
     "pumpkin",
     "serenity",
 }
-RETIRED_DIRECTORIES = {"core", "cores", "migration", "models", "utils"}
+RETIRED_DIRECTORIES = {
+    "compatibility_recipes",
+    "core",
+    "cores",
+    "migration",
+    "models",
+    "utils",
+}
 RETIRED_DEPENDENCIES = {"cyclopts", "rich"}
 
 
@@ -61,7 +68,7 @@ def main(argv: list[str]) -> int:
         prefix = f"luminesk_cli/{directory}/"
 
         if any(name.startswith(prefix) for name in names):
-            raise SystemExit(f"wheel contains retired 1.x package: {directory}")
+            raise SystemExit(f"wheel contains retired package: {directory}")
 
     if any(name.endswith((".pyc", ".pyo")) for name in names):
         raise SystemExit("wheel contains bytecode files")

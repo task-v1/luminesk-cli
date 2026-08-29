@@ -1,4 +1,4 @@
-"""Canonical lockfile v1 models, parser, and crash-safe writer."""
+"""Canonical lockfile models, parser, and crash-safe writer."""
 
 from __future__ import annotations
 
