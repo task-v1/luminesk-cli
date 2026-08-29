@@ -1,81 +1,51 @@
 ---
-sidebar_position: 6
+sidebar_position: 8
 ---
 
 # Server Lifecycle
 
-This guide describes operational workflows after server creation.
-
-## First server setup flow
-
-1. Run `nesk diagnostic`.
-2. Create server with `nesk create ...`.
-3. Start server: `nesk start <tag>`.
-4. Attach logs if needed: `nesk attach <tag>`.
-5. Verify status with `nesk list`.
-
-## Daily operations flow
-
-### Start
+## Start and readiness
 
 ```bash
-nesk start <tag>
+nesk start --dir ./instance
 ```
 
-Use `--detached` for background start.
+Nesk creates a Docker container from the locked image and the recipe's explicit
+argv, mounts, ports, limits, user, restart policy, stop signal, and stop timeout.
+It then evaluates required readiness checks. A failed check stops/removes the
+new container, restores the previous runtime state, and returns a runtime error.
 
-### Attach logs
+`--no-wait` skips readiness and should be reserved for diagnosis.
+
+## Observe
 
 ```bash
-nesk attach <tag>
+nesk status --dir ./instance
+nesk logs --dir ./instance
+nesk logs --dir ./instance --follow
+nesk attach --dir ./instance
 ```
 
-### Check state
+`status` inspects Docker rather than trusting stale state. `attach` requires an
+interactive terminal. `logs --follow` cannot be combined with `--json`.
+
+## Stop and restart
 
 ```bash
-nesk list
-nesk list --status running
+nesk stop --dir ./instance
+nesk restart --dir ./instance
 ```
 
-### Stop gracefully
+Stop uses the declared signal and timeout. Restart performs the complete stop,
+start, and readiness sequence.
+
+## Locate and recover instances
+
+Runtime commands search the current directory and its parents for
+`luminesk.toml` when `--dir` is omitted. The global index can be rebuilt without
+guessing state:
 
 ```bash
-nesk stop <tag>
+nesk import /srv/minecraft --scan
+nesk recover --dir ./instance
 ```
-
-### Kill forcefully
-
-```bash
-nesk kill <tag>
-```
-
-### Delete stopped server
-
-```bash
-nesk delete <tag>
-```
-
-Use `--yes` to skip interactive confirmation.
-
-## Multi-server management flow
-
-Filter by tag, status, and core:
-
-```bash
-nesk list --tag my-server
-nesk list --status running
-nesk list --core nukkit
-```
-
-## Target resolution behavior
-
-Most runtime commands accept an optional tag:
-
-- if omitted, Luminesk-CLI resolves by current directory;
-- `stop` and `kill` can also target by PID.
-
-## Loop mode safety
-
-When started with `--loop`, server restarts automatically. Stopping loop-controlled servers may require `--force` depending on the exact control path.
-
-See [Runtime & Docker Model](/docs/runtime-and-docker) for details.

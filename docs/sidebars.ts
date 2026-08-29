@@ -14,12 +14,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Operations',
-      items: ['server-lifecycle', 'cores-and-upgrades', 'runtime-and-docker'],
+      items: ['recipes-and-updates', 'server-lifecycle', 'runtime-and-docker'],
     },
     {
       type: 'category',
-      label: 'Configuration',
-      items: ['configuration-and-language'],
+      label: 'Contracts',
+      items: ['manifest-and-lockfile'],
     },
     {
       type: 'category',

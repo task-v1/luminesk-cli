@@ -2,40 +2,35 @@
 sidebar_position: 12
 ---
 
-# Development & Contributing
+# Development and Contributing
 
-## Local setup
+Repository development uses uv and, unlike end-user recipe installation,
+naturally requires Git for source control.
 
 ```bash
 git clone https://github.com/task-v1/luminesk-cli
 cd luminesk-cli
-~/.local/bin/uv sync --locked --extra dev
+uv sync --locked --extra dev
 ```
 
-## Quality checks
+Run the complete local gate after code changes:
 
 ```bash
-~/.local/bin/uv run ruff check .
-~/.local/bin/uv run pytest
+uv run python scripts/format.py --fix
+uv run mypy .
+uv run pytest
 ```
 
-## Build smoke test
+Release-sensitive changes should also run:
 
 ```bash
-~/.local/bin/uv sync --locked --extra build
-~/.local/bin/uv run pyinstaller --onefile --name luminesk_cli luminesk_cli/__main__.py
+uv run python scripts/security_gate.py
+uv run python scripts/check_cold_path.py
+uv build
+uv run python scripts/verify_wheel.py dist/*.whl
 ```
 
-## Documentation maintenance checklist
-
-Before opening/updating a pull request:
-
-- [ ] Updated user-facing docs for any behavior/CLI/config/runtime changes.
-- [ ] Verified command names, aliases, options, and outcomes match implementation.
-- [ ] Added or updated troubleshooting entries for new failure modes.
-- [ ] Added cross-links to avoid duplicated or conflicting instructions.
-- [ ] Confirmed README links point to canonical docs pages.
-
-## Documentation ownership expectations
-
-Treat documentation changes as part of implementation completeness. If behavior changes and docs do not, the change is incomplete.
+Use conventional commits. Update user-facing docs, regression tests, and stable
+JSON behavior in the same change as any contract modification. CI separately
+checks formatting, typing, a cross-platform test matrix, branch coverage, wheel
+installation, security policy, documentation, and a real Docker lifecycle.
