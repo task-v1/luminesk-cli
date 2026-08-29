@@ -25,11 +25,11 @@ from luminesk_cli.infrastructure.sources.maven import MavenResolver
 
 
 def test_semver_constraints_and_stable_channel() -> None:
-    versions = ["v1.9.0", "v2.0.0-beta.1", "v2.0.0", "v3.0.0"]
+    versions = ["v2.0.0", "v2.1.0-beta.1", "v2.1.0", "v3.0.0"]
 
     assert version_matches("v2.0.0", ">=2.0.0,<3.0.0", "stable")
     assert not version_matches("v2.0.0-beta.1", None, "stable")
-    assert select_highest_version(versions, ">=1.0.0,<3.0.0", "stable") == "v2.0.0"
+    assert select_highest_version(versions, ">=2.0.0,<3.0.0", "stable") == "v2.1.0"
 
 
 def test_github_release_requires_unambiguous_asset() -> None:
@@ -72,7 +72,7 @@ def test_local_source_lock_has_real_digest(tmp_path: Path) -> None:
 manifest_version = 1
 [package]
 name = "local-server"
-version = "1.0.0"
+version = "2.0.0"
 [[sources]]
 id = "core"
 provider = "local-file"

@@ -24,8 +24,8 @@ def make_lockfile() -> Lockfile:
         sources={
             "core": ResolvedSource(
                 provider="http",
-                version="1.0.0",
-                source_revision="1.0.0",
+                version="2.0.0",
+                source_revision="2.0.0",
                 url="https://example.org/server.jar",
                 size=42,
                 digest=f"sha256:{'b' * 64}",

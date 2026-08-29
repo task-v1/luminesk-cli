@@ -62,14 +62,14 @@ retain_backups = 2
 
 
 def test_install_is_transactional_and_idempotent(tmp_path: Path) -> None:
-    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"version one")
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"initial")
     target = tmp_path / "instance"
     installer = TransactionalInstaller()
 
     plan, state = installer.install(manifest, lockfile, package, target)
 
     assert state is not None
-    assert (target / "server.jar").read_bytes() == b"version one"
+    assert (target / "server.jar").read_bytes() == b"initial"
     assert (target / ".luminesk_cli/state.json").is_file()
     assert (target / ".luminesk_cli/ownership.json").is_file()
     assert not (target / ".luminesk_cli/transaction.json").exists()
@@ -84,14 +84,14 @@ def test_install_is_transactional_and_idempotent(tmp_path: Path) -> None:
 
 def test_install_refuses_to_overwrite_user_drift(tmp_path: Path) -> None:
     first_manifest, first_lock, first_package = make_package(
-        tmp_path, "1.0.0", b"version one"
+        tmp_path, "2.0.0", b"initial"
     )
     target = tmp_path / "instance"
     installer = TransactionalInstaller()
     installer.install(first_manifest, first_lock, first_package, target)
     (target / "server.jar").write_bytes(b"user modified")
     second_manifest, second_lock, second_package = make_package(
-        tmp_path, "2.0.0", b"version two"
+        tmp_path, "2.1.0", b"replacement"
     )
 
     with pytest.raises(ConflictError, match="conflicts"):
@@ -108,14 +108,14 @@ def test_install_refuses_to_overwrite_user_drift(tmp_path: Path) -> None:
 
 def test_failed_update_restores_files_and_metadata(tmp_path: Path) -> None:
     first_manifest, first_lock, first_package = make_package(
-        tmp_path, "1.0.0", b"version one"
+        tmp_path, "2.0.0", b"initial"
     )
     target = tmp_path / "instance"
     TransactionalInstaller().install(first_manifest, first_lock, first_package, target)
     old_state = load_state(target)
     old_ownership = load_ownership(target)
     second_manifest, second_lock, second_package = make_package(
-        tmp_path, "2.0.0", b"version two"
+        tmp_path, "2.1.0", b"replacement"
     )
 
     def fail_after_first_write(path: str) -> None:
@@ -131,14 +131,14 @@ def test_failed_update_restores_files_and_metadata(tmp_path: Path) -> None:
             target,
         )
 
-    assert (target / "server.jar").read_bytes() == b"version one"
+    assert (target / "server.jar").read_bytes() == b"initial"
     assert load_state(target) == old_state
     assert load_ownership(target) == old_ownership
     assert not (target / ".luminesk_cli/transaction.json").exists()
 
 
 def test_dry_run_does_not_create_target(tmp_path: Path) -> None:
-    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"server")
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"server")
     target = tmp_path / "missing-instance"
 
     plan, state = TransactionalInstaller().install(
@@ -157,7 +157,7 @@ def test_dry_run_does_not_create_target(tmp_path: Path) -> None:
 def test_failed_post_install_check_rolls_back_new_instance(tmp_path: Path) -> None:
     from dataclasses import replace
 
-    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"server")
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"server")
     manifest = replace(
         manifest,
         checks=(
@@ -181,7 +181,7 @@ def test_failed_post_install_check_rolls_back_new_instance(tmp_path: Path) -> No
 def test_installer_rejects_package_bound_to_another_lock(tmp_path: Path) -> None:
     from dataclasses import replace
 
-    manifest, lockfile, package = make_package(tmp_path, "1.0.0", b"server")
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"server")
     package = replace(
         package,
         metadata=replace(

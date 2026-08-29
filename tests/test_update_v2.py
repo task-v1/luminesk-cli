@@ -110,7 +110,7 @@ class FailingThenRecoveringRuntime:
 
 def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> None:
     old_recipe, old_manifest, old_lock, old_package = make_release(
-        tmp_path, "1.0.0", b"working"
+        tmp_path, "2.0.0", b"working"
     )
     target = tmp_path / "instance"
     target.mkdir()
@@ -131,7 +131,7 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
         ),
     )
     write_state(target, old_state)
-    _, new_manifest, new_lock, new_package = make_release(tmp_path, "2.0.0", b"broken")
+    _, new_manifest, new_lock, new_package = make_release(tmp_path, "2.1.0", b"broken")
     runtime = FailingThenRecoveringRuntime(new_package.digest)
     service = UpdateService(runtime=runtime)  # type: ignore[arg-type]
 

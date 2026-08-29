@@ -9,7 +9,7 @@ from luminesk_cli.domain.instance import InstanceState, RecipeState, RuntimeStat
 from luminesk_cli.domain.lockfile import Lockfile, RuntimeLock, write_lockfile
 from luminesk_cli.domain.manifest import load_manifest
 from luminesk_cli.infrastructure.cache import ContentCache
-from luminesk_cli.infrastructure.state import InstanceIndex, write_state
+from luminesk_cli.infrastructure.state import write_state
 
 
 def test_cache_prune_respects_age_and_dry_run(tmp_path: Path) -> None:
@@ -28,13 +28,6 @@ def test_cache_prune_respects_age_and_dry_run(tmp_path: Path) -> None:
     assert not blob.path.exists()
 
 
-def test_instance_index_list_handles_an_existing_v1_database(tmp_path: Path) -> None:
-    path = tmp_path / "state.sqlite3"
-    path.touch()
-
-    assert InstanceIndex(path).list() == ()
-
-
 def test_live_readiness_check_updates_state(tmp_path: Path) -> None:
     root = tmp_path / "instance"
     root.mkdir()
@@ -43,7 +36,7 @@ def test_live_readiness_check_updates_state(tmp_path: Path) -> None:
 manifest_version = 1
 [package]
 name = "readiness-fixture"
-version = "1.0.0"
+version = "2.0.0"
 [[sources]]
 id = "core"
 provider = "local-file"

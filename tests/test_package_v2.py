@@ -25,7 +25,7 @@ def test_declarative_build_creates_verified_deterministic_package(
 manifest_version = 1
 [package]
 name = "fixture-server"
-version = "1.0.0"
+version = "2.0.0"
 [inputs.name]
 type = "string"
 default = "Nesk"
@@ -83,7 +83,7 @@ def test_template_rejects_environment_interpolation(tmp_path: Path) -> None:
 manifest_version = 1
 [package]
 name = "fixture-server"
-version = "1.0.0"
+version = "2.0.0"
 [[sources]]
 id = "core"
 provider = "local-file"

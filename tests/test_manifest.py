@@ -10,7 +10,7 @@ manifest_version = 1
 
 [package]
 name = "pnx-basic"
-version = "1.0.0"
+version = "2.0.0"
 platforms = ["linux/amd64", "linux/arm64"]
 
 [inputs.port]
@@ -59,7 +59,7 @@ def test_parse_valid_manifest() -> None:
     [
         (b"manifest_version = 1", b"manifest_version = 2", "manifest_version"),
         (b'name = "pnx-basic"', b'name = "PNX Basic"', "package.name"),
-        (b'version = "1.0.0"', b'version = "latest"', "package.version"),
+        (b'version = "2.0.0"', b'version = "latest"', "package.version"),
         (b'target = "server.jar"', b'target = "../server.jar"', "target"),
         (
             b'command = ["java", "-jar", "server.jar"]',
