@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from luminesk_cli.application.runtime import DockerRuntime, build_run_argv
+from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.instance import (
     InstanceState,
     RecipeState,
     RuntimeState,
 )
 from luminesk_cli.domain.lockfile import Lockfile, RuntimeLock, write_lockfile
-from luminesk_cli.domain.manifest import load_manifest
+from luminesk_cli.domain.manifest import Check, load_manifest
 from luminesk_cli.infrastructure.state import load_state, write_state
 
 MANIFEST = '''\
@@ -137,3 +141,70 @@ def test_runtime_start_records_container_and_readiness(tmp_path: Path) -> None:
     assert load_state(root) == state
     run_call = next(call for call in calls if call[1] == "run")
     assert run_call[-1] == "server.jar; echo not-a-shell"
+
+
+def test_command_readiness_runs_argv_inside_container(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    _, state = prepare_instance(root)
+    state = replace(
+        state,
+        runtime=RuntimeState(container_id="container-id", status="running"),
+    )
+    manifest = load_manifest(root / "luminesk.toml")
+    manifest = replace(
+        manifest,
+        checks=(
+            Check(
+                id="command-ready",
+                phase="readiness",
+                kind="command",
+                command=("test", "argument;not-shell"),
+                timeout=1,
+            ),
+        ),
+    )
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(tuple(argv))
+        output = "true\n" if argv[1] == "inspect" else ""
+        return subprocess.CompletedProcess(argv, 0, output, "")
+
+    DockerRuntime(runner=runner).wait_ready(root, manifest, state, {})
+
+    assert (
+        "docker",
+        "exec",
+        "container-id",
+        "test",
+        "argument;not-shell",
+    ) in calls
+
+
+def test_tcp_readiness_cannot_probe_remote_hosts(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    _, state = prepare_instance(root)
+    state = replace(
+        state,
+        runtime=RuntimeState(container_id="container-id", status="running"),
+    )
+    manifest = load_manifest(root / "luminesk.toml")
+    manifest = replace(
+        manifest,
+        checks=(
+            Check(
+                id="unsafe-probe",
+                phase="readiness",
+                kind="tcp",
+                host="192.168.1.1",
+                port=22,
+                timeout=1,
+            ),
+        ),
+    )
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 0, "true\n", "")
+
+    with pytest.raises(ValidationError, match="loopback"):
+        DockerRuntime(runner=runner).wait_ready(root, manifest, state, {})

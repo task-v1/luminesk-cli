@@ -268,6 +268,7 @@ class DockerRuntime:
 
             if check.kind == "tcp" and check.port is not None:
                 host = _interpolate(check.host or "127.0.0.1", values)
+                _validate_readiness_host(host)
                 port = int(_interpolate(str(check.port), values))
 
                 try:
@@ -276,14 +277,29 @@ class DockerRuntime:
                 except OSError:
                     pass
 
+            if check.kind == "command" and check.command:
+                result = self._run(
+                    [
+                        "docker",
+                        "exec",
+                        identifier,
+                        *(_interpolate(argument, values) for argument in check.command),
+                    ],
+                    check=False,
+                )
+
+                if result.returncode == 0:
+                    return
+
             time.sleep(0.25)
 
         if check.kind == "log-regex":
             _save_readiness_logs(root, check.id, last_logs)
 
-        raise RuntimeOperationError(
-            f"readiness check {check.id} timed out", timeout=check.timeout
-        )
+        if check.required:
+            raise RuntimeOperationError(
+                f"readiness check {check.id} timed out", timeout=check.timeout
+            )
 
     def _run(
         self,
@@ -413,6 +429,25 @@ def _interpolate(value: str, inputs: Mapping[str, str | int | bool]) -> str:
         return str(inputs[name])
 
     return pattern.sub(replace_input, value)
+
+
+def _validate_readiness_host(host: str) -> None:
+    import ipaddress
+
+    if host.lower() == "localhost":
+        return
+
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError as exc:
+        raise ValidationError(
+            "TCP readiness host must be localhost or a loopback address"
+        ) from exc
+
+    if not address.is_loopback:
+        raise ValidationError(
+            "TCP readiness host must be localhost or a loopback address"
+        )
 
 
 def _load_instance(root: Path) -> tuple[InstanceState, Manifest]:

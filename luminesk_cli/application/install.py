@@ -11,7 +11,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from luminesk_cli.domain.errors import ConflictError, TransactionError
+from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
 from luminesk_cli.domain.instance import (
     InstanceState,
     OwnershipEntry,
@@ -20,7 +20,7 @@ from luminesk_cli.domain.instance import (
     RuntimeState,
 )
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, write_lockfile
-from luminesk_cli.domain.manifest import Manifest
+from luminesk_cli.domain.manifest import Check, Manifest
 from luminesk_cli.domain.package import PackageFile, ServerPackage
 from luminesk_cli.domain.plan import Plan, PlanChange
 from luminesk_cli.domain.primitives import safe_relative_path
@@ -77,6 +77,7 @@ class TransactionalInstaller:
         prune_backups: bool = True,
     ) -> tuple[Plan, InstanceState | None]:
         root = target.resolve()
+        _validate_package_binding(manifest, lockfile, package)
         old_state = load_state(root)
 
         if old_state is not None and old_state.pending_transaction is not None:
@@ -147,6 +148,7 @@ class TransactionalInstaller:
 
         try:
             _apply_plan(root, payload, plan, package.metadata.files, self.apply_hook)
+            _run_post_install_checks(root, manifest.checks)
             new_ownership = _create_ownership(package.metadata.files, root)
             write_lockfile(root / LOCKFILE_NAME, lockfile)
             write_ownership(root, new_ownership)
@@ -178,6 +180,24 @@ class TransactionalInstaller:
             self.index.register(committed_state)
 
         return plan, committed_state
+
+
+def _validate_package_binding(
+    manifest: Manifest,
+    lockfile: Lockfile,
+    package: ServerPackage,
+) -> None:
+    if lockfile.manifest_digest != manifest.digest:
+        raise ValidationError("lockfile does not match manifest")
+
+    if package.metadata.manifest_digest != manifest.digest:
+        raise ValidationError("package does not match manifest")
+
+    if package.metadata.lock_digest != lockfile.digest:
+        raise ValidationError("package does not match lockfile")
+
+    if package.metadata.target != lockfile.target:
+        raise ValidationError("package target does not match lockfile")
 
 
 def _plan_changes(
@@ -311,6 +331,21 @@ def _apply_plan(
 
         if hook is not None and change.action not in {"preserve", "conflict"}:
             hook(change.path)
+
+
+def _run_post_install_checks(root: Path, checks: tuple[Check, ...]) -> None:
+    for check in checks:
+        if check.phase != "post-install" or check.kind != "file":
+            continue
+
+        assert check.path is not None
+        target = root / check.path
+
+        if check.required and (not target.is_file() or target.is_symlink()):
+            raise TransactionError(
+                f"required post-install check failed: {check.id}",
+                path=check.path,
+            )
 
 
 def _backup_transaction_files(

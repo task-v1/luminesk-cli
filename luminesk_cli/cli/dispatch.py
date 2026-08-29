@@ -51,6 +51,8 @@ def dispatch(command: ParsedCommand) -> int:
                 )
             )
         else:
-            print(f"error [{code.name.lower()}]: {message}")
+            from luminesk_cli.cli.commands.common import sanitize
+
+            print(f"error [{code.name.lower()}]: {sanitize(message)}")
 
         return int(code)

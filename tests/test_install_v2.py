@@ -6,9 +6,9 @@ import pytest
 
 from luminesk_cli.application.install import TransactionalInstaller
 from luminesk_cli.application.locking import LockService
-from luminesk_cli.domain.errors import ConflictError, TransactionError
+from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
-from luminesk_cli.domain.manifest import Manifest, parse_manifest
+from luminesk_cli.domain.manifest import Check, Manifest, parse_manifest
 from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
@@ -156,3 +156,52 @@ def test_dry_run_does_not_create_target(tmp_path: Path) -> None:
     assert plan.operation == "install"
     assert state is None
     assert not target.exists()
+
+
+def test_failed_post_install_check_rolls_back_new_instance(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    manifest, lockfile, package = make_package(
+        tmp_path, "1.0.0", b"server"
+    )
+    manifest = replace(
+        manifest,
+        checks=(
+            Check(
+                id="missing",
+                phase="post-install",
+                kind="file",
+                path="required.txt",
+            ),
+        ),
+    )
+    target = tmp_path / "failed-instance"
+
+    with pytest.raises(TransactionError, match="rolled back"):
+        TransactionalInstaller().install(manifest, lockfile, package, target)
+
+    assert not (target / "server.jar").exists()
+    assert load_state(target) is None
+
+
+def test_installer_rejects_package_bound_to_another_lock(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    manifest, lockfile, package = make_package(
+        tmp_path, "1.0.0", b"server"
+    )
+    package = replace(
+        package,
+        metadata=replace(
+            package.metadata,
+            lock_digest=f"sha256:{'f' * 64}",
+        ),
+    )
+
+    with pytest.raises(ValidationError, match="lockfile"):
+        TransactionalInstaller().install(
+            manifest,
+            lockfile,
+            package,
+            tmp_path / "instance",
+        )

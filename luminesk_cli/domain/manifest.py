@@ -35,7 +35,9 @@ SOURCE_PROVIDERS = frozenset(
 )
 FILE_MODES = frozenset({"managed", "preserve", "generated", "data"})
 CHECK_PHASES = frozenset({"post-build", "post-install", "readiness"})
-CHECK_KINDS = frozenset({"file", "process-alive", "log-regex", "tcp"})
+CHECK_KINDS = frozenset(
+    {"file", "process-alive", "log-regex", "tcp", "command"}
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -160,6 +162,7 @@ class Check:
     pattern: str | None = None
     host: str | None = None
     port: int | str | None = None
+    command: tuple[str, ...] = ()
     timeout: int = 30
 
 
@@ -665,7 +668,18 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
         table = require_table(raw_check, path)
         reject_unknown(
             table,
-            {"id", "phase", "kind", "required", "path", "pattern", "host", "port", "timeout"},
+            {
+                "id",
+                "phase",
+                "kind",
+                "required",
+                "path",
+                "pattern",
+                "host",
+                "port",
+                "command",
+                "timeout",
+            },
             path,
         )
         require_keys(table, {"id", "phase", "kind"}, path)
@@ -697,6 +711,22 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
         if kind == "log-regex" and pattern is None:
             fail(path, "log-regex checks require pattern")
 
+        command = tuple(
+            require_string(item, f"{path}.command[{command_index}]")
+            for command_index, item in enumerate(
+                require_array(table.get("command", []), f"{path}.command")
+            )
+        )
+
+        if kind == "command" and not command:
+            fail(path, "command checks require a non-empty argv array")
+
+        if phase in {"post-build", "post-install"} and kind != "file":
+            fail(path, f"{phase} currently supports only file checks")
+
+        if phase == "readiness" and kind == "file":
+            fail(path, "readiness file checks must use post-install phase")
+
         port = table.get("port")
 
         if port is not None:
@@ -712,6 +742,7 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
                 pattern=pattern,
                 host=optional_string(table, "host", path),
                 port=port,
+                command=command,
                 timeout=require_int(table.get("timeout", 30), f"{path}.timeout", minimum=1),
             )
         )
