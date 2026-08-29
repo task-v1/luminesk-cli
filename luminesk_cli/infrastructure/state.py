@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -132,7 +133,7 @@ class InstanceIndex:
     def register(self, state: InstanceState) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-        with sqlite3.connect(self.path, timeout=30) as connection:
+        with closing(sqlite3.connect(self.path, timeout=30)) as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA busy_timeout=30000")
             connection.execute(
@@ -160,7 +161,7 @@ class InstanceIndex:
         if not self.path.exists():
             return ()
 
-        with sqlite3.connect(self.path, timeout=30) as connection:
+        with closing(sqlite3.connect(self.path, timeout=30)) as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS instances_v2 (
