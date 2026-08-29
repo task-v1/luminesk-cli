@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import uuid
@@ -22,6 +23,7 @@ from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, write_lockfile
 from luminesk_cli.domain.manifest import Manifest
 from luminesk_cli.domain.package import PackageFile, ServerPackage
 from luminesk_cli.domain.plan import Plan, PlanChange
+from luminesk_cli.domain.primitives import safe_relative_path
 from luminesk_cli.infrastructure.cache import digest_file
 from luminesk_cli.infrastructure.package import extract_package
 from luminesk_cli.infrastructure.state import (
@@ -71,6 +73,8 @@ class TransactionalInstaller:
         tag: str | None = None,
         inputs: Mapping[str, str | int | bool] | None = None,
         dry_run: bool = False,
+        transaction_id: str | None = None,
+        prune_backups: bool = True,
     ) -> tuple[Plan, InstanceState | None]:
         root = target.resolve()
         old_state = load_state(root)
@@ -94,7 +98,7 @@ class TransactionalInstaller:
         if dry_run:
             return plan, old_state
 
-        transaction_id = uuid.uuid4().hex
+        transaction_id = transaction_id or uuid.uuid4().hex
         local_state = state_directory(root)
         staging = local_state / "staging" / transaction_id
         payload = staging / "payload"
@@ -167,7 +171,8 @@ class TransactionalInstaller:
                 transaction=transaction_id,
             ) from exc
 
-        _prune_backups(local_state / "backups", manifest.update.retain_backups)
+        if prune_backups:
+            prune_instance_backups(root, manifest.update.retain_backups)
 
         if self.index is not None:
             self.index.register(committed_state)
@@ -314,6 +319,19 @@ def _backup_transaction_files(
     plan: Plan,
     manifest: Manifest,
 ) -> None:
+    backup.mkdir(parents=True, exist_ok=True)
+    atomic_write(
+        backup / "install-plan.json",
+        canonical_json_bytes(
+            {
+                "planVersion": 1,
+                "changes": [
+                    {"action": change.action, "path": change.path}
+                    for change in plan.changes
+                ],
+            }
+        ),
+    )
     paths = {
         change.path
         for change in plan.changes
@@ -444,7 +462,9 @@ def _new_state(
     )
 
 
-def _prune_backups(directory: Path, retain: int) -> None:
+def prune_instance_backups(root: Path, retain: int) -> None:
+    directory = state_directory(root) / "backups"
+
     if not directory.exists():
         return
 
@@ -456,6 +476,71 @@ def _prune_backups(directory: Path, retain: int) -> None:
 
     for old_backup in backups[retain:]:
         shutil.rmtree(old_backup)
+
+
+def restore_install_backup(root: Path, backup: Path) -> None:
+    plan_path = backup / "install-plan.json"
+
+    if not plan_path.is_file():
+        raise TransactionError("backup has no install plan", backup=str(backup))
+
+    try:
+        raw_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        raw_changes = raw_plan["changes"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise TransactionError("backup install plan is invalid") from exc
+
+    if not isinstance(raw_changes, list):
+        raise TransactionError("backup install changes must be an array")
+
+    for raw_change in reversed(raw_changes):
+        if not isinstance(raw_change, dict):
+            raise TransactionError("backup install change is invalid")
+
+        action = raw_change.get("action")
+        relative = raw_change.get("path")
+
+        if not isinstance(action, str) or not isinstance(relative, str):
+            raise TransactionError("backup install change is invalid")
+
+        safe_path = safe_relative_path(relative, "install.backup.path")
+        target = root / safe_path
+        saved = backup / "payload" / safe_path
+
+        if saved.exists():
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink(missing_ok=True)
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+
+            if saved.is_dir():
+                shutil.copytree(saved, target)
+            else:
+                shutil.copy2(saved, target)
+        elif action == "create":
+            if target.is_dir():
+                try:
+                    target.rmdir()
+                except OSError:
+                    pass
+            else:
+                target.unlink(missing_ok=True)
+
+    metadata = backup / "metadata"
+
+    for name, destination in (
+        (LOCKFILE_NAME, root / LOCKFILE_NAME),
+        (STATE_FILE, state_directory(root) / STATE_FILE),
+        (OWNERSHIP_FILE, state_directory(root) / OWNERSHIP_FILE),
+    ):
+        saved = metadata / name
+
+        if saved.is_file():
+            atomic_write(destination, saved.read_bytes())
+        else:
+            destination.unlink(missing_ok=True)
 
 
 def _persisted_inputs(

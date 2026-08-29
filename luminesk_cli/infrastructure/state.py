@@ -20,6 +20,7 @@ from luminesk_cli.domain.instance import (
 LOCAL_STATE_DIRECTORY = ".luminesk_cli"
 STATE_FILE = "state.json"
 OWNERSHIP_FILE = "ownership.json"
+RECIPE_OWNERSHIP_FILE = "recipe-ownership.json"
 
 
 def canonical_json_bytes(value: dict[str, Any]) -> bytes:
@@ -95,6 +96,22 @@ def load_ownership(root: Path) -> OwnershipLedger:
 def write_ownership(root: Path, ledger: OwnershipLedger) -> None:
     atomic_write(
         state_directory(root) / OWNERSHIP_FILE,
+        canonical_json_bytes(ledger.to_dict()),
+    )
+
+
+def load_recipe_ownership(root: Path) -> OwnershipLedger:
+    path = state_directory(root) / RECIPE_OWNERSHIP_FILE
+
+    if not path.exists():
+        return OwnershipLedger(files={})
+
+    return parse_ownership(path.read_bytes())
+
+
+def write_recipe_ownership(root: Path, ledger: OwnershipLedger) -> None:
+    atomic_write(
+        state_directory(root) / RECIPE_OWNERSHIP_FILE,
         canonical_json_bytes(ledger.to_dict()),
     )
 

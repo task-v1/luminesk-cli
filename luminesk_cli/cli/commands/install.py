@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from luminesk_cli.application.install import TransactionalInstaller
+from luminesk_cli.application.recipe_update import record_recipe_ownership
 from luminesk_cli.cli.commands.common import (
     build_package,
     emit,
@@ -22,7 +23,11 @@ from luminesk_cli.infrastructure.recipe import (
     materialize_checkout,
     normalize_git_source,
 )
-from luminesk_cli.infrastructure.state import InstanceIndex
+from luminesk_cli.infrastructure.state import (
+    RECIPE_OWNERSHIP_FILE,
+    InstanceIndex,
+    state_directory,
+)
 
 
 def run(namespace: Any) -> int:
@@ -137,12 +142,14 @@ def _install_checkout(
             target,
             keep_git=namespace.keep_git,
         )
+        record_recipe_ownership(checkout, target)
 
         try:
             plan, state = TransactionalInstaller(
                 index=InstanceIndex(index_path())
             ).install(manifest, lockfile, package, target, inputs=values)
         except BaseException:
+            (state_directory(target) / RECIPE_OWNERSHIP_FILE).unlink(missing_ok=True)
             cleanup_materialized(target, copied)
             raise
 

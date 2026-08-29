@@ -79,6 +79,30 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(install)
     install.set_defaults(handler="luminesk_cli.cli.commands.install:run")
 
+    update = commands.add_parser("update", help="Resolve and apply updates transactionally.")
+    update.add_argument("component", nargs="?", help="Optional source id to update.")
+    update.add_argument("--dir", default=None, help="Instance directory.")
+    update.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    update.add_argument("--dry-run", action="store_true")
+    update.add_argument("--yes", action="store_true")
+    _automation_options(update)
+    update.set_defaults(handler="luminesk_cli.cli.commands.update:run")
+
+    outdated = commands.add_parser("outdated", help="Show available updates.")
+    outdated.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(outdated)
+    outdated.set_defaults(handler="luminesk_cli.cli.commands.update:outdated")
+
+    diff = commands.add_parser("diff", help="Show recipe and managed-file drift.")
+    diff.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(diff)
+    diff.set_defaults(handler="luminesk_cli.cli.commands.update:diff")
+
+    recover = commands.add_parser("recover", help="Roll back an interrupted transaction.")
+    recover.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(recover)
+    recover.set_defaults(handler="luminesk_cli.cli.commands.update:recover")
+
     cache = commands.add_parser("cache", help="Inspect the content-addressed cache.")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
     cache_verify = cache_commands.add_parser("verify", help="Verify every cached blob.")
