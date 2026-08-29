@@ -8,6 +8,7 @@ import httpx
 
 from luminesk_cli.domain.errors import ResolutionError, SecurityError
 from luminesk_cli.domain.lockfile import (
+    BuildLock,
     Lockfile,
     RecipeLock,
     ResolvedSource,
@@ -15,6 +16,7 @@ from luminesk_cli.domain.lockfile import (
 )
 from luminesk_cli.domain.manifest import Manifest, SourceSpec
 from luminesk_cli.infrastructure.cache import ContentCache
+from luminesk_cli.infrastructure.dockerfile import resolve_build_images
 from luminesk_cli.infrastructure.fetch import SecureFetcher
 from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.platform import current_platform
@@ -92,6 +94,17 @@ class LockService:
             target=target_platform,
             sources=sources,
             runtime=RuntimeLock(image=self.image_resolver.resolve(manifest.runtime.image)),
+            build=(
+                BuildLock(
+                    images=resolve_build_images(
+                        recipe_root,
+                        manifest.build,
+                        self.image_resolver,
+                    )
+                )
+                if manifest.build is not None
+                else None
+            ),
             recipe=recipe,
         )
 

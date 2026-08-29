@@ -52,11 +52,17 @@ class RuntimeLock:
 
 
 @dataclass(slots=True, frozen=True)
+class BuildLock:
+    images: dict[str, str]
+
+
+@dataclass(slots=True, frozen=True)
 class Lockfile:
     manifest_digest: str
     target: str
     sources: dict[str, ResolvedSource]
     runtime: RuntimeLock
+    build: BuildLock | None = None
     recipe: RecipeLock | None = None
     lockfile_version: int = LOCKFILE_VERSION
 
@@ -84,6 +90,9 @@ class Lockfile:
             },
             "runtime": {"image": self.runtime.image},
         }
+
+        if self.build is not None:
+            result["build"] = {"images": dict(sorted(self.build.images.items()))}
 
         if self.recipe is not None:
             result["recipe"] = {
@@ -181,7 +190,15 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
     table = require_table(raw, "lockfile")
     reject_unknown(
         table,
-        {"lockfileVersion", "manifestDigest", "recipe", "target", "sources", "runtime"},
+        {
+            "lockfileVersion",
+            "manifestDigest",
+            "recipe",
+            "target",
+            "sources",
+            "runtime",
+            "build",
+        },
         "lockfile",
     )
     require_keys(
@@ -238,6 +255,29 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
             tracking=tracking,
         )
 
+    build = None
+
+    if "build" in table:
+        build_table = require_table(table["build"], "lockfile.build")
+        reject_unknown(build_table, {"images"}, "lockfile.build")
+        require_keys(build_table, {"images"}, "lockfile.build")
+        images_table = require_table(build_table["images"], "lockfile.build.images")
+        images = {}
+
+        for original, pinned_value in images_table.items():
+            pinned = require_string(
+                pinned_value, f"lockfile.build.images.{original}"
+            )
+
+            if "@sha256:" not in pinned:
+                raise ValidationError(
+                    f"lockfile.build.images.{original} must be pinned by sha256 digest"
+                )
+
+            images[original] = pinned
+
+        build = BuildLock(images=images)
+
     return Lockfile(
         manifest_digest=validate_digest(
             table["manifestDigest"], "lockfile.manifestDigest"
@@ -245,6 +285,7 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
         target=require_string(table["target"], "lockfile.target"),
         sources=sources,
         runtime=RuntimeLock(image=image),
+        build=build,
         recipe=recipe,
     )
 

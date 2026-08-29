@@ -246,6 +246,7 @@ def _select_component(
             target=new.target,
             sources=old.sources,
             runtime=new.runtime,
+            build=old.build,
             recipe=new.recipe,
         )
 
@@ -258,6 +259,7 @@ def _select_component(
         target=new.target,
         sources=sources,
         runtime=old.runtime,
+        build=old.build,
         recipe=new.recipe,
     )
 

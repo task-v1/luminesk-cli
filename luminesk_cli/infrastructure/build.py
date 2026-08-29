@@ -7,6 +7,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -15,7 +16,12 @@ from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.manifest import Build, Check, FileSpec, Manifest
 from luminesk_cli.domain.package import PackageFile, PackageMetadata, ServerPackage
 from luminesk_cli.infrastructure.cache import ContentCache, digest_file
-from luminesk_cli.infrastructure.package import write_package
+from luminesk_cli.infrastructure.dockerfile import rewrite_dockerfile
+from luminesk_cli.infrastructure.package import (
+    MAX_PACKAGE_FILES,
+    MAX_PACKAGE_SIZE,
+    write_package,
+)
 from luminesk_cli.infrastructure.security.archive import ArchiveLimits, extract_archive
 
 MAX_BUILD_CONTEXT_FILES = 20_000
@@ -25,7 +31,13 @@ MAX_BUILD_CONTEXT_SIZE = 1024 * 1024 * 1024
 class DockerfileBuilder:
     """Run a declared Dockerfile without host mounts, socket, or privileges."""
 
-    def build(self, recipe_root: Path, spec: Build, destination: Path) -> None:
+    def build(
+        self,
+        recipe_root: Path,
+        spec: Build,
+        destination: Path,
+        images: dict[str, str],
+    ) -> None:
         with tempfile.TemporaryDirectory(prefix="nesk-build-context-") as context_name:
             context = Path(context_name)
             _copy_build_context(recipe_root, context)
@@ -37,17 +49,33 @@ class DockerfileBuilder:
                     path=spec.file,
                 )
 
+            pinned_dockerfile = context / ".nesk-pinned.Dockerfile"
+            pinned_dockerfile.write_text(
+                rewrite_dockerfile(
+                    dockerfile.read_text(encoding="utf-8"),
+                    images,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
             destination.mkdir(parents=True, exist_ok=True)
             network = "default" if spec.permissions.network else "none"
+            build_id = uuid.uuid4().hex
+            image_tag = f"nesk-build:{build_id}"
+            container_name = f"nesk-build-output-{build_id}"
             argv = [
                 "docker",
                 "build",
                 "--file",
-                str(dockerfile),
+                str(pinned_dockerfile),
                 "--network",
                 network,
-                "--output",
-                f"type=local,dest={destination}",
+                "--memory",
+                spec.memory,
+                "--cpu-quota",
+                str(spec.cpu * 100_000),
+                "--tag",
+                image_tag,
                 str(context),
             ]
 
@@ -68,6 +96,56 @@ class DockerfileBuilder:
                     "Dockerfile build failed",
                     exit_code=result.returncode,
                     stderr=result.stderr[-4000:],
+                )
+
+            try:
+                create_result = subprocess.run(
+                    ["docker", "create", "--name", container_name, image_tag, "true"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    shell=False,
+                )
+
+                if create_result.returncode != 0:
+                    raise TransactionError(
+                        "cannot create Dockerfile output container",
+                        stderr=create_result.stderr[-4000:],
+                    )
+
+                copy_result = subprocess.run(
+                    [
+                        "docker",
+                        "cp",
+                        f"{container_name}:{spec.output}/.",
+                        str(destination),
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    shell=False,
+                )
+
+                if copy_result.returncode != 0:
+                    raise TransactionError(
+                        "cannot extract declared Dockerfile output",
+                        output=spec.output,
+                        stderr=copy_result.stderr[-4000:],
+                    )
+            finally:
+                subprocess.run(
+                    ["docker", "rm", "--force", container_name],
+                    check=False,
+                    capture_output=True,
+                    shell=False,
+                )
+                subprocess.run(
+                    ["docker", "image", "rm", "--force", image_tag],
+                    check=False,
+                    capture_output=True,
+                    shell=False,
                 )
 
 
@@ -103,7 +181,15 @@ class DeclarativeBuilder:
             ownership: dict[str, str] = {}
 
             if manifest.build is not None:
-                self.dockerfile_builder.build(recipe_root, manifest.build, payload)
+                if lockfile.build is None:
+                    raise ValidationError("lockfile has no pinned Dockerfile images")
+
+                self.dockerfile_builder.build(
+                    recipe_root,
+                    manifest.build,
+                    payload,
+                    lockfile.build.images,
+                )
                 _record_tree(payload, payload, ownership, "managed")
 
             for source in manifest.sources:
@@ -332,9 +418,13 @@ def _package_files(
     payload: Path,
     ownership: Mapping[str, str],
 ) -> tuple[PackageFile, ...]:
-    result = []
+    result: list[PackageFile] = []
+    total_size = 0
 
     for path in sorted(payload.rglob("*")):
+        if len(result) >= MAX_PACKAGE_FILES:
+            raise SecurityError("package payload contains too many files")
+
         relative = path.relative_to(payload).as_posix()
         mode = stat.S_IMODE(path.stat().st_mode)
         owner = ownership.get(relative, "managed")
@@ -356,6 +446,11 @@ def _package_files(
             continue
 
         digest, size = digest_file(path)
+        total_size += size
+
+        if total_size > MAX_PACKAGE_SIZE:
+            raise SecurityError("package payload exceeds expanded size limit")
+
         result.append(
             PackageFile(
                 path=relative,

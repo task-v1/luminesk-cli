@@ -5,4 +5,4 @@ RUN printf '%s\n' 'package main' 'import "github.com/df-mc/dragonfly/server"' 'f
     && go mod tidy \
     && CGO_ENABLED=0 go build -o /dragonfly main.go
 FROM scratch
-COPY --from=build /dragonfly /dragonfly
+COPY --from=build /dragonfly /nesk-out/dragonfly

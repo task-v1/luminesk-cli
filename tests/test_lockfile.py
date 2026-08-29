@@ -7,6 +7,7 @@ import pytest
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.lockfile import (
     LOCKFILE_NAME,
+    BuildLock,
     Lockfile,
     ResolvedSource,
     RuntimeLock,
@@ -63,3 +64,18 @@ def test_lockfile_rejects_credentials() -> None:
 
     with pytest.raises(ValidationError, match="credentials"):
         parse_lockfile(content)
+
+
+def test_lockfile_round_trips_pinned_build_images() -> None:
+    original = make_lockfile()
+    original = Lockfile(
+        manifest_digest=original.manifest_digest,
+        target=original.target,
+        sources=original.sources,
+        runtime=original.runtime,
+        build=BuildLock(
+            images={"golang:1.26": f"golang@sha256:{'d' * 64}"}
+        ),
+    )
+
+    assert parse_lockfile(original.to_bytes()) == original
