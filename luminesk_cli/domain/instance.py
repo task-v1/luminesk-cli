@@ -43,6 +43,7 @@ class InstanceState:
     applied_lock_digest: str
     installed_package_digest: str
     recipe: RecipeState
+    inputs: dict[str, str | int | bool]
     runtime: RuntimeState
     created_at: str
     updated_at: str
@@ -63,6 +64,7 @@ class InstanceState:
                 "source": self.recipe.source,
                 "revision": self.recipe.revision,
             },
+            "inputs": dict(sorted(self.inputs.items())),
             "runtime": {
                 "driver": self.runtime.driver,
                 "containerId": self.runtime.container_id,
@@ -115,6 +117,7 @@ def parse_state(content: bytes) -> InstanceState:
         "appliedLockDigest",
         "installedPackageDigest",
         "recipe",
+        "inputs",
         "runtime",
         "createdAt",
         "updatedAt",
@@ -147,6 +150,15 @@ def parse_state(content: bytes) -> InstanceState:
     if status not in {"running", "stopped", "unknown"}:
         raise ValidationError("state.runtime.status is invalid")
 
+    inputs_table = require_table(table["inputs"], "state.inputs")
+    inputs: dict[str, str | int | bool] = {}
+
+    for name, input_value in inputs_table.items():
+        if not isinstance(input_value, (str, int, bool)):
+            raise ValidationError(f"state.inputs.{name} has an invalid value")
+
+        inputs[name] = input_value
+
     return InstanceState(
         instance_id=require_string(table["instanceId"], "state.instanceId"),
         name=require_string(table["name"], "state.name"),
@@ -164,6 +176,7 @@ def parse_state(content: bytes) -> InstanceState:
                 recipe_table, "revision", "state.recipe"
             ),
         ),
+        inputs=inputs,
         runtime=RuntimeState(
             driver="docker",
             container_id=_optional_nullable_string(

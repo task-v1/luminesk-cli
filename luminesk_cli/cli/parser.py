@@ -89,15 +89,50 @@ def build_parser() -> argparse.ArgumentParser:
     _automation_options(doctor)
     doctor.set_defaults(handler="luminesk_cli.cli.commands.doctor:run")
 
+    start = commands.add_parser("start", help="Start the current recipe instance.")
+    start.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
+    start.add_argument("--dir", default=None, help="Instance directory.")
+    start.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    start.add_argument("--no-wait", action="store_true", help="Skip readiness checks.")
+    _automation_options(start)
+    start.set_defaults(handler="luminesk_cli.cli.commands.runtime:start")
+
+    stop = commands.add_parser("stop", help="Stop the current recipe instance.")
+    stop.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
+    stop.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(stop)
+    stop.set_defaults(handler="luminesk_cli.cli.commands.runtime:stop")
+
+    restart = commands.add_parser("restart", help="Restart the current recipe instance.")
+    restart.add_argument("--dir", default=None, help="Instance directory.")
+    restart.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    restart.add_argument("--no-wait", action="store_true")
+    _automation_options(restart)
+    restart.set_defaults(handler="luminesk_cli.cli.commands.runtime:restart")
+
+    status = commands.add_parser("status", help="Show current instance runtime status.")
+    status.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(status)
+    status.set_defaults(handler="luminesk_cli.cli.commands.runtime:status")
+
+    logs = commands.add_parser("logs", help="Read current instance Docker logs.")
+    logs.add_argument("--dir", default=None, help="Instance directory.")
+    logs.add_argument("--follow", "-f", action="store_true")
+    _automation_options(logs)
+    logs.set_defaults(handler="luminesk_cli.cli.commands.runtime:logs")
+
+    attach = commands.add_parser("attach", help="Attach to the current recipe instance.")
+    attach.add_argument("target", nargs="?", help="Legacy tag, if supplied.")
+    attach.add_argument("--dir", default=None, help="Instance directory.")
+    _automation_options(attach)
+    attach.set_defaults(handler="luminesk_cli.cli.commands.runtime:attach")
+
     for name in (
         "diagnostic",
         "cores",
         "create",
-        "start",
-        "attach",
         "upgrade-core",
         "change-image",
-        "stop",
         "kill",
         "delete",
         "list",

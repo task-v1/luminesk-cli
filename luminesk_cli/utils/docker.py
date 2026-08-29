@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,27 +18,8 @@ MEMORY_LIMIT_RE = re.compile(r"^[1-9][0-9]*(?:[bkmg])?$", re.IGNORECASE)
 
 
 def get_docker_entrypoint_script(console_pipe: str) -> str:
-    return f"""
-mkdir -p .luminesk/logs
-rm -f {console_pipe}
-mkfifo {console_pipe}
-chmod 600 {console_pipe}
-trap 'rm -f {console_pipe} /tmp/luminesk_cli-exit' EXIT
-
-while true; do
-	exec 3<> {console_pipe}
-	(eval "$LUMINESK_RUN_COMMAND" < {console_pipe}; echo $? > /tmp/luminesk_cli-exit) 2>&1 | tee -a "$LUMINESK_LOG_PATH"
-	exit_code=$(cat /tmp/luminesk_cli-exit 2>/dev/null || echo 0)
-	exec 3>&-
-
-	if [ "${{LUMINESK_LOOP:-0}}" != "1" ]; then
-		exit "$exit_code"
-	fi
-
-	printf '[Luminesk-CLI] Server exited with code %s. Restarting in %s seconds.\\n' "$exit_code" "${{LUMINESK_RESTART_DELAY:-5}}" | tee -a "$LUMINESK_LOG_PATH"
-	sleep "${{LUMINESK_RESTART_DELAY:-5}}"
-done
-""".strip()
+    del console_pipe
+    raise RuntimeError("shell entrypoints were removed in Nesk 2.0")
 
 
 class DockerLaunchTarget(Protocol):
@@ -113,9 +95,6 @@ def build_docker_run_command(
     normalized_memory_limit = normalize_memory_limit(memory_limit)
     resolved_container_name = container_name or build_docker_container_name(server.tag)
     mount_source = _format_mount_source(server.path)
-    console_pipe = f"/tmp/luminesk_cli-console-{resolved_container_name}.pipe"
-    entrypoint_script = get_docker_entrypoint_script(console_pipe)
-
     # Resolve core run command dynamically from registry
     from luminesk_cli.core.registry import registry
 
@@ -123,14 +102,14 @@ def build_docker_run_command(
     core = registry.get_by_id(core_id) if core_id else None
 
     if core is not None:
-        run_command = core.get_run_command(server.executable_name)
+        run_command = shlex.split(core.get_run_command(server.executable_name))
     else:
         if server.executable_name.endswith(".jar"):
-            run_command = f"java -jar {server.executable_name}"
+            run_command = ["java", "-jar", server.executable_name]
         elif server.executable_name.endswith(".phar"):
-            run_command = f"php {server.executable_name}"
+            run_command = ["php", server.executable_name]
         else:
-            run_command = f"./{server.executable_name}"
+            run_command = [f"./{server.executable_name}"]
 
     return (
         "docker",
@@ -147,17 +126,10 @@ def build_docker_run_command(
         "--volume",
         f"{mount_source}:{DOCKER_SERVER_DIR}",
         "--env",
-        f"LUMINESK_RUN_COMMAND={run_command}",
-        "--env",
-        f"LUMINESK_LOG_PATH={_to_container_path(log_path)}",
-        "--env",
         f"LUMINESK_LOOP={'1' if loop else '0'}",
-        "--env",
-        f"LUMINESK_RESTART_DELAY={restart_delay_seconds}",
+        *(("--restart", "on-failure") if loop else ()),
         image,
-        "sh",
-        "-c",
-        entrypoint_script,
+        *run_command,
     )
 
 
@@ -236,59 +208,40 @@ def kill_docker_container(container_name: str) -> None:
 
 
 def send_docker_command(container_name: str, command: str) -> None:
-    console_pipe = f"/tmp/luminesk_cli-console-{container_name}.pipe"
-
     try:
-        result = _run_docker(
-            (
-                "exec",
+        process = subprocess.Popen(
+            [
+                get_docker_binary(),
+                "attach",
+                "--sig-proxy=false",
                 container_name,
-                "sh",
-                "-c",
-                f'printf "%s\\n" "$1" > {console_pipe}',
-                "luminesk_cli-send",
-                command,
-            ),
-            check=False,
-            timeout=5,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
         )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(t("docker.send_command_timeout")) from exc
+        process.communicate(f"{command}\n", timeout=0.5)
+    except subprocess.TimeoutExpired:
+        process.terminate()
 
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or t("docker.send_command_failed"))
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+        return
+
+    if process.returncode not in {0, None}:
+        raise RuntimeError(t("docker.send_command_failed"))
 
 
 def send_docker_ctrl_c(container_name: str) -> None:
-    # TODO: Fix this shitty code.
-    cmd = (
-        'pids=$(pgrep -f "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" 2>/dev/null || '
-        "pidof java php 2>/dev/null || "
-        'ps -ef | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" | grep -v grep | awk "{print \\$2}" 2>/dev/null || '
-        'ps | grep -E "java|php|phar|pocketmine|dragonfly|pumpkin|endstone|serenity|allay|lumi|lunacy|nukkit|pnx|powernukkitx|altay" | grep -v grep | awk "{print \\$1}" 2>/dev/null || '
-        "for p in /proc/[0-9]*; do "
-        '[ -d "$p" ] || continue; '
-        'pid=${p##*/}; [ "$pid" = "1" ] && continue; '
-        'name=$(cat "$p/comm" "$p/cmdline" 2>/dev/null); '
-        'case "$name" in *java*|*php*|*phar*|*pocketmine*|*dragonfly*|*pumpkin*|*endstone*|*serenity*|*allay*|*lumi*|*lunacy*|*nukkit*|*pnx*|*powernukkitx*|*altay*) echo "$pid";; esac; '
-        "done); "
-        'if [ -n "$pids" ]; then kill -2 $pids; fi'
+    result = _run_docker(
+        ("kill", "--signal", "SIGINT", container_name),
+        check=False,
+        timeout=10,
     )
-
-    try:
-        result = _run_docker(
-            (
-                "exec",
-                container_name,
-                "sh",
-                "-c",
-                cmd,
-            ),
-            check=False,
-            timeout=10,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(t("docker.send_command_timeout")) from exc
 
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or t("docker.send_command_failed"))

@@ -71,6 +71,7 @@ def _install_local(namespace: Any, target: Path) -> int:
             lockfile,
             package,
             target,
+            inputs=values,
             dry_run=namespace.dry_run,
         )
     finally:
@@ -96,7 +97,7 @@ def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> 
         try:
             plan, state = TransactionalInstaller(
                 index=InstanceIndex(index_path())
-            ).install(manifest, lockfile, package, target)
+            ).install(manifest, lockfile, package, target, inputs=values)
         except BaseException:
             cleanup_materialized(target, copied)
             raise
@@ -140,7 +141,7 @@ def _install_checkout(
         try:
             plan, state = TransactionalInstaller(
                 index=InstanceIndex(index_path())
-            ).install(manifest, lockfile, package, target)
+            ).install(manifest, lockfile, package, target, inputs=values)
         except BaseException:
             cleanup_materialized(target, copied)
             raise

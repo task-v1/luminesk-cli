@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -69,6 +69,7 @@ class TransactionalInstaller:
         target: Path,
         *,
         tag: str | None = None,
+        inputs: Mapping[str, str | int | bool] | None = None,
         dry_run: bool = False,
     ) -> tuple[Plan, InstanceState | None]:
         root = target.resolve()
@@ -117,6 +118,7 @@ class TransactionalInstaller:
             root,
             tag=tag,
             old_state=old_state,
+            inputs=inputs or {},
             now=now,
             pending_transaction=transaction_id,
         )
@@ -418,6 +420,7 @@ def _new_state(
     *,
     tag: str | None,
     old_state: InstanceState | None,
+    inputs: Mapping[str, str | int | bool],
     now: str,
     pending_transaction: str,
 ) -> InstanceState:
@@ -432,6 +435,7 @@ def _new_state(
             source=lockfile.recipe.source if lockfile.recipe else None,
             revision=lockfile.recipe.revision if lockfile.recipe else None,
         ),
+        inputs=_persisted_inputs(manifest, inputs),
         runtime=old_state.runtime if old_state else RuntimeState(),
         created_at=old_state.created_at if old_state else now,
         updated_at=now,
@@ -452,3 +456,24 @@ def _prune_backups(directory: Path, retain: int) -> None:
 
     for old_backup in backups[retain:]:
         shutil.rmtree(old_backup)
+
+
+def _persisted_inputs(
+    manifest: Manifest,
+    values: Mapping[str, str | int | bool],
+) -> dict[str, str | int | bool]:
+    result = {}
+
+    for spec in manifest.inputs:
+        if spec.secret:
+            continue
+
+        value = values.get(spec.name)
+
+        if value is None:
+            value = spec.default
+
+        if value is not None:
+            result[spec.name] = value
+
+    return result
