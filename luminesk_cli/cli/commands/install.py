@@ -179,9 +179,7 @@ def _confirm(
     manifest: Manifest,
 ) -> None:
     build_enabled = lockfile.build is not None
-    build_network = bool(
-        manifest.build is not None and manifest.build.network
-    )
+    build_network = bool(manifest.build is not None and manifest.build.network)
     protected = ", ".join(manifest.update.backup) or "none"
     summary = (
         f"Source package: {package_name}\n"

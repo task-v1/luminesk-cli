@@ -15,6 +15,9 @@ from luminesk_cli.infrastructure.security.network import validate_remote_url
 
 MAX_METADATA_SIZE = 2 * 1024 * 1024
 MAX_METADATA_REDIRECTS = 5
+SENSITIVE_HEADERS = frozenset(
+    {"authorization", "cookie", "private-token", "proxy-authorization", "job-token"}
+)
 SEMVER_PARTS_RE = re.compile(
     r"^v?(0|[1-9][0-9]*)\."
     r"(0|[1-9][0-9]*)\."
@@ -45,7 +48,7 @@ def request_metadata(
             key: value
             for key, value in (headers or {}).items()
             if urlsplit(current_url).hostname == credential_host
-            or key.lower() not in {"authorization", "cookie"}
+            or key.lower() not in SENSITIVE_HEADERS
         }
 
         try:

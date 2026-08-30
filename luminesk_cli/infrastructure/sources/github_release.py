@@ -42,9 +42,7 @@ class GitHubReleaseResolver:
             release = request_json_object(
                 client, f"{api_root}/latest", source, headers=headers
             )
-        elif not any(
-            symbol in options.version for symbol in "<>=,*"
-        ):
+        elif not any(symbol in options.version for symbol in "<>=,*"):
             release = request_json_object(
                 client,
                 f"{api_root}/tags/{options.version}",

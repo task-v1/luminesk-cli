@@ -13,7 +13,14 @@ from pathlib import Path
 
 from luminesk_cli.domain.errors import SecurityError, TransactionError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
-from luminesk_cli.domain.manifest import Build, Check, FileSpec, Manifest
+from luminesk_cli.domain.manifest import (
+    Build,
+    Check,
+    FileSpec,
+    GitHubSourceOptions,
+    Manifest,
+    SourceSpec,
+)
 from luminesk_cli.domain.package import PackageFile, PackageMetadata, ServerPackage
 from luminesk_cli.infrastructure.cache import ContentCache, digest_file
 from luminesk_cli.infrastructure.dockerfile import rewrite_dockerfile
@@ -217,11 +224,11 @@ class DeclarativeBuilder:
                         )
 
                     before = set(ownership)
-                    target.mkdir(parents=True, exist_ok=True)
-                    extract_archive(
+                    _extract_source(
+                        source,
                         blob.path,
                         target,
-                        limits=self.archive_limits,
+                        self.archive_limits,
                     )
                     _record_tree(payload, target, ownership, "managed", previous=before)
                 else:
@@ -253,6 +260,58 @@ class DeclarativeBuilder:
                 files=package_files,
             )
             return write_package(output, payload, metadata)
+
+
+def _extract_source(
+    source: SourceSpec,
+    archive: Path,
+    target: Path,
+    limits: ArchiveLimits,
+) -> None:
+    if not isinstance(source.options, GitHubSourceOptions):
+        target.mkdir(parents=True, exist_ok=True)
+        extract_archive(archive, target, limits=limits)
+        return
+
+    with tempfile.TemporaryDirectory(prefix="nesk-github-source-") as temporary:
+        extracted = Path(temporary)
+        extract_archive(archive, extracted, limits=limits)
+        roots = list(extracted.iterdir())
+        if len(roots) != 1 or not roots[0].is_dir():
+            raise SecurityError("GitHub source archive has an invalid root layout")
+
+        selected = roots[0]
+        if source.options.path is not None:
+            selected = selected / source.options.path
+        if not selected.exists():
+            raise ValidationError(
+                "GitHub source path does not exist in the resolved commit",
+                path=source.options.path,
+            )
+        if selected.is_symlink():
+            raise SecurityError("GitHub source path may not be a symlink")
+
+        if selected.is_file():
+            _ensure_new_target(target, source.target)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(selected, target)
+            return
+        if not selected.is_dir():
+            raise SecurityError("GitHub source path is not a regular file or directory")
+
+        target.mkdir(parents=True, exist_ok=True)
+        for item in selected.iterdir():
+            destination = target / item.name
+            if destination.exists():
+                raise ValidationError(
+                    f"source target conflicts with existing path: {source.target}/{item.name}"
+                )
+            if item.is_dir():
+                shutil.copytree(item, destination)
+            elif item.is_file():
+                shutil.copyfile(item, destination)
+            else:
+                raise SecurityError("GitHub source contains a special file")
 
 
 def _resolve_inputs(

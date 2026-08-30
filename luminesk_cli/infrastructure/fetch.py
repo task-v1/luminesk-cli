@@ -22,6 +22,9 @@ from luminesk_cli.infrastructure.security.network import (
 
 DOWNLOAD_CHUNK_SIZE = 256 * 1024
 MAX_REDIRECTS = 5
+SENSITIVE_HEADERS = frozenset(
+    {"authorization", "cookie", "private-token", "proxy-authorization", "job-token"}
+)
 
 
 class SecureFetcher:
@@ -99,7 +102,7 @@ class SecureFetcher:
                 key: value
                 for key, value in (headers or {}).items()
                 if urlsplit(current_url).hostname == credential_host
-                or key.lower() not in {"authorization", "cookie"}
+                or key.lower() not in SENSITIVE_HEADERS
             }
 
             try:

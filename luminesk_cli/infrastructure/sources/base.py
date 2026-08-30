@@ -51,9 +51,16 @@ def default_registry() -> ResolverRegistry:
     from luminesk_cli.infrastructure.sources.github_release import (
         GitHubReleaseResolver,
     )
+    from luminesk_cli.infrastructure.sources.github_source import GitHubSourceResolver
+    from luminesk_cli.infrastructure.sources.gitlab_job_artifact import (
+        GitLabJobArtifactResolver,
+    )
+    from luminesk_cli.infrastructure.sources.gitlab_release import GitLabReleaseResolver
     from luminesk_cli.infrastructure.sources.http import HttpResolver
     from luminesk_cli.infrastructure.sources.jenkins import JenkinsResolver
     from luminesk_cli.infrastructure.sources.maven import MavenResolver
+    from luminesk_cli.infrastructure.sources.mojang import MojangVersionResolver
+    from luminesk_cli.infrastructure.sources.paper import PaperResolver
 
     return ResolverRegistry(
         {
@@ -61,5 +68,10 @@ def default_registry() -> ResolverRegistry:
             "maven": MavenResolver(),
             "jenkins": JenkinsResolver(),
             "http": HttpResolver(),
+            "github-source": GitHubSourceResolver(),
+            "gitlab-release": GitLabReleaseResolver(),
+            "gitlab-job-artifact": GitLabJobArtifactResolver(),
+            "mojang-version": MojangVersionResolver(),
+            "paper": PaperResolver(),
         }
     )

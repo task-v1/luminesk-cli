@@ -64,6 +64,40 @@ def test_fetch_revalidates_redirect_target(tmp_path: Path) -> None:
         fetcher.fetch("https://example.com/artifact", max_size=10)
 
 
+def test_fetch_drops_all_credentials_on_cross_host_redirect(tmp_path: Path) -> None:
+    seen: list[httpx.Headers] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers)
+        if request.url.host == "origin.example":
+            return httpx.Response(
+                302,
+                headers={"location": "https://cdn.example/artifact"},
+            )
+        return httpx.Response(200, content=b"artifact")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    fetcher = SecureFetcher(ContentCache(tmp_path / "cache"), client=client)
+
+    fetcher.fetch(
+        "https://origin.example/artifact",
+        max_size=100,
+        allow_private_network=True,
+        headers={
+            "Authorization": "Bearer secret",
+            "PRIVATE-TOKEN": "gitlab-secret",
+            "Cookie": "session=secret",
+        },
+    )
+
+    assert "authorization" in seen[0]
+    assert "private-token" in seen[0]
+    assert "cookie" in seen[0]
+    assert "authorization" not in seen[1]
+    assert "private-token" not in seen[1]
+    assert "cookie" not in seen[1]
+
+
 def test_fetch_rejects_digest_mismatch(tmp_path: Path) -> None:
     client = httpx.Client(
         transport=httpx.MockTransport(
