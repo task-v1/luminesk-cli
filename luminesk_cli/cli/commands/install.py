@@ -26,6 +26,7 @@ from luminesk_cli.infrastructure.recipe import (
     materialize_local_recipe,
     normalize_git_source,
 )
+from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import (
     RECIPE_OWNERSHIP_FILE,
     InstanceIndex,
@@ -70,6 +71,7 @@ def run(namespace: Any) -> int:
 
 def _install_local(namespace: Any, target: Path) -> int:
     root, manifest = recipe(target)
+    snapshot = create_recipe_snapshot(root, manifest)
     lockfile = resolve_lock(root, manifest, frozen=namespace.frozen)
     values = parse_inputs(manifest, namespace.set)
     temporary, package = build_package(root, manifest, lockfile, values)
@@ -83,6 +85,7 @@ def _install_local(namespace: Any, target: Path) -> int:
             target,
             inputs=values,
             dry_run=namespace.dry_run,
+            recipe_snapshot=snapshot,
         )
     finally:
         temporary.cleanup()
@@ -92,6 +95,7 @@ def _install_local(namespace: Any, target: Path) -> int:
 
 def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> int:
     root, manifest = recipe(recipe_root)
+    snapshot = create_recipe_snapshot(root, manifest)
     lockfile = resolve_lock(root, manifest, frozen=namespace.frozen)
     values = parse_inputs(manifest, namespace.set)
     _confirm(namespace, manifest.package.name, target, "local", lockfile, manifest)
@@ -107,7 +111,14 @@ def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> 
         try:
             plan, state = TransactionalInstaller(
                 index=InstanceIndex(index_path())
-            ).install(manifest, lockfile, package, target, inputs=values)
+            ).install(
+                manifest,
+                lockfile,
+                package,
+                target,
+                inputs=values,
+                recipe_snapshot=snapshot,
+            )
         except BaseException:
             cleanup_materialized(target, copied)
             raise
@@ -123,6 +134,15 @@ def _install_checkout(
     target: Path,
 ) -> int:
     root, manifest = recipe(checkout.root)
+    snapshot = create_recipe_snapshot(
+        root,
+        manifest,
+        kind="github",
+        source=checkout.source.canonical,
+        revision=checkout.revision,
+        ref=checkout.tracking_ref or checkout.source.requested_ref,
+        tracking=checkout.tracking_ref is not None,
+    )
     lockfile = resolve_lock(
         root,
         manifest,
@@ -159,7 +179,14 @@ def _install_checkout(
         try:
             plan, state = TransactionalInstaller(
                 index=InstanceIndex(index_path())
-            ).install(manifest, lockfile, package, target, inputs=values)
+            ).install(
+                manifest,
+                lockfile,
+                package,
+                target,
+                inputs=values,
+                recipe_snapshot=snapshot,
+            )
         except BaseException:
             (state_directory(target) / RECIPE_OWNERSHIP_FILE).unlink(missing_ok=True)
             cleanup_materialized(target, copied)

@@ -22,6 +22,7 @@ LOCAL_STATE_DIRECTORY = ".luminesk_cli"
 STATE_FILE = "state.json"
 OWNERSHIP_FILE = "ownership.json"
 RECIPE_OWNERSHIP_FILE = "recipe-ownership.json"
+RECIPE_DIRECTORY = "recipe"
 
 
 def canonical_json_bytes(value: dict[str, Any]) -> bytes:

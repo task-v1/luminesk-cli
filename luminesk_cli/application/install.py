@@ -24,10 +24,13 @@ from luminesk_cli.domain.manifest import Check, Manifest
 from luminesk_cli.domain.package import PackageFile, ServerPackage
 from luminesk_cli.domain.plan import Plan, PlanChange
 from luminesk_cli.domain.primitives import safe_relative_path
+from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.cache import digest_file
 from luminesk_cli.infrastructure.package import extract_package
+from luminesk_cli.infrastructure.recipe_snapshot import stage_recipe_snapshot
 from luminesk_cli.infrastructure.state import (
     OWNERSHIP_FILE,
+    RECIPE_DIRECTORY,
     STATE_FILE,
     InstanceIndex,
     atomic_write,
@@ -75,6 +78,7 @@ class TransactionalInstaller:
         dry_run: bool = False,
         transaction_id: str | None = None,
         prune_backups: bool = True,
+        recipe_snapshot: RecipeSnapshot | None = None,
     ) -> tuple[Plan, InstanceState | None]:
         root = target.resolve()
         _validate_package_binding(manifest, lockfile, package)
@@ -112,9 +116,12 @@ class TransactionalInstaller:
             )
 
         extract_package(package, payload)
+        if recipe_snapshot is not None:
+            stage_recipe_snapshot(recipe_snapshot, staging / RECIPE_DIRECTORY)
         old_ownership = load_ownership(root)
         _backup_transaction_files(root, backup, plan, manifest)
         _backup_metadata(root, backup)
+        _backup_recipe_snapshot(root, backup, recipe_snapshot is not None)
         now = datetime.now(UTC).isoformat()
         pending_state = _new_state(
             manifest,
@@ -148,6 +155,8 @@ class TransactionalInstaller:
 
         try:
             _apply_plan(root, payload, plan, package.metadata.files, self.apply_hook)
+            if recipe_snapshot is not None:
+                _install_recipe_snapshot(root, staging, recipe_snapshot)
             _run_post_install_checks(root, manifest.checks)
             new_ownership = _create_ownership(package.metadata.files, root)
             write_lockfile(root / LOCKFILE_NAME, lockfile)
@@ -399,6 +408,52 @@ def _backup_metadata(root: Path, backup: Path) -> None:
             shutil.copy2(source, destination)
 
 
+def _backup_recipe_snapshot(root: Path, backup: Path, enabled: bool) -> None:
+    if not enabled:
+        return
+    root_manifest = root / "luminesk.toml"
+    canonical = state_directory(root) / RECIPE_DIRECTORY
+    if root_manifest.exists() and (
+        not root_manifest.is_file() or root_manifest.is_symlink()
+    ):
+        raise TransactionError("installed luminesk.toml path is unsafe")
+    if canonical.exists() and (not canonical.is_dir() or canonical.is_symlink()):
+        raise TransactionError("canonical recipe snapshot path is unsafe")
+    atomic_write(
+        backup / "recipe-state.json",
+        canonical_json_bytes(
+            {
+                "rootManifest": root_manifest.is_file(),
+                "canonicalSnapshot": canonical.is_dir(),
+            }
+        ),
+    )
+    if root_manifest.is_file():
+        shutil.copy2(root_manifest, backup / "root-luminesk.toml")
+    if canonical.is_dir():
+        shutil.copytree(canonical, backup / "recipe-snapshot")
+
+
+def _install_recipe_snapshot(
+    root: Path,
+    staging: Path,
+    snapshot: RecipeSnapshot,
+) -> None:
+    canonical = state_directory(root) / RECIPE_DIRECTORY
+    staged = staging / RECIPE_DIRECTORY
+    if canonical.exists():
+        if not canonical.is_dir() or canonical.is_symlink():
+            raise TransactionError("canonical recipe snapshot path is unsafe")
+        shutil.rmtree(canonical)
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(staged, canonical)
+    manifest_source = canonical / "luminesk.toml"
+    digest, _ = digest_file(manifest_source)
+    if digest != snapshot.origin.manifest_digest:
+        raise TransactionError("staged recipe manifest digest changed")
+    atomic_write(root / "luminesk.toml", manifest_source.read_bytes())
+
+
 def _rollback(
     root: Path,
     backup: Path,
@@ -444,6 +499,37 @@ def _rollback(
     else:
         write_state(root, old_state)
         write_ownership(root, old_ownership)
+
+    _restore_recipe_snapshot(root, backup)
+
+
+def _restore_recipe_snapshot(root: Path, backup: Path) -> None:
+    state_path = backup / "recipe-state.json"
+    if not state_path.is_file():
+        return
+    try:
+        value = json.loads(state_path.read_text(encoding="utf-8"))
+        had_manifest = value["rootManifest"]
+        had_snapshot = value["canonicalSnapshot"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise TransactionError("recipe snapshot backup state is invalid") from exc
+    if not isinstance(had_manifest, bool) or not isinstance(had_snapshot, bool):
+        raise TransactionError("recipe snapshot backup state is invalid")
+
+    root_manifest = root / "luminesk.toml"
+    if had_manifest:
+        shutil.copy2(backup / "root-luminesk.toml", root_manifest)
+    else:
+        root_manifest.unlink(missing_ok=True)
+
+    canonical = state_directory(root) / RECIPE_DIRECTORY
+    if canonical.exists():
+        if canonical.is_dir() and not canonical.is_symlink():
+            shutil.rmtree(canonical)
+        else:
+            canonical.unlink()
+    if had_snapshot:
+        shutil.copytree(backup / "recipe-snapshot", canonical)
 
 
 def _create_ownership(files: tuple[PackageFile, ...], root: Path) -> OwnershipLedger:
@@ -572,6 +658,8 @@ def restore_install_backup(root: Path, backup: Path) -> None:
             atomic_write(destination, saved.read_bytes())
         else:
             destination.unlink(missing_ok=True)
+
+    _restore_recipe_snapshot(root, backup)
 
 
 def _persisted_inputs(

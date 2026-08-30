@@ -134,8 +134,7 @@ def test_normal_checkout_uses_api_path_without_git(tmp_path: Path, monkeypatch) 
 def test_remote_recipe_is_confirmed_before_build(tmp_path: Path, monkeypatch) -> None:
     from luminesk_cli.cli.commands import install as install_command
 
-    manifest = parse_manifest(
-        b"""\
+    manifest_bytes = b"""\
 manifest_version = 1
 [package]
 name = "remote-fixture"
@@ -153,7 +152,7 @@ path = "artifact.bin"
 image = "example/server:2"
 command = ["server"]
 """
-    )
+    manifest = parse_manifest(manifest_bytes)
     lockfile = Lockfile(
         manifest_digest=manifest.digest,
         target="linux/amd64",
@@ -180,6 +179,8 @@ command = ["server"]
         tracking_ref="main",
         tracked_files=("luminesk.toml",),
     )
+    checkout.root.mkdir()
+    (checkout.root / "luminesk.toml").write_bytes(manifest_bytes)
     events: list[str] = []
     monkeypatch.setattr(install_command, "recipe", lambda root: (root, manifest))
     monkeypatch.setattr(

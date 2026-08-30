@@ -22,6 +22,7 @@ from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.manifest import Manifest
 from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.domain.plan import Plan
+from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.recipe import RecipeCheckout
 from luminesk_cli.infrastructure.state import state_directory
 
@@ -55,6 +56,7 @@ class UpdateService:
         *,
         inputs: dict[str, str | int | bool],
         checkout: RecipeCheckout | None = None,
+        recipe_snapshot: RecipeSnapshot | None = None,
         dry_run: bool = False,
     ) -> UpdateResult:
         root = root.resolve()
@@ -89,6 +91,7 @@ class UpdateService:
                 inputs=inputs,
                 transaction_id=transaction_id,
                 prune_backups=False,
+                recipe_snapshot=recipe_snapshot,
             )
 
             if state is None:

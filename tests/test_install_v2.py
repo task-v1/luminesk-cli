@@ -13,6 +13,7 @@ from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.oci import OciImageResolver
+from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import load_ownership, load_state
 
 
@@ -24,8 +25,7 @@ def make_package(
     recipe = tmp_path / f"recipe-{version}"
     recipe.mkdir()
     (recipe / "fixture.jar").write_bytes(content)
-    manifest = parse_manifest(
-        f'''\
+    manifest_bytes = f'''\
 manifest_version = 1
 [package]
 name = "fixture-server"
@@ -50,7 +50,8 @@ command = ["java", "-jar", "server.jar"]
 backup = ["worlds"]
 retain_backups = 2
 '''.encode()
-    )
+    (recipe / "luminesk.toml").write_bytes(manifest_bytes)
+    manifest = parse_manifest(manifest_bytes)
     cache = ContentCache(tmp_path / "cache")
     lockfile = LockService(cache, image_resolver=OciImageResolver()).create(
         manifest, recipe, target="linux/amd64"
@@ -68,17 +69,34 @@ def test_install_is_transactional_and_idempotent(tmp_path: Path) -> None:
     manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"initial")
     target = tmp_path / "instance"
     installer = TransactionalInstaller()
+    snapshot = create_recipe_snapshot(tmp_path / "recipe-2.0.0", manifest)
 
-    plan, state = installer.install(manifest, lockfile, package, target)
+    plan, state = installer.install(
+        manifest,
+        lockfile,
+        package,
+        target,
+        recipe_snapshot=snapshot,
+    )
 
     assert state is not None
     assert (target / "server.jar").read_bytes() == b"initial"
     assert (target / ".luminesk_cli/state.json").is_file()
     assert (target / ".luminesk_cli/ownership.json").is_file()
+    assert (target / ".luminesk_cli/recipe/luminesk.toml").read_bytes() == (
+        target / "luminesk.toml"
+    ).read_bytes()
+    assert not (target / ".luminesk_cli/recipe/fixture.jar").exists()
     assert not (target / ".luminesk_cli/transaction.json").exists()
     assert any(change.action == "create" for change in plan.changes)
 
-    second_plan, second_state = installer.install(manifest, lockfile, package, target)
+    second_plan, second_state = installer.install(
+        manifest,
+        lockfile,
+        package,
+        target,
+        recipe_snapshot=snapshot,
+    )
 
     assert second_state is not None
     assert second_state.instance_id == state.instance_id
@@ -138,6 +156,61 @@ def test_failed_update_restores_files_and_metadata(tmp_path: Path) -> None:
     assert load_state(target) == old_state
     assert load_ownership(target) == old_ownership
     assert not (target / ".luminesk_cli/transaction.json").exists()
+
+
+def test_failed_update_restores_canonical_recipe_snapshot(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    first_manifest, first_lock, first_package = make_package(
+        tmp_path, "2.0.0", b"initial"
+    )
+    first_snapshot = create_recipe_snapshot(
+        tmp_path / "recipe-2.0.0",
+        first_manifest,
+    )
+    target = tmp_path / "instance"
+    TransactionalInstaller().install(
+        first_manifest,
+        first_lock,
+        first_package,
+        target,
+        recipe_snapshot=first_snapshot,
+    )
+    old_root_manifest = (target / "luminesk.toml").read_bytes()
+    old_snapshot_manifest = (target / ".luminesk_cli/recipe/luminesk.toml").read_bytes()
+    second_manifest, second_lock, second_package = make_package(
+        tmp_path, "2.1.0", b"replacement"
+    )
+    second_snapshot = create_recipe_snapshot(
+        tmp_path / "recipe-2.1.0",
+        second_manifest,
+    )
+    failing_manifest = replace(
+        second_manifest,
+        checks=(
+            Check(
+                id="missing-after-snapshot",
+                phase="post-install",
+                kind="file",
+                path="missing.txt",
+            ),
+        ),
+    )
+
+    with pytest.raises(TransactionError, match="rolled back"):
+        TransactionalInstaller().install(
+            failing_manifest,
+            second_lock,
+            second_package,
+            target,
+            recipe_snapshot=second_snapshot,
+        )
+
+    assert (target / "luminesk.toml").read_bytes() == old_root_manifest
+    assert (
+        target / ".luminesk_cli/recipe/luminesk.toml"
+    ).read_bytes() == old_snapshot_manifest
+    assert (target / "server.jar").read_bytes() == b"initial"
 
 
 def test_dry_run_does_not_create_target(tmp_path: Path) -> None:

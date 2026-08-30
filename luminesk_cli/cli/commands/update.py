@@ -26,6 +26,7 @@ from luminesk_cli.infrastructure.recipe import (
     checkout_recipe,
     normalize_git_source,
 )
+from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import (
     load_ownership,
     state_directory,
@@ -67,6 +68,15 @@ def run(namespace: Any) -> int:
         )
         new_lock = _select_component(namespace.component, old_lock, new_lock)
         values = parse_inputs(manifest, namespace.set)
+        snapshot = create_recipe_snapshot(
+            recipe_root,
+            manifest,
+            kind="github" if checkout is not None else "local",
+            source=recipe_source or "local",
+            revision=recipe_revision,
+            ref=recipe_ref,
+            tracking=recipe_tracking,
+        )
         temporary_package, package = build_package(
             recipe_root, manifest, new_lock, values
         )
@@ -80,6 +90,7 @@ def run(namespace: Any) -> int:
                 package,
                 inputs=values,
                 checkout=checkout,
+                recipe_snapshot=snapshot,
                 dry_run=True,
             )
 
@@ -96,6 +107,7 @@ def run(namespace: Any) -> int:
                     package,
                     inputs=values,
                     checkout=checkout,
+                    recipe_snapshot=snapshot,
                 )
             )
         finally:
