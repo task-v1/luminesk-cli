@@ -30,6 +30,11 @@ from luminesk_cli.infrastructure.package import (
     write_package,
 )
 from luminesk_cli.infrastructure.security.archive import ArchiveLimits, extract_archive
+from luminesk_cli.infrastructure.template import (
+    apply_ownership_overrides,
+    materialize_template,
+    read_template_tree,
+)
 
 MAX_BUILD_CONTEXT_FILES = 20_000
 MAX_BUILD_CONTEXT_SIZE = 1024 * 1024 * 1024
@@ -181,6 +186,7 @@ class DeclarativeBuilder:
             raise ValidationError("lockfile does not match manifest")
 
         values = _resolve_inputs(manifest, inputs or {})
+        template_tree = read_template_tree(recipe_root, manifest)
 
         with tempfile.TemporaryDirectory(prefix="nesk-package-stage-") as stage_name:
             payload = Path(stage_name) / "payload"
@@ -237,6 +243,15 @@ class DeclarativeBuilder:
                     shutil.copyfile(blob.path, target)
                     ownership[source.target] = "managed"
 
+            if template_tree is not None:
+                materialize_template(
+                    template_tree,
+                    payload,
+                    manifest,
+                    values,
+                    ownership,
+                )
+
             for file_spec in manifest.files:
                 _apply_recipe_file(
                     recipe_root,
@@ -245,6 +260,8 @@ class DeclarativeBuilder:
                     values,
                     ownership,
                 )
+
+            apply_ownership_overrides(payload, manifest, ownership)
 
             _run_file_checks(payload, manifest.checks, phase="post-build")
             package_files = _package_files(payload, ownership)

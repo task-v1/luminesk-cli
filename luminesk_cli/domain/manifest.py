@@ -702,20 +702,40 @@ def _parse_ownership(value: Any) -> Ownership:
     table = require_table(value, path)
     reject_unknown(table, {"preserve", "data", "executable"}, path)
     parsed: dict[str, tuple[str, ...]] = {}
-    seen: set[str] = set()
     for policy in ("preserve", "data", "executable"):
         values = tuple(
-            safe_relative_path(item, f"{path}.{policy}[{index}]")
+            _ownership_path(item, f"{path}.{policy}[{index}]")
             for index, item in enumerate(
                 require_array(table.get(policy, []), f"{path}.{policy}")
             )
         )
-        for item in values:
-            if item in seen:
-                fail(f"{path}.{policy}", f"duplicate policy path: {item}")
-            seen.add(item)
+        if len(values) != len(set(values)):
+            fail(f"{path}.{policy}", "duplicate policy path")
         parsed[policy] = values
+
+    for preserved in parsed["preserve"]:
+        for data in parsed["data"]:
+            if _paths_overlap(preserved, data):
+                fail(
+                    path,
+                    f"overlapping preserve/data policy paths: {preserved}, {data}",
+                )
     return Ownership(**parsed)  # type: ignore[arg-type]
+
+
+def _ownership_path(value: Any, path: str) -> str:
+    result = safe_relative_path(value, path)
+    if any(character in result for character in "*?[]"):
+        fail(path, "globs are not supported")
+    return result
+
+
+def _paths_overlap(first: str, second: str) -> bool:
+    return (
+        first == second
+        or first.startswith(f"{second}/")
+        or second.startswith(f"{first}/")
+    )
 
 
 def _parse_runtime(value: Any) -> Runtime:

@@ -168,7 +168,7 @@ def test_manifest_rejects_unsafe_template_path(template: str) -> None:
 def test_manifest_rejects_duplicate_ownership_path() -> None:
     content = VALID_MANIFEST + b'''\n[ownership]\npreserve = ["world"]\ndata = ["world"]\n'''
 
-    with pytest.raises(ValidationError, match="duplicate policy path"):
+    with pytest.raises(ValidationError, match="policy path"):
         parse_manifest(content)
 
 
