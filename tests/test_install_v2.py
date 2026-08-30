@@ -30,17 +30,20 @@ manifest_version = 1
 [package]
 name = "fixture-server"
 version = "{version}"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "fixture.jar"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "fixture.jar"
 [[files]]
 source = "worlds"
 target = "worlds"
 mode = "data"
 [runtime]
-driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["java", "-jar", "server.jar"]
 [update]

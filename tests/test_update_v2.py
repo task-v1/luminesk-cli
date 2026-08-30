@@ -41,13 +41,16 @@ manifest_version = 1
 [package]
 name = "update-fixture"
 version = "{version}"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "artifact.bin"
+type = "local-file"
 target = "server.bin"
+[sources.options]
+path = "artifact.bin"
 [runtime]
-driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["./server.bin"]
 '''.encode()

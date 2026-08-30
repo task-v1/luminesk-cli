@@ -351,8 +351,8 @@ def _confirm_update(
 ) -> None:
     changes = _lock_changes(old_lock, new_lock)
     permission_summary = {
-        "build": manifest.permissions.build,
-        "network": bool(manifest.build and manifest.build.permissions.network),
+        "build": manifest.build is not None,
+        "network": bool(manifest.build and manifest.build.network),
         "runtimeImage": new_lock.runtime.image,
         "backup": list(manifest.update.backup),
     }

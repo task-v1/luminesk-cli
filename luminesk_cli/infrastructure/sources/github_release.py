@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from luminesk_cli.domain.errors import ResolutionError
-from luminesk_cli.domain.manifest import SourceSpec
+from luminesk_cli.domain.manifest import GitHubReleaseOptions, SourceSpec
 from luminesk_cli.domain.primitives import validate_digest, validate_https_url
 from luminesk_cli.infrastructure.sources.base import Resolution
 from luminesk_cli.infrastructure.sources.common import (
@@ -21,10 +21,11 @@ from luminesk_cli.infrastructure.sources.common import (
 
 class GitHubReleaseResolver:
     def resolve(self, source: SourceSpec, client: httpx.Client) -> Resolution:
-        if source.repository is None or source.asset is None:
-            raise ResolutionError("github-release requires repository and asset")
+        if not isinstance(source.options, GitHubReleaseOptions):
+            raise ResolutionError("github-release source has invalid options")
 
-        owner, repository = _parse_repository(source.repository)
+        options = source.options
+        owner, repository = _parse_repository(options.repository)
         headers = {
             "Accept": "application/vnd.github+json",
             "User-Agent": "nesk/2",
@@ -37,16 +38,16 @@ class GitHubReleaseResolver:
 
         api_root = f"https://api.github.com/repos/{owner}/{repository}/releases"
 
-        if source.version in {None, "", "latest", "*"} and source.channel == "stable":
+        if options.version in {"", "latest", "*"} and options.channel == "stable":
             release = request_json_object(
                 client, f"{api_root}/latest", source, headers=headers
             )
-        elif source.version is not None and not any(
-            symbol in source.version for symbol in "<>=,*"
+        elif not any(
+            symbol in options.version for symbol in "<>=,*"
         ):
             release = request_json_object(
                 client,
-                f"{api_root}/tags/{source.version}",
+                f"{api_root}/tags/{options.version}",
                 source,
                 headers=headers,
             )
@@ -67,13 +68,13 @@ class GitHubReleaseResolver:
                 for item in payload
                 if isinstance(item, dict)
                 and not item.get("draft", False)
-                and (source.channel != "stable" or not item.get("prerelease", False))
+                and (options.channel != "stable" or not item.get("prerelease", False))
                 and isinstance(item.get("tag_name"), str)
             ]
             selected_tag = select_highest_version(
                 [item["tag_name"] for item in releases],
-                source.version,
-                source.channel,
+                options.version,
+                options.channel,
             )
             release = next(
                 item for item in releases if item["tag_name"] == selected_tag
@@ -129,7 +130,10 @@ def _select_asset(assets: Any, pattern: str) -> dict[str, Any]:
 
 
 def _resolution_from_release(source: SourceSpec, release: dict[str, Any]) -> Resolution:
-    asset = _select_asset(release.get("assets"), source.asset or "")
+    if not isinstance(source.options, GitHubReleaseOptions):
+        raise ResolutionError("github-release source has invalid options")
+
+    asset = _select_asset(release.get("assets"), source.options.asset)
     tag = release.get("tag_name")
     url = asset.get("browser_download_url")
     size = asset.get("size")
@@ -146,7 +150,7 @@ def _resolution_from_release(source: SourceSpec, release: dict[str, Any]) -> Res
         digest = validate_digest(digest, "github.asset.digest")
 
     return Resolution(
-        provider=source.provider,
+        type=source.type,
         version=tag.lstrip("v"),
         source_revision=tag,
         url=validate_https_url(url, "github.asset.url"),

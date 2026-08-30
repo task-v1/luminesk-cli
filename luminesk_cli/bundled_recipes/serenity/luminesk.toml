@@ -3,17 +3,20 @@ manifest_version = 1
 [package]
 name = "serenity"
 version = "1.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 platforms = ["linux/amd64"]
 [[sources]]
 id = "core"
-provider = "github-release"
+type = "github-release"
+target = "serenity"
+extract = true
+[sources.options]
 repository = "SerenityJS/serenity"
 version = "latest"
 asset = "*ubuntu*.tar.gz"
-target = "serenity"
-extract = true
 [runtime]
-driver = "docker"
 image = "debian:bookworm-slim"
 command = ["./serenity/serenity"]
 [[runtime.mounts]]
@@ -25,5 +28,3 @@ name = "bedrock"
 host = 19132
 container = 19132
 protocol = "udp"
-[permissions]
-build = false

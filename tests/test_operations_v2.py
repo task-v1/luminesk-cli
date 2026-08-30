@@ -37,13 +37,16 @@ manifest_version = 1
 [package]
 name = "readiness-fixture"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "server.jar"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "server.jar"
 [runtime]
-driver = "docker"
 image = "example/server:latest"
 command = ["server"]
 [[checks]]

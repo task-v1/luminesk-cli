@@ -8,7 +8,7 @@ from xml.etree.ElementTree import Element
 import httpx
 
 from luminesk_cli.domain.errors import ResolutionError
-from luminesk_cli.domain.manifest import SourceSpec
+from luminesk_cli.domain.manifest import MavenOptions, SourceSpec
 from luminesk_cli.infrastructure.sources.base import Resolution
 from luminesk_cli.infrastructure.sources.common import (
     request_metadata,
@@ -18,18 +18,16 @@ from luminesk_cli.infrastructure.sources.common import (
 
 class MavenResolver:
     def resolve(self, source: SourceSpec, client: httpx.Client) -> Resolution:
-        if not all((source.repository, source.group, source.artifact, source.version)):
-            raise ResolutionError(
-                "maven requires repository, group, artifact, and version"
-            )
+        if not isinstance(source.options, MavenOptions):
+            raise ResolutionError("maven source has invalid options")
 
-        assert source.version is not None
+        options = source.options
         metadata_url = _metadata_url(source)
         metadata = _parse_xml(
             request_metadata(client, metadata_url, source).content,
             metadata_url,
         )
-        version = _select_version(metadata, source.version, source.channel)
+        version = _select_version(metadata, options.version, options.channel)
         resolved_version = version
 
         if version.endswith("-SNAPSHOT"):
@@ -40,37 +38,37 @@ class MavenResolver:
             )
             resolved_version = _snapshot_version(
                 version_metadata,
-                source.packaging or "jar",
-                source.classifier,
+                options.extension,
+                options.classifier,
             )
 
         artifact_url = _artifact_url(source, version, resolved_version)
         digest = _optional_sha256(client, artifact_url, source)
 
         return Resolution(
-            provider=source.provider,
+            type=source.type,
             version=version,
             source_revision=resolved_version,
             url=artifact_url,
             target=source.target,
             digest=digest,
             media_type="application/java-archive"
-            if (source.packaging or "jar") == "jar"
+            if options.extension == "jar"
             else None,
         )
 
 
 def _group_path(source: SourceSpec) -> str:
-    assert source.group is not None
-    return source.group.replace(".", "/")
+    assert isinstance(source.options, MavenOptions)
+    return source.options.group.replace(".", "/")
 
 
 def _metadata_url(source: SourceSpec) -> str:
-    assert source.repository is not None
-    assert source.artifact is not None
+    assert isinstance(source.options, MavenOptions)
+    options = source.options
     return (
-        f"{source.repository.rstrip('/')}/{_group_path(source)}/"
-        f"{source.artifact}/maven-metadata.xml"
+        f"{options.repository.rstrip('/')}/{_group_path(source)}/"
+        f"{options.artifact}/maven-metadata.xml"
     )
 
 
@@ -79,14 +77,13 @@ def _version_metadata_url(source: SourceSpec, version: str) -> str:
 
 
 def _artifact_url(source: SourceSpec, version: str, resolved_version: str) -> str:
-    assert source.repository is not None
-    assert source.artifact is not None
-    packaging = source.packaging or "jar"
-    classifier = f"-{source.classifier}" if source.classifier else ""
+    assert isinstance(source.options, MavenOptions)
+    options = source.options
+    classifier = f"-{options.classifier}" if options.classifier else ""
     return (
-        f"{source.repository.rstrip('/')}/{_group_path(source)}/"
-        f"{source.artifact}/{version}/{source.artifact}-{resolved_version}"
-        f"{classifier}.{packaging}"
+        f"{options.repository.rstrip('/')}/{_group_path(source)}/"
+        f"{options.artifact}/{version}/{options.artifact}-{resolved_version}"
+        f"{classifier}.{options.extension}"
     )
 
 

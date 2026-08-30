@@ -1,4 +1,4 @@
-"""Strict TOML schema v1 loader for ``luminesk.toml``."""
+"""Strict public schema v1 loader for ``luminesk.toml``."""
 
 from __future__ import annotations
 
@@ -30,12 +30,26 @@ from luminesk_cli.domain.primitives import (
 
 MANIFEST_NAME = "luminesk.toml"
 MAX_MANIFEST_SIZE = 1024 * 1024
-SOURCE_PROVIDERS = frozenset(
-    {"github-release", "maven", "jenkins", "http", "local-file"}
+DEFAULT_SOURCE_MAX_SIZE = 536_870_912
+SOURCE_TYPES = frozenset(
+    {
+        "http",
+        "maven",
+        "jenkins",
+        "github-release",
+        "github-source",
+        "gitlab-release",
+        "gitlab-job-artifact",
+        "mojang-version",
+        "paper",
+        "local-file",
+    }
 )
 FILE_MODES = frozenset({"managed", "preserve", "generated", "data"})
 CHECK_PHASES = frozenset({"post-build", "post-install", "readiness"})
 CHECK_KINDS = frozenset({"file", "process-alive", "log-regex", "tcp", "command"})
+PACKAGE_KINDS = frozenset({"core", "template"})
+MINECRAFT_EDITIONS = frozenset({"java", "bedrock", "cross-platform"})
 
 
 @dataclass(slots=True, frozen=True)
@@ -47,11 +61,22 @@ class Repository:
 class Package:
     name: str
     version: str
-    description: str = ""
+    kind: Literal["core", "template"]
+    game: Literal["minecraft"]
+    edition: Literal["java", "bedrock", "cross-platform"]
+    display_name: str | None = None
+    summary: str = ""
+    keywords: tuple[str, ...] = ()
     license: str | None = None
     authors: tuple[str, ...] = ()
     platforms: tuple[str, ...] = ()
     repository: Repository | None = None
+
+    @property
+    def description(self) -> str:
+        """Internal compatibility alias; ``summary`` is the public v1 field."""
+
+        return self.summary
 
 
 @dataclass(slots=True, frozen=True)
@@ -68,29 +93,104 @@ class InputSpec:
 
 
 @dataclass(slots=True, frozen=True)
+class HttpOptions:
+    url: str
+    version: str = "pinned"
+
+
+@dataclass(slots=True, frozen=True)
+class MavenOptions:
+    repository: str
+    group: str
+    artifact: str
+    version: str
+    extension: str = "jar"
+    classifier: str | None = None
+    channel: str = "stable"
+
+
+@dataclass(slots=True, frozen=True)
+class JenkinsOptions:
+    base_url: str
+    job: str
+    artifact: str
+    build: str | int = "lastSuccessfulBuild"
+
+
+@dataclass(slots=True, frozen=True)
+class GitHubReleaseOptions:
+    repository: str
+    asset: str
+    version: str = "latest"
+    channel: str = "stable"
+
+
+@dataclass(slots=True, frozen=True)
+class GitHubSourceOptions:
+    repository: str
+    ref: str = "main"
+    path: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class GitLabReleaseOptions:
+    project: str
+    asset: str
+    version: str = "latest"
+    base_url: str = "https://gitlab.com"
+
+
+@dataclass(slots=True, frozen=True)
+class GitLabJobArtifactOptions:
+    project: str
+    job: str
+    artifact: str
+    ref: str = "main"
+    base_url: str = "https://gitlab.com"
+
+
+@dataclass(slots=True, frozen=True)
+class MojangVersionOptions:
+    version: str = "latest"
+
+
+@dataclass(slots=True, frozen=True)
+class PaperOptions:
+    minecraft: str
+    build: str | int = "latest"
+
+
+@dataclass(slots=True, frozen=True)
+class LocalFileOptions:
+    path: str
+    version: str = "local"
+
+
+type SourceOptions = (
+    HttpOptions
+    | MavenOptions
+    | JenkinsOptions
+    | GitHubReleaseOptions
+    | GitHubSourceOptions
+    | GitLabReleaseOptions
+    | GitLabJobArtifactOptions
+    | MojangVersionOptions
+    | PaperOptions
+    | LocalFileOptions
+)
+
+
+@dataclass(slots=True, frozen=True)
 class SourceSpec:
     id: str
-    provider: str
+    type: str
     target: str
-    repository: str | None = None
-    url: str | None = None
-    version: str | None = None
-    channel: str = "stable"
-    asset: str | None = None
-    group: str | None = None
-    artifact: str | None = None
-    packaging: str | None = None
-    classifier: str | None = None
-    job: str | None = None
-    build: str | int | None = None
-    path: str | None = None
-    max_size: int = 536_870_912
-    update: str = "pinned"
-    integrity: str = "sha256-required"
+    options: SourceOptions
+    max_size: int = DEFAULT_SOURCE_MAX_SIZE
     extract: bool = False
+    platforms: tuple[str, ...] = ()
     allow_http: bool = False
     allow_private_network: bool = False
-    platforms: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -100,6 +200,13 @@ class FileSpec:
     mode: Literal["managed", "preserve", "generated", "data"] = "managed"
     template: bool = False
     executable: bool = False
+
+
+@dataclass(slots=True, frozen=True)
+class Ownership:
+    preserve: tuple[str, ...] = ()
+    data: tuple[str, ...] = ()
+    executable: tuple[str, ...] = ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -119,7 +226,6 @@ class RuntimePort:
 
 @dataclass(slots=True, frozen=True)
 class Runtime:
-    driver: Literal["docker"]
     image: str
     command: tuple[str, ...]
     workdir: str = "/server"
@@ -135,19 +241,13 @@ class Runtime:
 
 
 @dataclass(slots=True, frozen=True)
-class BuildPermissions:
-    network: bool = False
-
-
-@dataclass(slots=True, frozen=True)
 class Build:
-    driver: Literal["dockerfile"]
     file: str
     output: str
     timeout: int = 1200
     cpu: int = 2
     memory: str = "2g"
-    permissions: BuildPermissions = field(default_factory=BuildPermissions)
+    network: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -173,34 +273,27 @@ class UpdatePolicy:
 
 
 @dataclass(slots=True, frozen=True)
-class Permissions:
-    build: bool = False
-    host_commands: Literal[False] = False
-
-
-@dataclass(slots=True, frozen=True)
 class Manifest:
     manifest_version: Literal[1]
     package: Package
-    sources: tuple[SourceSpec, ...]
     runtime: Runtime
+    sources: tuple[SourceSpec, ...] = ()
+    template: str | None = None
+    ownership: Ownership = field(default_factory=Ownership)
     inputs: tuple[InputSpec, ...] = ()
     files: tuple[FileSpec, ...] = ()
     build: Build | None = None
     checks: tuple[Check, ...] = ()
     update: UpdatePolicy = field(default_factory=UpdatePolicy)
-    permissions: Permissions = field(default_factory=Permissions)
     extensions: dict[str, Any] = field(default_factory=dict)
     digest: str = ""
 
 
 def _string_array(value: Any, path: str) -> tuple[str, ...]:
-    result = []
-
-    for index, item in enumerate(require_array(value, path)):
-        result.append(require_string(item, f"{path}[{index}]"))
-
-    return tuple(result)
+    return tuple(
+        require_string(item, f"{path}[{index}]")
+        for index, item in enumerate(require_array(value, path))
+    )
 
 
 def _parse_package(value: Any) -> Package:
@@ -211,7 +304,12 @@ def _parse_package(value: Any) -> Package:
         {
             "name",
             "version",
-            "description",
+            "display_name",
+            "kind",
+            "game",
+            "edition",
+            "summary",
+            "keywords",
             "license",
             "authors",
             "platforms",
@@ -219,22 +317,26 @@ def _parse_package(value: Any) -> Package:
         },
         path,
     )
-    require_keys(table, {"name", "version"}, path)
+    require_keys(table, {"name", "version", "kind", "game", "edition"}, path)
     name = require_string(table["name"], f"{path}.name")
     version = require_string(table["version"], f"{path}.version")
+    kind = require_string(table["kind"], f"{path}.kind")
+    game = require_string(table["game"], f"{path}.game")
+    edition = require_string(table["edition"], f"{path}.edition")
 
     if not PACKAGE_NAME_RE.fullmatch(name):
         fail(f"{path}.name", "must be a lowercase package identifier")
-
     if not SEMVER_RE.fullmatch(version):
         fail(f"{path}.version", "must be a semantic version")
+    if kind not in PACKAGE_KINDS:
+        fail(f"{path}.kind", "must be core or template")
+    if game != "minecraft":
+        fail(f"{path}.game", "must be minecraft")
+    if edition not in MINECRAFT_EDITIONS:
+        fail(f"{path}.edition", "must be java, bedrock, or cross-platform")
 
     platforms = _string_array(table.get("platforms", []), f"{path}.platforms")
-
-    for index, platform in enumerate(platforms):
-        if not PLATFORM_RE.fullmatch(platform):
-            fail(f"{path}.platforms[{index}]", "expected os/architecture")
-
+    _validate_platforms(platforms, f"{path}.platforms")
     repository = None
 
     if "repository" in table:
@@ -248,14 +350,25 @@ def _parse_package(value: Any) -> Package:
     return Package(
         name=name,
         version=version,
-        description=require_string(
-            table.get("description", ""), f"{path}.description", non_empty=False
+        display_name=optional_string(table, "display_name", path),
+        kind=cast(Literal["core", "template"], kind),
+        game="minecraft",
+        edition=cast(Literal["java", "bedrock", "cross-platform"], edition),
+        summary=require_string(
+            table.get("summary", ""), f"{path}.summary", non_empty=False
         ),
+        keywords=_string_array(table.get("keywords", []), f"{path}.keywords"),
         license=optional_string(table, "license", path),
         authors=_string_array(table.get("authors", []), f"{path}.authors"),
         platforms=platforms,
         repository=repository,
     )
+
+
+def _validate_platforms(platforms: tuple[str, ...], path: str) -> None:
+    for index, platform in enumerate(platforms):
+        if not PLATFORM_RE.fullmatch(platform):
+            fail(f"{path}[{index}]", "expected os/architecture")
 
 
 def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
@@ -267,48 +380,28 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
         spec = require_table(raw_input, path)
         reject_unknown(
             spec,
-            {
-                "type",
-                "default",
-                "prompt",
-                "min",
-                "max",
-                "pattern",
-                "required",
-                "secret",
-            },
+            {"type", "default", "prompt", "min", "max", "pattern", "required", "secret"},
             path,
         )
         require_keys(spec, {"type"}, path)
         input_type = require_string(spec["type"], f"{path}.type")
-
         if input_type not in {"string", "integer", "boolean"}:
             fail(f"{path}.type", "must be string, integer, or boolean")
 
         default = spec.get("default")
-
         if default is not None:
             expected = {"string": str, "integer": int, "boolean": bool}[input_type]
-
             if not isinstance(default, expected) or (
                 input_type == "integer" and isinstance(default, bool)
             ):
                 fail(f"{path}.default", f"expected {input_type}")
 
-        minimum = None
-        maximum = None
-
-        if "min" in spec:
-            minimum = require_int(spec["min"], f"{path}.min")
-
-        if "max" in spec:
-            maximum = require_int(spec["max"], f"{path}.max")
-
+        minimum = require_int(spec["min"], f"{path}.min") if "min" in spec else None
+        maximum = require_int(spec["max"], f"{path}.max") if "max" in spec else None
         if minimum is not None and maximum is not None and minimum > maximum:
             fail(path, "min may not exceed max")
 
         pattern = optional_string(spec, "pattern", path)
-
         if pattern is not None:
             try:
                 re.compile(pattern)
@@ -318,14 +411,13 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
         if isinstance(default, int) and not isinstance(default, bool):
             if minimum is not None and default < minimum:
                 fail(f"{path}.default", "is below min")
-
             if maximum is not None and default > maximum:
                 fail(f"{path}.default", "is above max")
 
         result.append(
             InputSpec(
                 name=name,
-                type=input_type,  # type: ignore[arg-type]
+                type=cast(Literal["string", "integer", "boolean"], input_type),
                 default=cast(str | int | bool | None, default),
                 prompt=optional_string(spec, "prompt", path),
                 minimum=minimum,
@@ -339,172 +431,235 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
     return tuple(result)
 
 
+def _github_repository(value: Any, path: str) -> str:
+    repository = require_string(value, path).strip().strip("/")
+    parts = repository.split("/")
+    if len(parts) != 2 or not all(re.fullmatch(r"[A-Za-z0-9_.-]+", part) for part in parts):
+        fail(path, "must be OWNER/REPO")
+    return repository
+
+
+def _source_url(value: Any, path: str, allow_http: bool) -> str:
+    return validate_https_url(value, path, allow_http=allow_http)
+
+
+def _parse_source_options(
+    source_type: str,
+    value: Any,
+    path: str,
+    *,
+    allow_http: bool,
+) -> SourceOptions:
+    table = require_table(value, path)
+
+    if source_type == "http":
+        reject_unknown(table, {"url", "version"}, path)
+        require_keys(table, {"url"}, path)
+        return HttpOptions(
+            url=_source_url(table["url"], f"{path}.url", allow_http),
+            version=require_string(table.get("version", "pinned"), f"{path}.version"),
+        )
+
+    if source_type == "maven":
+        reject_unknown(
+            table,
+            {"repository", "group", "artifact", "version", "extension", "classifier", "channel"},
+            path,
+        )
+        require_keys(table, {"repository", "group", "artifact", "version"}, path)
+        return MavenOptions(
+            repository=_source_url(table["repository"], f"{path}.repository", allow_http),
+            group=require_string(table["group"], f"{path}.group"),
+            artifact=require_string(table["artifact"], f"{path}.artifact"),
+            version=require_string(table["version"], f"{path}.version"),
+            extension=require_string(table.get("extension", "jar"), f"{path}.extension"),
+            classifier=optional_string(table, "classifier", path),
+            channel=require_string(table.get("channel", "stable"), f"{path}.channel"),
+        )
+
+    if source_type == "jenkins":
+        reject_unknown(table, {"base_url", "job", "build", "artifact"}, path)
+        require_keys(table, {"base_url", "job", "artifact"}, path)
+        build = table.get("build", "lastSuccessfulBuild")
+        if isinstance(build, bool) or not isinstance(build, (str, int)):
+            fail(f"{path}.build", "expected a string or integer")
+        return JenkinsOptions(
+            base_url=_source_url(table["base_url"], f"{path}.base_url", allow_http),
+            job=require_string(table["job"], f"{path}.job"),
+            artifact=safe_relative_path(table["artifact"], f"{path}.artifact"),
+            build=build,
+        )
+
+    if source_type == "github-release":
+        reject_unknown(table, {"repository", "version", "asset", "channel"}, path)
+        require_keys(table, {"repository", "asset"}, path)
+        return GitHubReleaseOptions(
+            repository=_github_repository(table["repository"], f"{path}.repository"),
+            version=require_string(table.get("version", "latest"), f"{path}.version"),
+            asset=require_string(table["asset"], f"{path}.asset"),
+            channel=require_string(table.get("channel", "stable"), f"{path}.channel"),
+        )
+
+    if source_type == "github-source":
+        reject_unknown(table, {"repository", "ref", "path"}, path)
+        require_keys(table, {"repository"}, path)
+        return GitHubSourceOptions(
+            repository=_github_repository(table["repository"], f"{path}.repository"),
+            ref=require_string(table.get("ref", "main"), f"{path}.ref"),
+            path=(safe_relative_path(table["path"], f"{path}.path") if "path" in table else None),
+        )
+
+    if source_type == "gitlab-release":
+        reject_unknown(table, {"base_url", "project", "version", "asset"}, path)
+        require_keys(table, {"project", "asset"}, path)
+        return GitLabReleaseOptions(
+            base_url=_source_url(table.get("base_url", "https://gitlab.com"), f"{path}.base_url", allow_http),
+            project=require_string(table["project"], f"{path}.project"),
+            version=require_string(table.get("version", "latest"), f"{path}.version"),
+            asset=require_string(table["asset"], f"{path}.asset"),
+        )
+
+    if source_type == "gitlab-job-artifact":
+        reject_unknown(table, {"base_url", "project", "ref", "job", "artifact"}, path)
+        require_keys(table, {"project", "job", "artifact"}, path)
+        return GitLabJobArtifactOptions(
+            base_url=_source_url(table.get("base_url", "https://gitlab.com"), f"{path}.base_url", allow_http),
+            project=require_string(table["project"], f"{path}.project"),
+            ref=require_string(table.get("ref", "main"), f"{path}.ref"),
+            job=require_string(table["job"], f"{path}.job"),
+            artifact=safe_relative_path(table["artifact"], f"{path}.artifact"),
+        )
+
+    if source_type == "mojang-version":
+        reject_unknown(table, {"version"}, path)
+        return MojangVersionOptions(
+            version=require_string(table.get("version", "latest"), f"{path}.version")
+        )
+
+    if source_type == "paper":
+        reject_unknown(table, {"minecraft", "build"}, path)
+        require_keys(table, {"minecraft"}, path)
+        build = table.get("build", "latest")
+        if isinstance(build, bool) or not isinstance(build, (str, int)):
+            fail(f"{path}.build", "expected a string or integer")
+        return PaperOptions(
+            minecraft=require_string(table["minecraft"], f"{path}.minecraft"),
+            build=build,
+        )
+
+    if source_type == "local-file":
+        reject_unknown(table, {"path", "version"}, path)
+        require_keys(table, {"path"}, path)
+        return LocalFileOptions(
+            path=safe_relative_path(table["path"], f"{path}.path"),
+            version=require_string(table.get("version", "local"), f"{path}.version"),
+        )
+
+    fail(path.removesuffix(".options") + ".type", f"unsupported source type: {source_type}")
+
+
 def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
     result = []
-    seen = set()
-    allowed = {
-        "id",
-        "provider",
-        "target",
-        "repository",
-        "url",
-        "version",
-        "channel",
-        "asset",
-        "group",
-        "artifact",
-        "packaging",
-        "classifier",
-        "job",
-        "build",
-        "path",
-        "max_size",
-        "update",
-        "integrity",
-        "extract",
-        "allow_http",
-        "allow_private_network",
-        "platforms",
-    }
+    seen_ids: set[str] = set()
 
     for index, raw_source in enumerate(require_array(value, "sources")):
         path = f"sources[{index}]"
         table = require_table(raw_source, path)
-        reject_unknown(table, allowed, path)
-        require_keys(table, {"id", "provider", "target"}, path)
-        source_id = require_string(table["id"], f"{path}.id")
-        provider = require_string(table["provider"], f"{path}.provider")
-
-        if source_id in seen:
-            fail(f"{path}.id", "source ids must be unique")
-
-        seen.add(source_id)
-
-        if provider not in SOURCE_PROVIDERS:
-            fail(f"{path}.provider", f"unsupported provider: {provider}")
-
-        allow_http = require_bool(table.get("allow_http", False), f"{path}.allow_http")
-        url = optional_string(table, "url", path)
-
-        if url is not None:
-            validate_https_url(url, f"{path}.url", allow_http=allow_http)
-
-        build_value = table.get("build")
-
-        if build_value is not None and (
-            isinstance(build_value, bool) or not isinstance(build_value, (str, int))
-        ):
-            fail(f"{path}.build", "expected a string or integer")
-
-        source = SourceSpec(
-            id=source_id,
-            provider=provider,
-            target=safe_relative_path(table["target"], f"{path}.target"),
-            repository=optional_string(table, "repository", path),
-            url=url,
-            version=optional_string(table, "version", path),
-            channel=require_string(table.get("channel", "stable"), f"{path}.channel"),
-            asset=optional_string(table, "asset", path),
-            group=optional_string(table, "group", path),
-            artifact=optional_string(table, "artifact", path),
-            packaging=optional_string(table, "packaging", path),
-            classifier=optional_string(table, "classifier", path),
-            job=optional_string(table, "job", path),
-            build=build_value,
-            path=(
-                safe_relative_path(table["path"], f"{path}.path")
-                if "path" in table
-                else None
-            ),
-            max_size=require_int(
-                table.get("max_size", 536_870_912),
-                f"{path}.max_size",
-                minimum=1,
-            ),
-            update=require_string(table.get("update", "pinned"), f"{path}.update"),
-            integrity=require_string(
-                table.get("integrity", "sha256-required"), f"{path}.integrity"
-            ),
-            extract=require_bool(table.get("extract", False), f"{path}.extract"),
-            allow_http=allow_http,
-            allow_private_network=require_bool(
-                table.get("allow_private_network", False),
-                f"{path}.allow_private_network",
-            ),
-            platforms=_string_array(table.get("platforms", []), f"{path}.platforms"),
-        )
-        for platform_index, platform_name in enumerate(source.platforms):
-            if not PLATFORM_RE.fullmatch(platform_name):
-                fail(
-                    f"{path}.platforms[{platform_index}]",
-                    "expected os/architecture",
-                )
-
-        _validate_provider_fields(source, path)
-        result.append(source)
-
-    if not result:
-        fail("sources", "at least one source is required")
-
-    return tuple(result)
-
-
-def _validate_provider_fields(source: SourceSpec, path: str) -> None:
-    if source.provider == "github-release" and not (source.repository and source.asset):
-        fail(path, "github-release requires repository and asset")
-
-    if source.provider == "maven" and not (
-        source.repository and source.group and source.artifact and source.version
-    ):
-        fail(path, "maven requires repository, group, artifact, and version")
-
-    if source.provider == "jenkins" and not (
-        source.url and source.job and source.asset
-    ):
-        fail(path, "jenkins requires url, job, and asset")
-
-    if source.provider == "http" and source.url is None:
-        fail(path, "http requires url")
-
-    if source.provider == "local-file" and source.path is None:
-        fail(path, "local-file requires path")
-
-
-def _parse_files(value: Any) -> tuple[FileSpec, ...]:
-    result = []
-    targets = set()
-
-    for index, raw_file in enumerate(require_array(value, "files")):
-        path = f"files[{index}]"
-        table = require_table(raw_file, path)
         reject_unknown(
-            table, {"source", "target", "mode", "template", "executable"}, path
+            table,
+            {"id", "type", "target", "max_size", "extract", "platforms", "allow_http", "allow_private_network", "options"},
+            path,
         )
-        require_keys(table, {"source", "target"}, path)
-        target = safe_relative_path(table["target"], f"{path}.target")
-        mode = require_string(table.get("mode", "managed"), f"{path}.mode")
-
-        if target in targets:
-            fail(f"{path}.target", "file targets must be unique")
-
-        targets.add(target)
-
-        if mode not in FILE_MODES:
-            fail(f"{path}.mode", "unsupported ownership mode")
-
+        require_keys(table, {"id", "type", "target", "options"}, path)
+        source_id = require_string(table["id"], f"{path}.id")
+        source_type = require_string(table["type"], f"{path}.type")
+        target = safe_relative_path(table["target"], f"{path}.target", allow_dot=True)
+        if not PACKAGE_NAME_RE.fullmatch(source_id):
+            fail(f"{path}.id", "must be a lowercase identifier")
+        if source_id in seen_ids:
+            fail(f"{path}.id", "source ids must be unique")
+        if source_type not in SOURCE_TYPES:
+            fail(f"{path}.type", f"unsupported source type: {source_type}")
+        seen_ids.add(source_id)
+        allow_http = require_bool(table.get("allow_http", False), f"{path}.allow_http")
+        extract = require_bool(table.get("extract", False), f"{path}.extract")
+        if target == "." and not extract:
+            fail(f"{path}.target", "'.' is allowed only for extracted sources")
+        platforms = _string_array(table.get("platforms", []), f"{path}.platforms")
+        _validate_platforms(platforms, f"{path}.platforms")
         result.append(
-            FileSpec(
-                source=safe_relative_path(table["source"], f"{path}.source"),
+            SourceSpec(
+                id=source_id,
+                type=source_type,
                 target=target,
-                mode=mode,  # type: ignore[arg-type]
-                template=require_bool(table.get("template", False), f"{path}.template"),
-                executable=require_bool(
-                    table.get("executable", False), f"{path}.executable"
+                options=_parse_source_options(
+                    source_type,
+                    table["options"],
+                    f"{path}.options",
+                    allow_http=allow_http,
+                ),
+                max_size=require_int(
+                    table.get("max_size", DEFAULT_SOURCE_MAX_SIZE),
+                    f"{path}.max_size",
+                    minimum=1,
+                ),
+                extract=extract,
+                platforms=platforms,
+                allow_http=allow_http,
+                allow_private_network=require_bool(
+                    table.get("allow_private_network", False),
+                    f"{path}.allow_private_network",
                 ),
             )
         )
 
     return tuple(result)
+
+
+def _parse_files(value: Any) -> tuple[FileSpec, ...]:
+    result = []
+    targets = set()
+    for index, raw_file in enumerate(require_array(value, "files")):
+        path = f"files[{index}]"
+        table = require_table(raw_file, path)
+        reject_unknown(table, {"source", "target", "mode", "template", "executable"}, path)
+        require_keys(table, {"source", "target"}, path)
+        target = safe_relative_path(table["target"], f"{path}.target")
+        mode = require_string(table.get("mode", "managed"), f"{path}.mode")
+        if target in targets:
+            fail(f"{path}.target", "file targets must be unique")
+        if mode not in FILE_MODES:
+            fail(f"{path}.mode", "unsupported ownership mode")
+        targets.add(target)
+        result.append(
+            FileSpec(
+                source=safe_relative_path(table["source"], f"{path}.source"),
+                target=target,
+                mode=cast(Literal["managed", "preserve", "generated", "data"], mode),
+                template=require_bool(table.get("template", False), f"{path}.template"),
+                executable=require_bool(table.get("executable", False), f"{path}.executable"),
+            )
+        )
+    return tuple(result)
+
+
+def _parse_ownership(value: Any) -> Ownership:
+    path = "ownership"
+    table = require_table(value, path)
+    reject_unknown(table, {"preserve", "data", "executable"}, path)
+    parsed: dict[str, tuple[str, ...]] = {}
+    seen: set[str] = set()
+    for policy in ("preserve", "data", "executable"):
+        values = tuple(
+            safe_relative_path(item, f"{path}.{policy}[{index}]")
+            for index, item in enumerate(require_array(table.get(policy, []), f"{path}.{policy}"))
+        )
+        for item in values:
+            if item in seen:
+                fail(f"{path}.{policy}", f"duplicate policy path: {item}")
+            seen.add(item)
+        parsed[policy] = values
+    return Ownership(**parsed)  # type: ignore[arg-type]
 
 
 def _parse_runtime(value: Any) -> Runtime:
@@ -512,107 +667,63 @@ def _parse_runtime(value: Any) -> Runtime:
     table = require_table(value, path)
     reject_unknown(
         table,
-        {
-            "driver",
-            "image",
-            "command",
-            "workdir",
-            "memory",
-            "stop_signal",
-            "stop_timeout",
-            "restart",
-            "restart_limit",
-            "run_as",
-            "read_only_root",
-            "mounts",
-            "ports",
-        },
+        {"image", "command", "workdir", "memory", "stop_signal", "stop_timeout", "restart", "restart_limit", "run_as", "read_only_root", "mounts", "ports"},
         path,
     )
-    require_keys(table, {"driver", "image", "command"}, path)
-    driver = require_string(table["driver"], f"{path}.driver")
-
-    if driver != "docker":
-        fail(f"{path}.driver", "only docker is supported in schema v1")
-
-    raw_command = require_array(table["command"], f"{path}.command")
+    require_keys(table, {"image", "command"}, path)
     command = tuple(
         require_string(item, f"{path}.command[{index}]")
-        for index, item in enumerate(raw_command)
+        for index, item in enumerate(require_array(table["command"], f"{path}.command"))
     )
-
     if not command:
         fail(f"{path}.command", "must contain at least one argv element")
 
     mounts = []
-
-    for index, raw_mount in enumerate(
-        require_array(table.get("mounts", []), f"{path}.mounts")
-    ):
+    for index, raw_mount in enumerate(require_array(table.get("mounts", []), f"{path}.mounts")):
         item_path = f"{path}.mounts[{index}]"
         mount = require_table(raw_mount, item_path)
         reject_unknown(mount, {"source", "target", "mode"}, item_path)
         require_keys(mount, {"source", "target"}, item_path)
         mode = require_string(mount.get("mode", "rw"), f"{item_path}.mode")
-
         if mode not in {"ro", "rw"}:
             fail(f"{item_path}.mode", "must be ro or rw")
-
         mounts.append(
             RuntimeMount(
-                source=safe_relative_path(
-                    mount["source"], f"{item_path}.source", allow_dot=True
-                ),
+                source=safe_relative_path(mount["source"], f"{item_path}.source", allow_dot=True),
                 target=require_string(mount["target"], f"{item_path}.target"),
-                mode=mode,  # type: ignore[arg-type]
+                mode=cast(Literal["ro", "rw"], mode),
             )
         )
 
     ports = []
-
-    for index, raw_port in enumerate(
-        require_array(table.get("ports", []), f"{path}.ports")
-    ):
+    for index, raw_port in enumerate(require_array(table.get("ports", []), f"{path}.ports")):
         item_path = f"{path}.ports[{index}]"
         port = require_table(raw_port, item_path)
         reject_unknown(port, {"name", "host", "container", "protocol"}, item_path)
         require_keys(port, {"name", "host", "container"}, item_path)
         protocol = require_string(port.get("protocol", "tcp"), f"{item_path}.protocol")
-
         if protocol not in {"tcp", "udp"}:
             fail(f"{item_path}.protocol", "must be tcp or udp")
-
-        host = _parse_port_value(port["host"], f"{item_path}.host")
-        container = _parse_port_value(port["container"], f"{item_path}.container")
         ports.append(
             RuntimePort(
                 name=require_string(port["name"], f"{item_path}.name"),
-                host=host,
-                container=container,
-                protocol=protocol,  # type: ignore[arg-type]
+                host=_parse_port_value(port["host"], f"{item_path}.host"),
+                container=_parse_port_value(port["container"], f"{item_path}.container"),
+                protocol=cast(Literal["tcp", "udp"], protocol),
             )
         )
 
     return Runtime(
-        driver="docker",
         image=require_string(table["image"], f"{path}.image"),
         command=command,
         workdir=require_string(table.get("workdir", "/server"), f"{path}.workdir"),
         memory=optional_string(table, "memory", path),
-        stop_signal=require_string(
-            table.get("stop_signal", "SIGINT"), f"{path}.stop_signal"
-        ),
-        stop_timeout=require_int(
-            table.get("stop_timeout", 30), f"{path}.stop_timeout", minimum=1
-        ),
+        stop_signal=require_string(table.get("stop_signal", "SIGINT"), f"{path}.stop_signal"),
+        stop_timeout=require_int(table.get("stop_timeout", 30), f"{path}.stop_timeout", minimum=1),
         restart=require_string(table.get("restart", "no"), f"{path}.restart"),
-        restart_limit=require_int(
-            table.get("restart_limit", 0), f"{path}.restart_limit", minimum=0
-        ),
+        restart_limit=require_int(table.get("restart_limit", 0), f"{path}.restart_limit", minimum=0),
         run_as=optional_string(table, "run_as", path),
-        read_only_root=require_bool(
-            table.get("read_only_root", True), f"{path}.read_only_root"
-        ),
+        read_only_root=require_bool(table.get("read_only_root", True), f"{path}.read_only_root"),
         mounts=tuple(mounts),
         ports=tuple(ports),
     )
@@ -621,130 +732,67 @@ def _parse_runtime(value: Any) -> Runtime:
 def _parse_port_value(value: Any, path: str) -> int | str:
     if isinstance(value, int) and not isinstance(value, bool):
         return require_int(value, path, minimum=1, maximum=65535)
-
     text = require_string(value, path)
-
-    if not text.startswith("${input.") or not text.endswith("}"):
+    if re.fullmatch(r"\$\{input\.[A-Za-z0-9_-]+}", text) is None:
         fail(path, "must be a port number or ${input.name}")
-
     return text
 
 
 def _parse_build(value: Any) -> Build:
     path = "build"
     table = require_table(value, path)
-    reject_unknown(
-        table,
-        {"driver", "file", "output", "timeout", "cpu", "memory", "permissions"},
-        path,
-    )
-    require_keys(table, {"driver", "file", "output"}, path)
-    driver = require_string(table["driver"], f"{path}.driver")
-
-    if driver != "dockerfile":
-        fail(f"{path}.driver", "only dockerfile is supported in schema v1")
-
-    permissions = BuildPermissions()
-
-    if "permissions" in table:
-        permission_table = require_table(table["permissions"], f"{path}.permissions")
-        reject_unknown(permission_table, {"network"}, f"{path}.permissions")
-        permissions = BuildPermissions(
-            network=require_bool(
-                permission_table.get("network", False),
-                f"{path}.permissions.network",
-            )
-        )
-
+    reject_unknown(table, {"file", "output", "timeout", "cpu", "memory", "network"}, path)
+    require_keys(table, {"file", "output"}, path)
     output = require_string(table["output"], f"{path}.output")
-
     if not output.startswith("/"):
         fail(f"{path}.output", "must be an absolute container path")
-
     return Build(
-        driver="dockerfile",
         file=safe_relative_path(table["file"], f"{path}.file"),
         output=output,
         timeout=require_int(table.get("timeout", 1200), f"{path}.timeout", minimum=1),
         cpu=require_int(table.get("cpu", 2), f"{path}.cpu", minimum=1),
         memory=require_string(table.get("memory", "2g"), f"{path}.memory"),
-        permissions=permissions,
+        network=require_bool(table.get("network", False), f"{path}.network"),
     )
 
 
 def _parse_checks(value: Any) -> tuple[Check, ...]:
     result = []
     seen = set()
-
     for index, raw_check in enumerate(require_array(value, "checks")):
         path = f"checks[{index}]"
         table = require_table(raw_check, path)
-        reject_unknown(
-            table,
-            {
-                "id",
-                "phase",
-                "kind",
-                "required",
-                "path",
-                "pattern",
-                "host",
-                "port",
-                "command",
-                "timeout",
-            },
-            path,
-        )
+        reject_unknown(table, {"id", "phase", "kind", "required", "path", "pattern", "host", "port", "command", "timeout"}, path)
         require_keys(table, {"id", "phase", "kind"}, path)
         check_id = require_string(table["id"], f"{path}.id")
         phase = require_string(table["phase"], f"{path}.phase")
         kind = require_string(table["kind"], f"{path}.kind")
-
         if check_id in seen:
             fail(f"{path}.id", "check ids must be unique")
-
-        seen.add(check_id)
-
         if phase not in CHECK_PHASES:
             fail(f"{path}.phase", "unsupported check phase")
-
         if kind not in CHECK_KINDS:
             fail(f"{path}.kind", "unsupported check kind")
-
-        check_path = (
-            safe_relative_path(table["path"], f"{path}.path")
-            if "path" in table
-            else None
-        )
+        seen.add(check_id)
+        check_path = safe_relative_path(table["path"], f"{path}.path") if "path" in table else None
         pattern = optional_string(table, "pattern", path)
-
         if kind == "file" and check_path is None:
             fail(path, "file checks require path")
-
         if kind == "log-regex" and pattern is None:
             fail(path, "log-regex checks require pattern")
-
         command = tuple(
             require_string(item, f"{path}.command[{command_index}]")
-            for command_index, item in enumerate(
-                require_array(table.get("command", []), f"{path}.command")
-            )
+            for command_index, item in enumerate(require_array(table.get("command", []), f"{path}.command"))
         )
-
         if kind == "command" and not command:
             fail(path, "command checks require a non-empty argv array")
-
         if phase in {"post-build", "post-install"} and kind != "file":
             fail(path, f"{phase} currently supports only file checks")
-
         if phase == "readiness" and kind == "file":
             fail(path, "readiness file checks must use post-install phase")
-
         port = table.get("port")
-
         if port is not None:
             port = _parse_port_value(port, f"{path}.port")
-
         result.append(
             Check(
                 id=check_id,
@@ -756,61 +804,26 @@ def _parse_checks(value: Any) -> tuple[Check, ...]:
                 host=optional_string(table, "host", path),
                 port=port,
                 command=command,
-                timeout=require_int(
-                    table.get("timeout", 30), f"{path}.timeout", minimum=1
-                ),
+                timeout=require_int(table.get("timeout", 30), f"{path}.timeout", minimum=1),
             )
         )
-
     return tuple(result)
 
 
 def _parse_update(value: Any) -> UpdatePolicy:
     path = "update"
     table = require_table(value, path)
-    reject_unknown(
-        table, {"strategy", "backup", "retain_backups", "rollback_on_failure"}, path
-    )
-    strategy = require_string(
-        table.get("strategy", "transactional"), f"{path}.strategy"
-    )
-
+    reject_unknown(table, {"strategy", "backup", "retain_backups", "rollback_on_failure"}, path)
+    strategy = require_string(table.get("strategy", "transactional"), f"{path}.strategy")
     if strategy != "transactional":
         fail(f"{path}.strategy", "only transactional updates are supported")
-
     return UpdatePolicy(
         backup=tuple(
             safe_relative_path(item, f"{path}.backup[{index}]")
-            for index, item in enumerate(
-                require_array(table.get("backup", []), f"{path}.backup")
-            )
+            for index, item in enumerate(require_array(table.get("backup", []), f"{path}.backup"))
         ),
-        retain_backups=require_int(
-            table.get("retain_backups", 3),
-            f"{path}.retain_backups",
-            minimum=0,
-        ),
-        rollback_on_failure=require_bool(
-            table.get("rollback_on_failure", True),
-            f"{path}.rollback_on_failure",
-        ),
-    )
-
-
-def _parse_permissions(value: Any) -> Permissions:
-    path = "permissions"
-    table = require_table(value, path)
-    reject_unknown(table, {"build", "host_commands"}, path)
-    host_commands = require_bool(
-        table.get("host_commands", False), f"{path}.host_commands"
-    )
-
-    if host_commands:
-        fail(f"{path}.host_commands", "host commands are forbidden")
-
-    return Permissions(
-        build=require_bool(table.get("build", False), f"{path}.build"),
-        host_commands=False,
+        retain_backups=require_int(table.get("retain_backups", 3), f"{path}.retain_backups", minimum=0),
+        rollback_on_failure=require_bool(table.get("rollback_on_failure", True), f"{path}.rollback_on_failure"),
     )
 
 
@@ -821,67 +834,50 @@ def parse_manifest(content: bytes, *, source: str = MANIFEST_NAME) -> Manifest:
             path=source,
             size=len(content),
         )
-
     try:
-        text = content.decode("utf-8")
-        raw = tomllib.loads(text)
+        raw = tomllib.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         raise ValidationError(f"invalid {source}: {exc}", path=source) from exc
 
     reject_unknown(
         raw,
-        {
-            "manifest_version",
-            "package",
-            "inputs",
-            "sources",
-            "files",
-            "runtime",
-            "build",
-            "checks",
-            "update",
-            "permissions",
-            "x",
-        },
+        {"manifest_version", "template", "package", "inputs", "sources", "files", "ownership", "runtime", "build", "checks", "update", "x"},
         "manifest",
     )
-    require_keys(raw, {"manifest_version", "package", "sources", "runtime"}, "manifest")
+    require_keys(raw, {"manifest_version", "package", "runtime"}, "manifest")
     manifest_version = require_int(raw["manifest_version"], "manifest_version")
-
     if manifest_version != 1:
         fail("manifest_version", "unsupported schema version; expected 1")
 
     extensions = require_table(raw.get("x", {}), "x")
-
     for vendor, extension in extensions.items():
         require_table(extension, f"x.{vendor}")
 
-    build = _parse_build(raw["build"]) if "build" in raw else None
-    permissions = _parse_permissions(raw.get("permissions", {}))
+    template = None
+    if "template" in raw:
+        template = safe_relative_path(raw["template"], "template")
 
-    if build is not None and not permissions.build:
-        fail("permissions.build", "must be true when a Dockerfile build is declared")
-
-    return Manifest(
+    manifest = Manifest(
         manifest_version=1,
         package=_parse_package(raw["package"]),
+        template=template,
         inputs=_parse_inputs(raw.get("inputs", {})),
-        sources=_parse_sources(raw["sources"]),
+        sources=_parse_sources(raw.get("sources", [])),
         files=_parse_files(raw.get("files", [])),
+        ownership=_parse_ownership(raw.get("ownership", {})),
         runtime=_parse_runtime(raw["runtime"]),
-        build=build,
+        build=_parse_build(raw["build"]) if "build" in raw else None,
         checks=_parse_checks(raw.get("checks", [])),
         update=_parse_update(raw.get("update", {})),
-        permissions=permissions,
         extensions=extensions,
         digest=sha256_digest(content),
     )
+    if not manifest.sources and manifest.build is None and manifest.template is None and not manifest.files:
+        fail("manifest", "must declare sources, build, template, or files")
+    return manifest
 
 
 def load_manifest(path: Path) -> Manifest:
     if path.name != MANIFEST_NAME:
-        raise ValidationError(
-            f"manifest must be named exactly {MANIFEST_NAME}", path=str(path)
-        )
-
+        raise ValidationError(f"manifest must be named exactly {MANIFEST_NAME}", path=str(path))
     return parse_manifest(read_bounded_utf8(path, MAX_MANIFEST_SIZE), source=str(path))

@@ -59,7 +59,7 @@ class DockerfileBuilder:
                 newline="\n",
             )
             destination.mkdir(parents=True, exist_ok=True)
-            network = "default" if spec.permissions.network else "none"
+            network = "default" if spec.network else "none"
             build_id = uuid.uuid4().hex
             image_tag = f"nesk-build:{build_id}"
             container_name = f"nesk-build-output-{build_id}"

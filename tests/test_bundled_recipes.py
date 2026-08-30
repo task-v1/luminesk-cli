@@ -31,7 +31,5 @@ def test_complex_recipes_declare_isolated_dockerfile_builds() -> None:
         manifest = load_manifest(root / "luminesk.toml")
 
         assert manifest.build is not None
-        assert manifest.build.driver == "dockerfile"
-        assert manifest.permissions.build is True
-        assert manifest.permissions.host_commands is False
+        assert manifest.build.network is True
         assert (root / manifest.build.file).is_file()

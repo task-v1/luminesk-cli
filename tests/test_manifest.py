@@ -11,6 +11,12 @@ manifest_version = 1
 [package]
 name = "pnx-basic"
 version = "2.0.0"
+display_name = "PowerNukkitX"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
+summary = "PowerNukkitX server"
+keywords = ["minecraft", "bedrock"]
 platforms = ["linux/amd64", "linux/arm64"]
 
 [inputs.port]
@@ -21,14 +27,14 @@ max = 65535
 
 [[sources]]
 id = "core"
-provider = "github-release"
+type = "github-release"
+target = "server.jar"
+[sources.options]
 repository = "PowerNukkitX/PowerNukkitX"
 version = ">=2.0.0,<3.0.0"
 asset = "powernukkitx.jar"
-target = "server.jar"
 
 [runtime]
-driver = "docker"
 image = "eclipse-temurin:21-jre"
 command = ["java", "-jar", "server.jar"]
 
@@ -60,6 +66,9 @@ def test_parse_valid_manifest() -> None:
         (b"manifest_version = 1", b"manifest_version = 2", "manifest_version"),
         (b'name = "pnx-basic"', b'name = "PNX Basic"', "package.name"),
         (b'version = "2.0.0"', b'version = "latest"', "package.version"),
+        (b'kind = "core"', b'kind = "plugin"', "package.kind"),
+        (b'game = "minecraft"', b'game = "other"', "package.game"),
+        (b'edition = "bedrock"', b'edition = "mobile"', "package.edition"),
         (b'target = "server.jar"', b'target = "../server.jar"', "target"),
         (
             b'command = ["java", "-jar", "server.jar"]',
@@ -100,7 +109,66 @@ def test_manifest_rejects_unsafe_target_paths(target: str) -> None:
 def test_manifest_rejects_host_commands() -> None:
     content = VALID_MANIFEST + b"\n[permissions]\nhost_commands = true\n"
 
-    with pytest.raises(ValidationError, match="host commands are forbidden"):
+    with pytest.raises(ValidationError, match="unknown key"):
+        parse_manifest(content)
+
+
+def test_manifest_rejects_retired_runtime_driver() -> None:
+    content = VALID_MANIFEST.replace(
+        b"[runtime]\n", b'[runtime]\ndriver = "docker"\n'
+    )
+
+    with pytest.raises(ValidationError, match="driver"):
+        parse_manifest(content)
+
+
+def test_manifest_rejects_unknown_source_option() -> None:
+    content = VALID_MANIFEST.replace(
+        b'asset = "powernukkitx.jar"',
+        b'asset = "powernukkitx.jar"\njob = "not-a-github-option"',
+    )
+
+    with pytest.raises(ValidationError, match="unknown key"):
+        parse_manifest(content)
+
+
+def test_manifest_rejects_unknown_source_type() -> None:
+    content = VALID_MANIFEST.replace(
+        b'type = "github-release"', b'type = "custom-provider"'
+    )
+
+    with pytest.raises(ValidationError, match="unsupported source type"):
+        parse_manifest(content)
+
+
+def test_manifest_parses_java_template_and_ownership() -> None:
+    content = VALID_MANIFEST.replace(
+        b'manifest_version = 1', b'manifest_version = 1\ntemplate = "template"'
+    ).replace(b'edition = "bedrock"', b'edition = "java"')
+    content += b'''\n[ownership]\npreserve = ["server.properties"]\ndata = ["world"]\nexecutable = ["run-helper"]\n'''
+
+    manifest = parse_manifest(content)
+
+    assert manifest.template == "template"
+    assert manifest.package.edition == "java"
+    assert manifest.ownership.data == ("world",)
+
+
+@pytest.mark.parametrize("template", ["../template", "/template", "a/../template"])
+def test_manifest_rejects_unsafe_template_path(template: str) -> None:
+    content = VALID_MANIFEST.replace(
+        b"manifest_version = 1",
+        f'manifest_version = 1\ntemplate = "{template}"'.encode(),
+    )
+
+    with pytest.raises(ValidationError, match="template"):
+        parse_manifest(content)
+
+
+def test_manifest_rejects_duplicate_ownership_path() -> None:
+    content = VALID_MANIFEST + b'''\n[ownership]\npreserve = ["world"]\ndata = ["world"]\n'''
+
+    with pytest.raises(ValidationError, match="duplicate policy path"):
         parse_manifest(content)
 
 

@@ -52,13 +52,16 @@ manifest_version = 1
 [package]
 name = "cli-fixture"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "server.jar.in"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "server.jar.in"
 [runtime]
-driver = "docker"
 image = "fixture/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["java", "-jar", "server.jar"]
 """,
@@ -137,13 +140,16 @@ manifest_version = 1
 [package]
 name = "remote-fixture"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "artifact"
-provider = "local-file"
-path = "artifact.bin"
+type = "local-file"
 target = "server.bin"
+[sources.options]
+path = "artifact.bin"
 [runtime]
-driver = "docker"
 image = "example/server:2"
 command = ["server"]
 """

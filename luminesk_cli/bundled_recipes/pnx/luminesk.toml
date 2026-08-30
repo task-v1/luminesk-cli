@@ -3,16 +3,19 @@ manifest_version = 1
 [package]
 name = "powernukkitx"
 version = "1.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 platforms = ["linux/amd64", "linux/arm64"]
 [[sources]]
 id = "core"
-provider = "github-release"
+type = "github-release"
+target = "server.jar"
+[sources.options]
 repository = "PowerNukkitX/PowerNukkitX"
 version = "latest"
 asset = "powernukkitx.jar"
-target = "server.jar"
 [runtime]
-driver = "docker"
 image = "eclipse-temurin:21-jre"
 command = ["java", "-jar", "server.jar"]
 [[runtime.mounts]]

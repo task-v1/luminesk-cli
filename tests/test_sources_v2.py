@@ -8,7 +8,14 @@ import pytest
 
 from luminesk_cli.application.locking import LockService
 from luminesk_cli.domain.errors import NetworkError, ResolutionError
-from luminesk_cli.domain.manifest import SourceSpec, parse_manifest
+from luminesk_cli.domain.manifest import (
+    GitHubReleaseOptions,
+    HttpOptions,
+    JenkinsOptions,
+    MavenOptions,
+    SourceSpec,
+    parse_manifest,
+)
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.sources.common import (
@@ -53,10 +60,12 @@ def test_github_release_requires_unambiguous_asset() -> None:
     )
     source = SourceSpec(
         id="core",
-        provider="github-release",
-        repository="owner/repo",
-        asset="server*.jar",
+        type="github-release",
         target="server.jar",
+        options=GitHubReleaseOptions(
+            repository="owner/repo",
+            asset="server*.jar",
+        ),
         allow_private_network=True,
     )
 
@@ -73,13 +82,16 @@ manifest_version = 1
 [package]
 name = "local-server"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "fixture.jar"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "fixture.jar"
 [runtime]
-driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["./server.jar"]
 """
@@ -128,11 +140,13 @@ def test_github_release_selects_highest_matching_release() -> None:
 
     source = SourceSpec(
         id="core",
-        provider="github-release",
-        repository="https://github.com/owner/repository.git",
-        version=">=2.0.0,<3.0.0",
-        asset="server.jar",
+        type="github-release",
         target="server.jar",
+        options=GitHubReleaseOptions(
+            repository="owner/repository",
+            version=">=2.0.0,<3.0.0",
+            asset="server.jar",
+        ),
         allow_private_network=True,
     )
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -165,12 +179,14 @@ def test_jenkins_resolution_uses_immutable_revision() -> None:
     )
     source = SourceSpec(
         id="core",
-        provider="jenkins",
-        url="https://ci.example",
-        job="server/main",
-        build=42,
-        asset="*.jar",
+        type="jenkins",
         target="server.jar",
+        options=JenkinsOptions(
+            base_url="https://ci.example",
+            job="server/main",
+            build=42,
+            artifact="*.jar",
+        ),
         allow_private_network=True,
     )
 
@@ -203,12 +219,14 @@ def test_maven_release_resolution_reads_optional_sha256() -> None:
     client = httpx.Client(transport=httpx.MockTransport(handler))
     source = SourceSpec(
         id="core",
-        provider="maven",
-        repository="https://repo.example/releases",
-        group="org.example",
-        artifact="server",
-        version=">=2.0.0,<3.0.0",
+        type="maven",
         target="server.jar",
+        options=MavenOptions(
+            repository="https://repo.example/releases",
+            group="org.example",
+            artifact="server",
+            version=">=2.0.0,<3.0.0",
+        ),
         allow_private_network=True,
     )
 
@@ -253,13 +271,15 @@ def test_maven_snapshot_resolution_uses_timestamped_artifact() -> None:
     client = httpx.Client(transport=httpx.MockTransport(handler))
     source = SourceSpec(
         id="core",
-        provider="maven",
-        repository="https://repo.example/snapshots",
-        group="org.example",
-        artifact="server",
-        version="2.4.0-SNAPSHOT",
-        classifier="all",
+        type="maven",
         target="server.jar",
+        options=MavenOptions(
+            repository="https://repo.example/snapshots",
+            group="org.example",
+            artifact="server",
+            version="2.4.0-SNAPSHOT",
+            classifier="all",
+        ),
         allow_private_network=True,
     )
 
@@ -286,8 +306,9 @@ def test_metadata_redirect_drops_credentials_on_host_change() -> None:
 
     source = SourceSpec(
         id="metadata",
-        provider="http",
+        type="http",
         target="metadata.json",
+        options=HttpOptions(url="https://api.example/metadata.json"),
         allow_private_network=True,
     )
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -309,8 +330,9 @@ def test_metadata_redirect_drops_credentials_on_host_change() -> None:
 def test_metadata_body_is_bounded_while_streaming() -> None:
     source = SourceSpec(
         id="metadata",
-        provider="http",
+        type="http",
         target="metadata.json",
+        options=HttpOptions(url="https://api.example/metadata.json"),
         allow_private_network=True,
     )
     client = httpx.Client(
@@ -326,8 +348,9 @@ def test_metadata_body_is_bounded_while_streaming() -> None:
 def test_metadata_http_failures_have_stable_network_error() -> None:
     source = SourceSpec(
         id="metadata",
-        provider="http",
+        type="http",
         target="metadata.json",
+        options=HttpOptions(url="https://api.example/metadata.json"),
         allow_private_network=True,
     )
     client = httpx.Client(

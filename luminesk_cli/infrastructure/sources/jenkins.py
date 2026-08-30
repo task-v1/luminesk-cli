@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 from luminesk_cli.domain.errors import ResolutionError
-from luminesk_cli.domain.manifest import SourceSpec
+from luminesk_cli.domain.manifest import JenkinsOptions, SourceSpec
 from luminesk_cli.domain.primitives import safe_relative_path
 from luminesk_cli.infrastructure.sources.base import Resolution
 from luminesk_cli.infrastructure.sources.common import request_json_object
@@ -16,14 +16,15 @@ from luminesk_cli.infrastructure.sources.common import request_json_object
 
 class JenkinsResolver:
     def resolve(self, source: SourceSpec, client: httpx.Client) -> Resolution:
-        if source.url is None or source.job is None or source.asset is None:
-            raise ResolutionError("jenkins requires url, job, and asset")
+        if not isinstance(source.options, JenkinsOptions):
+            raise ResolutionError("jenkins source has invalid options")
 
-        job_url = f"{source.url.rstrip('/')}/job/{source.job.strip('/')}"
-        build_selector = str(source.build or "lastSuccessfulBuild")
+        options = source.options
+        job_url = f"{options.base_url.rstrip('/')}/job/{options.job.strip('/')}"
+        build_selector = str(options.build)
         build_url = f"{job_url}/{build_selector}"
         metadata = request_json_object(client, f"{build_url}/api/json", source)
-        artifact = _select_artifact(metadata.get("artifacts"), source.asset)
+        artifact = _select_artifact(metadata.get("artifacts"), options.artifact)
         build_number = metadata.get("number")
         revision = _source_revision(metadata, build_number)
         version = str(build_number) if isinstance(build_number, int) else revision
@@ -32,7 +33,7 @@ class JenkinsResolver:
         )
 
         return Resolution(
-            provider=source.provider,
+            type=source.type,
             version=version,
             source_revision=revision,
             url=f"{build_url}/artifact/{relative_path}",

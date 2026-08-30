@@ -26,6 +26,9 @@ manifest_version = 1
 [package]
 name = "fixture-server"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [inputs.name]
 type = "string"
 default = "Nesk"
@@ -34,9 +37,10 @@ type = "integer"
 default = 19132
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "fixture.jar"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "fixture.jar"
 [[files]]
 source = "server.properties.in"
 target = "server.properties"
@@ -47,7 +51,6 @@ source = "worlds"
 target = "worlds"
 mode = "data"
 [runtime]
-driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["java", "-jar", "server.jar"]
 [[checks]]
@@ -84,17 +87,20 @@ manifest_version = 1
 [package]
 name = "fixture-server"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [[sources]]
 id = "core"
-provider = "local-file"
-path = "fixture.jar"
+type = "local-file"
 target = "server.jar"
+[sources.options]
+path = "fixture.jar"
 [[files]]
 source = "template.txt"
 target = "config.txt"
 template = true
 [runtime]
-driver = "docker"
 image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 command = ["./server.jar"]
 """

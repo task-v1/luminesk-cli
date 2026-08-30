@@ -14,7 +14,7 @@ from luminesk_cli.domain.lockfile import (
     ResolvedSource,
     RuntimeLock,
 )
-from luminesk_cli.domain.manifest import Manifest, SourceSpec
+from luminesk_cli.domain.manifest import LocalFileOptions, Manifest, SourceSpec
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.dockerfile import resolve_build_images
 from luminesk_cli.infrastructure.fetch import SecureFetcher
@@ -119,7 +119,7 @@ class LockService:
         recipe_root: Path,
         client: httpx.Client,
     ) -> ResolvedSource:
-        if source.provider == "local-file":
+        if source.type == "local-file":
             return self._resolve_local(source, recipe_root)
 
         resolution = self.registry.resolve(source, client)
@@ -133,7 +133,7 @@ class LockService:
         )
 
         return ResolvedSource(
-            provider=source.provider,
+            type=source.type,
             version=resolution.version,
             source_revision=resolution.source_revision,
             url=resolution.url,
@@ -148,11 +148,11 @@ class LockService:
         source: SourceSpec,
         recipe_root: Path,
     ) -> ResolvedSource:
-        if source.path is None:
-            raise ResolutionError("local-file source requires path")
+        if not isinstance(source.options, LocalFileOptions):
+            raise ResolutionError("local-file source has invalid options")
 
         root = recipe_root.resolve()
-        candidate = (root / source.path).resolve()
+        candidate = (root / source.options.path).resolve()
 
         if not candidate.is_relative_to(root) or not candidate.is_file():
             raise SecurityError(
@@ -172,10 +172,10 @@ class LockService:
         digest, _ = digest_file(candidate)
         blob = self.cache.store(candidate, digest)
         return ResolvedSource(
-            provider=source.provider,
-            version=source.version or "local",
+            type=source.type,
+            version=source.options.version,
             source_revision=digest,
-            url=f"local:{source.path}",
+            url=f"local:{source.options.path}",
             size=blob.size,
             digest=blob.digest,
             target=source.target,

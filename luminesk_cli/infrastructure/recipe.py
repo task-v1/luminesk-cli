@@ -19,7 +19,7 @@ from luminesk_cli.domain.errors import (
     ResolutionError,
     SecurityError,
 )
-from luminesk_cli.domain.manifest import SourceSpec
+from luminesk_cli.domain.manifest import HttpOptions, SourceSpec
 from luminesk_cli.domain.primitives import safe_relative_path
 from luminesk_cli.infrastructure.cache import ContentCache, digest_file
 from luminesk_cli.infrastructure.fetch import SecureFetcher
@@ -147,9 +147,9 @@ def _checkout_github_archive(
 ) -> RecipeCheckout:
     metadata_source = SourceSpec(
         id="recipe",
-        provider="http",
+        type="http",
         target="recipe.tar.gz",
-        url="https://api.github.com/",
+        options=HttpOptions(url="https://api.github.com/"),
     )
     headers = {
         "Accept": "application/vnd.github+json",

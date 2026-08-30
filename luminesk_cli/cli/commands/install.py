@@ -180,7 +180,7 @@ def _confirm(
 ) -> None:
     build_enabled = lockfile.build is not None
     build_network = bool(
-        manifest.build is not None and manifest.build.permissions.network
+        manifest.build is not None and manifest.build.network
     )
     protected = ", ".join(manifest.update.backup) or "none"
     summary = (

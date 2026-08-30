@@ -14,28 +14,26 @@ manifest_version = 1
 [package]
 name = "{name}"
 version = "0.1.0"
-description = "A Nesk server recipe"
+display_name = "{name}"
+kind = "core"
+game = "minecraft"
+edition = "java"
+summary = "A Minecraft server recipe"
+keywords = ["minecraft", "java"]
 platforms = ["linux/amd64", "linux/arm64"]
 
 [[sources]]
 id = "core"
-provider = "http"
-url = "https://example.invalid/server.jar"
-version = "1.0.0"
+type = "http"
 target = "server.jar"
 max_size = 536870912
+[sources.options]
+url = "https://example.invalid/server.jar"
+version = "1.0.0"
 
 [runtime]
-driver = "docker"
 image = "eclipse-temurin:21-jre"
 command = ["java", "-jar", "server.jar"]
-workdir = "/server"
-read_only_root = true
-
-[[runtime.mounts]]
-source = "."
-target = "/server"
-mode = "rw"
 
 [[checks]]
 id = "core-present"
@@ -48,10 +46,6 @@ strategy = "transactional"
 backup = ["worlds", "server.properties", "plugins"]
 retain_backups = 3
 rollback_on_failure = true
-
-[permissions]
-build = false
-host_commands = false
 """
 
 

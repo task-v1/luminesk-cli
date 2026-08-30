@@ -37,7 +37,7 @@ class RecipeLock:
 
 @dataclass(slots=True, frozen=True)
 class ResolvedSource:
-    provider: str
+    type: str
     version: str
     source_revision: str
     url: str
@@ -74,7 +74,7 @@ class Lockfile:
             "target": self.target,
             "sources": {
                 source_id: {
-                    "provider": source.provider,
+                    "type": source.type,
                     "version": source.version,
                     "sourceRevision": source.source_revision,
                     "url": source.url,
@@ -129,7 +129,7 @@ def _parse_source(source_id: str, value: Any) -> ResolvedSource:
     reject_unknown(
         table,
         {
-            "provider",
+            "type",
             "version",
             "sourceRevision",
             "url",
@@ -142,13 +142,13 @@ def _parse_source(source_id: str, value: Any) -> ResolvedSource:
     )
     require_keys(
         table,
-        {"provider", "version", "sourceRevision", "url", "size", "digest", "target"},
+        {"type", "version", "sourceRevision", "url", "size", "digest", "target"},
         path,
     )
-    provider = require_string(table["provider"], f"{path}.provider")
+    source_type = require_string(table["type"], f"{path}.type")
     raw_url = require_string(table["url"], f"{path}.url")
 
-    if provider == "local-file":
+    if source_type == "local-file":
         if not raw_url.startswith("local:"):
             raise ValidationError(f"{path}.url: local-file URL must start with local:")
 
@@ -158,7 +158,7 @@ def _parse_source(source_id: str, value: Any) -> ResolvedSource:
         url = validate_https_url(raw_url, f"{path}.url")
 
     return ResolvedSource(
-        provider=provider,
+        type=source_type,
         version=require_string(table["version"], f"{path}.version"),
         source_revision=require_string(
             table["sourceRevision"], f"{path}.sourceRevision"
@@ -166,7 +166,7 @@ def _parse_source(source_id: str, value: Any) -> ResolvedSource:
         url=url,
         size=require_int(table["size"], f"{path}.size", minimum=0),
         digest=validate_digest(table["digest"], f"{path}.digest"),
-        target=safe_relative_path(table["target"], f"{path}.target"),
+        target=safe_relative_path(table["target"], f"{path}.target", allow_dot=True),
         media_type=(
             require_string(table["mediaType"], f"{path}.mediaType")
             if "mediaType" in table

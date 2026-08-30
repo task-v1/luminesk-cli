@@ -23,7 +23,7 @@ def make_lockfile() -> Lockfile:
         target="linux/amd64",
         sources={
             "core": ResolvedSource(
-                provider="http",
+                type="http",
                 version="2.0.0",
                 source_revision="2.0.0",
                 url="https://example.org/server.jar",

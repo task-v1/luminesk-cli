@@ -22,16 +22,19 @@ manifest_version = 1
 [package]
 name = "runtime-fixture"
 version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
 [inputs.port]
 type = "integer"
 default = 19132
 [[sources]]
 id = "core"
-provider = "http"
-url = "https://example.org/server.jar"
+type = "http"
 target = "server.jar"
+[sources.options]
+url = "https://example.org/server.jar"
 [runtime]
-driver = "docker"
 image = "example/server:latest"
 command = ["java", "-jar", "server.jar; echo not-a-shell"]
 workdir = "/server"
