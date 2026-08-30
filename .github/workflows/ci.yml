@@ -16,7 +16,7 @@ permissions:
 
 env:
   PYTHONUTF8: "1"
-  UV_FROZEN: "1"
+  UV_LOCKED: "1"
 
 jobs:
   quality:
