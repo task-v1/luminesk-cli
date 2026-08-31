@@ -268,7 +268,7 @@ class DeclarativeBuilder:
             apply_ownership_overrides(payload, manifest, ownership)
 
             _run_file_checks(payload, manifest.checks, phase="post-build")
-            package_files = _package_files(payload, ownership)
+            package_files = _package_files(payload, ownership, manifest)
             metadata = PackageMetadata(
                 name=manifest.package.name,
                 version=manifest.package.version,
@@ -499,6 +499,7 @@ def _record_tree(
 def _package_files(
     payload: Path,
     ownership: Mapping[str, str],
+    manifest: Manifest,
 ) -> tuple[PackageFile, ...]:
     result: list[PackageFile] = []
     total_size = 0
@@ -510,6 +511,9 @@ def _package_files(
         relative = path.relative_to(payload).as_posix()
         mode = stat.S_IMODE(path.stat().st_mode)
         owner = ownership.get(relative, "managed")
+
+        if _is_declared_executable(relative, manifest):
+            mode |= stat.S_IXUSR
 
         if owner not in {"managed", "preserve", "generated", "data"}:
             raise ValidationError(f"invalid ownership mode for {relative}")
@@ -545,6 +549,16 @@ def _package_files(
         )
 
     return tuple(result)
+
+
+def _is_declared_executable(path: str, manifest: Manifest) -> bool:
+    if any(
+        path == policy or path.startswith(f"{policy}/")
+        for policy in manifest.ownership.executable
+    ):
+        return True
+
+    return any(spec.executable and spec.target == path for spec in manifest.files)
 
 
 def _run_file_checks(payload: Path, checks: Sequence[Check], *, phase: str) -> None:
