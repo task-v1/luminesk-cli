@@ -86,7 +86,7 @@ def test_install_is_transactional_and_idempotent(tmp_path: Path) -> None:
     assert (target / ".luminesk_cli/recipe/luminesk.toml").read_bytes() == (
         target / "luminesk.toml"
     ).read_bytes()
-    assert not (target / ".luminesk_cli/recipe/fixture.jar").exists()
+    assert (target / ".luminesk_cli/recipe/fixture.jar").read_bytes() == b"initial"
     assert not (target / ".luminesk_cli/transaction.json").exists()
     assert any(change.action == "create" for change in plan.changes)
 

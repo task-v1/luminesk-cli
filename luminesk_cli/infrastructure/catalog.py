@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -24,14 +23,19 @@ from luminesk_cli.domain.errors import ResolutionError, SecurityError, Validatio
 from luminesk_cli.domain.manifest import (
     MANIFEST_NAME,
     HttpOptions,
+    Manifest,
     SourceSpec,
     load_manifest,
 )
-from luminesk_cli.domain.primitives import safe_relative_path, validate_digest
+from luminesk_cli.domain.primitives import validate_digest
 from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.fetch import SecureFetcher
-from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
+from luminesk_cli.infrastructure.github_contents import GitHubContentsFetcher
+from luminesk_cli.infrastructure.recipe_snapshot import (
+    create_recipe_snapshot,
+    declared_recipe_assets,
+)
 from luminesk_cli.infrastructure.sources.common import (
     request_json_object,
     request_metadata,
@@ -259,22 +263,17 @@ class CatalogClient:
             self._fetch_manifest(client, snapshot, entry, destination)
             manifest = load_manifest(destination / MANIFEST_NAME)
             _validate_entry_manifest(entry, manifest)
-            paths = []
-            if manifest.template is not None:
-                paths.append(manifest.template)
-            paths.extend(file.source for file in manifest.files)
-            if manifest.build is not None:
-                paths.append(manifest.build.file)
-            budget = _EntryBudget()
-            for relative in dict.fromkeys(paths):
-                self._fetch_declared_path(
-                    client,
-                    snapshot,
-                    entry,
-                    relative,
-                    destination,
-                    budget,
-                )
+            GitHubContentsFetcher(
+                client=client,
+                cache=ContentCache(self.store.root / "blobs"),
+                api_root=API_ROOT,
+                revision=snapshot.revision,
+                metadata_source=self._metadata_source(),
+                root=entry.path,
+                headers=_github_headers(),
+                max_files=MAX_ENTRY_FILES,
+                max_size=MAX_ENTRY_SIZE,
+            ).fetch(declared_recipe_assets(manifest), destination)
 
             tree = read_template_tree(destination, manifest)
             actual_template_digest = tree.digest if tree is not None else None
@@ -337,97 +336,6 @@ class CatalogClient:
         )
         atomic_write(destination / MANIFEST_NAME, blob.path.read_bytes())
 
-    def _fetch_declared_path(
-        self,
-        client: httpx.Client,
-        snapshot: CatalogSnapshot,
-        entry: CatalogEntry,
-        relative: str,
-        destination: Path,
-        budget: _EntryBudget,
-    ) -> None:
-        safe = safe_relative_path(relative, "catalog.recipe.asset")
-        full = f"{entry.path}/{safe}"
-        url = f"{API_ROOT}/contents/{quote(full, safe='/')}?ref={snapshot.revision}"
-        response = request_metadata(
-            client,
-            url,
-            self._metadata_source(),
-            headers=_github_headers(),
-        )
-        try:
-            value = response.json()
-        except ValueError as exc:
-            raise ResolutionError("GitHub contents metadata is not valid JSON") from exc
-        self._materialize_content_value(
-            client,
-            snapshot,
-            entry,
-            value,
-            destination,
-            budget,
-        )
-
-    def _materialize_content_value(
-        self,
-        client: httpx.Client,
-        snapshot: CatalogSnapshot,
-        entry: CatalogEntry,
-        value: Any,
-        destination: Path,
-        budget: _EntryBudget,
-    ) -> None:
-        items = value if isinstance(value, list) else [value]
-        if not all(isinstance(item, dict) for item in items):
-            raise ResolutionError("GitHub contents metadata has an invalid shape")
-
-        for item in items:
-            item_type = item.get("type")
-            raw_path = item.get("path")
-            if not isinstance(raw_path, str):
-                raise ResolutionError("GitHub contents entry has no path")
-            full_path = safe_relative_path(raw_path, "catalog.github.path")
-            prefix = f"{entry.path}/"
-            if not full_path.startswith(prefix):
-                raise SecurityError("database asset escapes its root entry")
-            relative = full_path.removeprefix(prefix)
-            target = destination / relative
-
-            if item_type == "dir":
-                target.mkdir(parents=True, exist_ok=True)
-                self._fetch_declared_path(
-                    client,
-                    snapshot,
-                    entry,
-                    relative,
-                    destination,
-                    budget,
-                )
-                continue
-            if item_type != "file":
-                raise SecurityError(
-                    "database recipe symlinks and special entries are forbidden"
-                )
-            size = item.get("size")
-            download_url = item.get("download_url")
-            if not isinstance(size, int) or isinstance(size, bool) or size < 0:
-                raise ResolutionError("GitHub contents file has an invalid size")
-            if not isinstance(download_url, str):
-                raise ResolutionError("GitHub contents file has no download URL")
-            if not budget.add(relative, size):
-                continue
-            fetcher = SecureFetcher(
-                ContentCache(self.store.root / "blobs"), client=client
-            )
-            blob = fetcher.fetch(
-                download_url,
-                max_size=min(MAX_ENTRY_SIZE, max(size, 1)),
-                expected_size=size,
-                allow_private_network=self.allow_private_network,
-            )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            atomic_write(target, blob.path.read_bytes())
-
     def _metadata_source(self) -> SourceSpec:
         return SourceSpec(
             id="catalog",
@@ -436,25 +344,6 @@ class CatalogClient:
             options=HttpOptions(url="https://api.github.com/"),
             allow_private_network=self.allow_private_network,
         )
-
-
-class _EntryBudget:
-    def __init__(self) -> None:
-        self.files = 0
-        self.size = 0
-        self.paths: set[str] = set()
-
-    def add(self, path: str, size: int) -> bool:
-        if path in self.paths:
-            return False
-        self.paths.add(path)
-        self.files += 1
-        self.size += size
-        if self.files > MAX_ENTRY_FILES:
-            raise SecurityError("database recipe contains too many files")
-        if self.size > MAX_ENTRY_SIZE:
-            raise SecurityError("database recipe exceeds total size limit")
-        return True
 
 
 def _github_headers() -> dict[str, str]:
@@ -481,7 +370,7 @@ def _parse_digest_file(content: bytes) -> str:
     return f"sha256:{text}"
 
 
-def _validate_entry_manifest(entry: CatalogEntry, manifest: Any) -> None:
+def _validate_entry_manifest(entry: CatalogEntry, manifest: Manifest) -> None:
     package = manifest.package
     if package.name != entry.name:
         raise SecurityError("catalog entry name does not match manifest package")
@@ -493,6 +382,12 @@ def _validate_entry_manifest(entry: CatalogEntry, manifest: Any) -> None:
         or package.edition != entry.edition
     ):
         raise SecurityError("catalog metadata does not match manifest")
+    if (
+        (package.display_name or package.name) != entry.display_name
+        or package.summary != entry.summary
+        or package.keywords != entry.keywords
+    ):
+        raise SecurityError("catalog search metadata does not match manifest")
 
 
 def _digest(content: bytes) -> str:

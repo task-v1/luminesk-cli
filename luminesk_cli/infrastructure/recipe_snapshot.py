@@ -8,7 +8,7 @@ import stat
 from pathlib import Path
 
 from luminesk_cli.domain.errors import SecurityError, ValidationError
-from luminesk_cli.domain.manifest import MANIFEST_NAME, Manifest
+from luminesk_cli.domain.manifest import MANIFEST_NAME, LocalFileOptions, Manifest
 from luminesk_cli.domain.primitives import safe_relative_path
 from luminesk_cli.domain.recipe import (
     RecipeOrigin,
@@ -20,6 +20,23 @@ from luminesk_cli.infrastructure.template import read_template_tree
 
 MAX_SNAPSHOT_FILES = 20_000
 MAX_SNAPSHOT_SIZE = 256 * 1024 * 1024
+
+
+def declared_recipe_assets(manifest: Manifest) -> tuple[str, ...]:
+    """Return every path whose bytes are part of the declarative recipe."""
+
+    paths: list[str] = []
+    if manifest.template is not None:
+        paths.append(manifest.template)
+    paths.extend(file_spec.source for file_spec in manifest.files)
+    paths.extend(
+        source.options.path
+        for source in manifest.sources
+        if isinstance(source.options, LocalFileOptions)
+    )
+    if manifest.build is not None:
+        paths.append(manifest.build.file)
+    return tuple(dict.fromkeys(paths))
 
 
 def create_recipe_snapshot(
@@ -61,14 +78,13 @@ def create_recipe_snapshot(
     collector = _SnapshotCollector(recipe_root)
     collector.add(MANIFEST_NAME)
 
-    if manifest.template is not None:
-        collector.add(manifest.template)
-    for file_spec in manifest.files:
-        if file_spec.mode == "data" and not (recipe_root / file_spec.source).exists():
+    optional_data = {
+        file_spec.source for file_spec in manifest.files if file_spec.mode == "data"
+    }
+    for relative in declared_recipe_assets(manifest):
+        if relative in optional_data and not (recipe_root / relative).exists():
             continue
-        collector.add(file_spec.source)
-    if manifest.build is not None:
-        collector.add(manifest.build.file)
+        collector.add(relative)
 
     return RecipeSnapshot(
         root=recipe_root,

@@ -6,17 +6,17 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
 from luminesk_cli.domain.manifest import parse_manifest
+from luminesk_cli.domain.plan import Plan
 from luminesk_cli.infrastructure import recipe as recipe_module
 from luminesk_cli.infrastructure.recipe import (
     GitRecipeSource,
     RecipeCheckout,
     checkout_recipe,
 )
+from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 
 
 def test_version_cold_path_does_not_import_heavy_dependencies() -> None:
@@ -131,7 +131,9 @@ def test_normal_checkout_uses_api_path_without_git(tmp_path: Path, monkeypatch) 
     assert checkout_recipe(source, tmp_path / "recipe") == expected
 
 
-def test_remote_recipe_is_confirmed_before_build(tmp_path: Path, monkeypatch) -> None:
+def test_remote_recipe_is_built_and_planned_before_confirmation(
+    tmp_path: Path, monkeypatch
+) -> None:
     from luminesk_cli.cli.commands import install as install_command
 
     manifest_bytes = b"""\
@@ -165,24 +167,20 @@ command = ["server"]
             tracking=True,
         ),
     )
-    source = GitRecipeSource(
-        canonical="github:owner/repo",
-        clone_url="https://github.com/owner/repo.git",
-        owner="owner",
-        repository="repo",
-        requested_ref="main",
-    )
-    checkout = RecipeCheckout(
-        root=tmp_path / "checkout",
-        source=source,
+    root = tmp_path / "recipe"
+    root.mkdir()
+    (root / "luminesk.toml").write_bytes(manifest_bytes)
+    (root / "artifact.bin").write_bytes(b"artifact")
+    snapshot = create_recipe_snapshot(
+        root,
+        manifest,
+        kind="github",
+        source="github:owner/repo",
         revision="b" * 40,
-        tracking_ref="main",
-        tracked_files=("luminesk.toml",),
+        ref="main",
+        tracking=True,
     )
-    checkout.root.mkdir()
-    (checkout.root / "luminesk.toml").write_bytes(manifest_bytes)
     events: list[str] = []
-    monkeypatch.setattr(install_command, "recipe", lambda root: (root, manifest))
     monkeypatch.setattr(
         install_command,
         "resolve_lock",
@@ -195,11 +193,21 @@ command = ["server"]
         lambda *args: events.append("confirm"),
     )
 
-    def fail_build(*args):
+    def build(*args):
         events.append("build")
-        raise RuntimeError("build marker")
+        return SimpleNamespace(cleanup=lambda: None), object()
 
-    monkeypatch.setattr(install_command, "build_package", fail_build)
+    class FakeInstaller:
+        def __init__(self, **kwargs):
+            del kwargs
+
+        def plan(self, package, target):
+            del package
+            events.append("plan")
+            return Plan("install", str(target), ())
+
+    monkeypatch.setattr(install_command, "build_package", build)
+    monkeypatch.setattr(install_command, "TransactionalInstaller", FakeInstaller)
     namespace = SimpleNamespace(
         frozen=False,
         set=[],
@@ -207,10 +215,16 @@ command = ["server"]
         json=False,
         yes=True,
         non_interactive=True,
-        keep_git=False,
     )
 
-    with pytest.raises(RuntimeError, match="build marker"):
-        install_command._install_checkout(namespace, checkout, tmp_path / "target")
+    assert (
+        install_command._install_snapshot(
+            namespace,
+            snapshot,
+            tmp_path / "target",
+            confirm=True,
+        )
+        == 0
+    )
 
-    assert events == ["confirm", "build"]
+    assert events == ["build", "plan", "confirm"]

@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from luminesk_cli.application.install import TransactionalInstaller
-from luminesk_cli.application.recipe_update import record_recipe_ownership
 from luminesk_cli.cli.commands.common import (
     build_package,
+    cache,
+    catalog_store,
     emit,
     index_path,
     parse_inputs,
@@ -16,182 +17,150 @@ from luminesk_cli.cli.commands.common import (
 )
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
-from luminesk_cli.domain.manifest import Manifest
+from luminesk_cli.domain.primitives import PACKAGE_NAME_RE
+from luminesk_cli.domain.recipe import RecipeSnapshot
+from luminesk_cli.infrastructure.catalog import CatalogClient
 from luminesk_cli.infrastructure.recipe import (
-    RecipeCheckout,
-    checkout_recipe,
-    cleanup_materialized,
+    acquire_github_recipe,
     ensure_empty_target,
-    materialize_checkout,
-    materialize_local_recipe,
     normalize_git_source,
 )
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
-from luminesk_cli.infrastructure.state import (
-    RECIPE_OWNERSHIP_FILE,
-    InstanceIndex,
-    state_directory,
-)
+from luminesk_cli.infrastructure.state import InstanceIndex
 
 
 def run(namespace: Any) -> int:
+    target = Path(namespace.dir or ".").expanduser().resolve()
     if namespace.source is None:
-        target = Path(namespace.dir or ".").expanduser().resolve()
-        return _install_local(namespace, target)
+        root, manifest = recipe(target)
+        return _install_snapshot(
+            namespace,
+            create_recipe_snapshot(root, manifest),
+            target,
+            confirm=False,
+        )
 
-    source_path = Path(namespace.source).expanduser()
-
+    raw_source = namespace.source.strip()
+    source_path = Path(raw_source).expanduser()
     if source_path.exists():
+        if namespace.ref is not None:
+            raise ValidationError("--ref is valid only for direct GitHub recipes")
         recipe_root = source_path.resolve()
-        target = Path(namespace.dir or ".").expanduser().resolve()
+        root, manifest = recipe(recipe_root)
+        if recipe_root != target:
+            ensure_empty_target(target)
+        return _install_snapshot(
+            namespace,
+            create_recipe_snapshot(root, manifest),
+            target,
+            confirm=recipe_root != target,
+        )
+    if _looks_like_local_path(raw_source):
+        raise ValidationError(f"local recipe path does not exist: {raw_source}")
 
-        if recipe_root == target:
-            return _install_local(namespace, target)
-
+    database_name = _database_name(raw_source)
+    if database_name is not None:
+        if namespace.ref is not None:
+            raise ValidationError("--ref is valid only for direct GitHub recipes")
+        if namespace.frozen:
+            raise ValidationError(
+                "database install cannot acquire a recipe with --frozen yet"
+            )
         ensure_empty_target(target)
-        return _install_external_local(namespace, recipe_root, target)
+        catalog = catalog_store().load_active()
+        entry = next(
+            (
+                candidate
+                for candidate in catalog.entries
+                if candidate.name == database_name
+            ),
+            None,
+        )
+        if entry is None:
+            raise ValidationError(f"catalog recipe not found: {database_name}")
+        with tempfile.TemporaryDirectory(prefix="nesk-database-recipe-") as temporary:
+            snapshot = CatalogClient(catalog_store()).acquire_entry(
+                catalog,
+                entry,
+                Path(temporary) / "recipe",
+            )
+            return _install_snapshot(namespace, snapshot, target, confirm=True)
 
     if namespace.frozen:
-        raise ValidationError(
-            "remote Git install cannot resolve a recipe with --frozen"
-        )
-
-    target = Path(namespace.dir or ".").expanduser().resolve()
+        raise ValidationError("GitHub install cannot acquire a recipe with --frozen")
     ensure_empty_target(target)
-    source = normalize_git_source(namespace.source, namespace.ref)
-
-    with tempfile.TemporaryDirectory(prefix="nesk-recipe-") as temporary:
-        checkout = checkout_recipe(
+    source = normalize_git_source(raw_source, namespace.ref)
+    with tempfile.TemporaryDirectory(prefix="nesk-github-recipe-") as temporary:
+        snapshot = acquire_github_recipe(
             source,
             Path(temporary) / "recipe",
-            require_git=namespace.keep_git,
+            cache(),
         )
-        return _install_checkout(namespace, checkout, target)
+        return _install_snapshot(namespace, snapshot, target, confirm=True)
 
 
-def _install_local(namespace: Any, target: Path) -> int:
-    root, manifest = recipe(target)
-    snapshot = create_recipe_snapshot(root, manifest)
-    lockfile = resolve_lock(root, manifest, frozen=namespace.frozen)
+def _database_name(source: str) -> str | None:
+    explicit = source.startswith("db:")
+    name = source.removeprefix("db:") if explicit else source
+    if not explicit and (
+        "/" in source or source.startswith("github:") or source.startswith("https://")
+    ):
+        return None
+    if PACKAGE_NAME_RE.fullmatch(name) is None:
+        raise ValidationError(
+            "database recipe name must be a lowercase ASCII identifier"
+        )
+    return name
+
+
+def _looks_like_local_path(source: str) -> bool:
+    return source.startswith((".", "~", "/")) or "\\" in source
+
+
+def _install_snapshot(
+    namespace: Any,
+    snapshot: RecipeSnapshot,
+    target: Path,
+    *,
+    confirm: bool,
+) -> int:
+    root = snapshot.root
+    manifest = snapshot.manifest
+    origin = snapshot.origin
+    lockfile = resolve_lock(
+        root,
+        manifest,
+        frozen=namespace.frozen,
+        recipe_source=origin.source,
+        recipe_revision=origin.revision,
+        recipe_ref=origin.ref,
+        recipe_tracking=origin.tracking,
+    )
     values = parse_inputs(manifest, namespace.set)
     temporary, package = build_package(root, manifest, lockfile, values)
 
     try:
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
+        plan = installer.plan(package, target)
+        if plan.has_conflicts:
+            conflicts = [
+                change.path for change in plan.changes if change.action == "conflict"
+            ]
+            raise ConflictError(
+                "install plan contains user-file conflicts", conflicts=conflicts
+            )
+        if confirm:
+            _confirm(namespace, snapshot, target, lockfile)
+        if namespace.dry_run:
+            return _emit_result(namespace, plan, None)
         plan, state = installer.install(
             manifest,
             lockfile,
             package,
             target,
             inputs=values,
-            dry_run=namespace.dry_run,
             recipe_snapshot=snapshot,
         )
-    finally:
-        temporary.cleanup()
-
-    return _emit_result(namespace, plan, state)
-
-
-def _install_external_local(namespace: Any, recipe_root: Path, target: Path) -> int:
-    root, manifest = recipe(recipe_root)
-    snapshot = create_recipe_snapshot(root, manifest)
-    lockfile = resolve_lock(root, manifest, frozen=namespace.frozen)
-    values = parse_inputs(manifest, namespace.set)
-    _confirm(namespace, manifest.package.name, target, "local", lockfile, manifest)
-    temporary, package = build_package(root, manifest, lockfile, values)
-
-    try:
-        if namespace.dry_run:
-            plan = TransactionalInstaller().plan(package, target)
-            return _emit_result(namespace, plan, None)
-
-        copied = materialize_local_recipe(recipe_root, target)
-
-        try:
-            plan, state = TransactionalInstaller(
-                index=InstanceIndex(index_path())
-            ).install(
-                manifest,
-                lockfile,
-                package,
-                target,
-                inputs=values,
-                recipe_snapshot=snapshot,
-            )
-        except BaseException:
-            cleanup_materialized(target, copied)
-            raise
-
-        return _emit_result(namespace, plan, state)
-    finally:
-        temporary.cleanup()
-
-
-def _install_checkout(
-    namespace: Any,
-    checkout: RecipeCheckout,
-    target: Path,
-) -> int:
-    root, manifest = recipe(checkout.root)
-    snapshot = create_recipe_snapshot(
-        root,
-        manifest,
-        kind="github",
-        source=checkout.source.canonical,
-        revision=checkout.revision,
-        ref=checkout.tracking_ref or checkout.source.requested_ref,
-        tracking=checkout.tracking_ref is not None,
-    )
-    lockfile = resolve_lock(
-        root,
-        manifest,
-        frozen=False,
-        recipe_source=checkout.source.canonical,
-        recipe_revision=checkout.revision,
-        recipe_ref=checkout.tracking_ref or checkout.source.requested_ref,
-        recipe_tracking=checkout.tracking_ref is not None,
-    )
-    values = parse_inputs(manifest, namespace.set)
-    _confirm(
-        namespace,
-        manifest.package.name,
-        target,
-        "github-api",
-        lockfile,
-        manifest,
-    )
-    temporary, package = build_package(root, manifest, lockfile, values)
-
-    try:
-        plan = TransactionalInstaller().plan(package, target)
-
-        if namespace.dry_run:
-            return _emit_result(namespace, plan, None)
-
-        copied = materialize_checkout(
-            checkout,
-            target,
-            keep_git=namespace.keep_git,
-        )
-        record_recipe_ownership(checkout, target)
-
-        try:
-            plan, state = TransactionalInstaller(
-                index=InstanceIndex(index_path())
-            ).install(
-                manifest,
-                lockfile,
-                package,
-                target,
-                inputs=values,
-                recipe_snapshot=snapshot,
-            )
-        except BaseException:
-            (state_directory(target) / RECIPE_OWNERSHIP_FILE).unlink(missing_ok=True)
-            cleanup_materialized(target, copied)
-            raise
-
         return _emit_result(namespace, plan, state)
     finally:
         temporary.cleanup()
@@ -199,39 +168,55 @@ def _install_checkout(
 
 def _confirm(
     namespace: Any,
-    package_name: str,
+    snapshot: RecipeSnapshot,
     target: Path,
-    trust: str,
     lockfile: Lockfile,
-    manifest: Manifest,
 ) -> None:
-    build_enabled = lockfile.build is not None
-    build_network = bool(manifest.build is not None and manifest.build.network)
-    protected = ", ".join(manifest.update.backup) or "none"
-    summary = (
-        f"Source package: {package_name}\n"
-        f"Trust: {trust}\n"
-        f"Revision: {lockfile.recipe.revision if lockfile.recipe else 'local'}\n"
-        f"Build code: {'declared' if build_enabled else 'none'}\n"
-        f"Build network: {'enabled' if build_network else 'disabled'}\n"
-        f"Runtime image: {lockfile.runtime.image}\n"
-        f"Recipe files: {len(manifest.files)}\n"
-        f"Protected paths: {protected}\n"
-        f"Writes: {target}\n"
-        f"Downloads: {len(lockfile.sources)} artifact(s)"
+    manifest = snapshot.manifest
+    origin = snapshot.origin
+    trust = {
+        "database": "official",
+        "github": "direct",
+        "local": "local",
+    }[origin.kind]
+    source_types = ", ".join(source.type for source in manifest.sources) or "none"
+    artifacts = (
+        ", ".join(
+            f"{source_id}@{resolved.version} ({resolved.digest})"
+            for source_id, resolved in sorted(lockfile.sources.items())
+        )
+        or "none"
     )
-
+    template_files = sum(
+        1
+        for entry in snapshot.entries
+        if entry.type == "file"
+        and manifest.template is not None
+        and (
+            entry.path == manifest.template
+            or entry.path.startswith(f"{manifest.template}/")
+        )
+    )
+    summary = (
+        f"Recipe origin: {trust} ({origin.source})\n"
+        f"Exact recipe revision: {origin.revision}\n"
+        f"Recipe version: {origin.version}\n"
+        f"Source types: {source_types}\n"
+        f"Resolved artifacts: {artifacts}\n"
+        f"Runtime image: {lockfile.runtime.image}\n"
+        f"Build: {'enabled' if lockfile.build is not None else 'disabled'}\n"
+        f"Build network: "
+        f"{'enabled' if manifest.build is not None and manifest.build.network else 'disabled'}\n"
+        f"Template files: {template_files}\n"
+        f"Writes: {target}"
+    )
     if not namespace.json:
         print(summary)
-
     if namespace.yes:
         return
-
     if namespace.non_interactive or namespace.json:
-        raise ConflictError("remote install requires --yes in non-interactive mode")
-
+        raise ConflictError("install requires --yes in non-interactive mode")
     answer = input("Continue? [y/N] ").strip().lower()
-
     if answer not in {"y", "yes"}:
         raise ConflictError("installation was not confirmed")
 

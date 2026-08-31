@@ -82,7 +82,6 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument(
         "--frozen", action="store_true", help="Use lock and cache only."
     )
-    install.add_argument("--keep-git", action="store_true")
     install.add_argument(
         "--yes", action="store_true", help="Accept the displayed trust plan."
     )

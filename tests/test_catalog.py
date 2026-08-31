@@ -209,6 +209,7 @@ kind = "core"
 game = "minecraft"
 edition = "bedrock"
 summary = "Lumi Minecraft server"
+keywords = ["lumi", "bedrock"]
 [runtime]
 image = "example/server:2"
 command = ["./server"]
