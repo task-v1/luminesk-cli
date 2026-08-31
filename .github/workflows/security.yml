@@ -1,6 +1,7 @@
 name: Security
 
 on:
+  workflow_call:
   push:
     branches: [main, "2.0"]
   pull_request:
@@ -91,3 +92,56 @@ jobs:
 
       - name: Enforce forbidden-code policy
         run: uv run python scripts/security_gate.py
+
+      - name: Run Bandit SAST
+        run: uvx --from bandit==1.9.4 bandit -q -r luminesk_cli -ll
+
+  dependency-audit:
+    name: Runtime dependency audit and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Export locked runtime dependencies
+        run: >-
+          uv export --locked --no-dev --no-emit-project
+          --format requirements-txt
+          --output-file runtime-requirements.txt
+
+      - name: Audit Python runtime dependencies
+        run: >-
+          uvx --from pip-audit==2.10.1 pip-audit
+          --requirement runtime-requirements.txt
+          --disable-pip
+          --progress-spinner off
+
+      - name: Generate CycloneDX SBOM
+        run: >-
+          uvx --from cyclonedx-bom==7.3.1 cyclonedx-py requirements
+          runtime-requirements.txt
+          --pyproject pyproject.toml
+          --output-reproducible
+          --output-file luminesk-cli.cdx.json
+
+      - name: Upload runtime SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-runtime-sbom
+          path: luminesk-cli.cdx.json
+          if-no-files-found: error
+          retention-days: 30
