@@ -105,7 +105,7 @@ export default function Hero() {
 
         <div className={styles.revealContent}>
           <p className={styles.heroSubtitle}>
-            Reproducible MCBE servers, from recipe to runtime.
+            Deploy MCBE Servers with Zero Friction.
           </p>
 
           <div className={styles.buttonGroup}>

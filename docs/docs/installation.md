@@ -4,45 +4,63 @@ sidebar_position: 3
 
 # Installation
 
-## Isolated Python tool
+## Option 1: One-line installer (recommended)
 
-With Python 3.13+ and uv installed:
-
-```bash
-uv tool install luminesk-cli
-nesk --version
-nesk doctor
-```
-
-Upgrade the tool with:
+### Linux and macOS
 
 ```bash
-uv tool upgrade luminesk-cli
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
 ```
 
-## Prebuilt bundle
+### Windows (PowerShell)
 
-Each tagged release publishes an onedir ZIP for these targets:
+```powershell
+iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
+```
 
-- `luminesk-linux-amd64.zip`
-- `luminesk-linux-arm64.zip`
-- `luminesk-macos-amd64.zip`
-- `luminesk-macos-arm64.zip`
-- `luminesk-windows-amd64.zip`
-- `luminesk-windows-arm64.zip`
+## Option 2: Install from PyPI
 
-Download the matching archive from
-[GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest),
-extract the complete directory, and place that directory on `PATH`. Do not move
-only the executable; an onedir bundle needs its adjacent `_internal` files.
+```bash
+pip install luminesk-cli
+```
 
-## Verify
+```bash
+uv pip install luminesk-cli
+```
+
+```bash
+pipx install luminesk-cli
+```
+
+## Option 3: Download prebuilt binaries
+
+Download from [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest):
+
+- `luminesk_cli-windows-amd64.exe`
+- `luminesk_cli-windows-arm64.exe`
+- `luminesk_cli-linux-amd64`
+- `luminesk_cli-linux-arm64`
+- `luminesk_cli-darwin-amd64`
+- `luminesk_cli-darwin-arm64`
+
+## Install from source
+
+```bash
+git clone https://github.com/task-v1/luminesk-cli
+cd luminesk-cli
+
+uv venv
+uv sync
+
+uv run nesk --help
+```
+
+## Verify installation
 
 ```bash
 nesk --version
 nesk --help
-nesk doctor
+nesk diagnostic
 ```
 
-The CLI itself does not require Git. If `doctor` reports Git as missing, normal
-GitHub installs still work.
+If `diagnostic` fails, see [Troubleshooting](/docs/troubleshooting).

@@ -5,96 +5,84 @@
     <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk-CLI">
   </picture>
 
-  <p><strong>A reproducible composer for Minecraft Bedrock server instances</strong></p>
+  <p><strong>Composer of Minecraft Bedrock Edition (MCBE) servers</strong></p>
 
   <p>
     <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=main&label=CI"></a>
     <a href="https://github.com/task-v1/luminesk-cli/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/task-v1/luminesk-cli"></a>
     <a href="https://pypi.org/project/luminesk-cli/"><img alt="PyPI Version" src="https://img.shields.io/pypi/v/luminesk-cli"></a>
+    <a href="https://pypi.org/project/luminesk-cli/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/luminesk-cli"></a>
     <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/task-v1/luminesk-cli"></a>
     <a href="https://luminesk.taskov1ch.xyz"><img alt="Docs" src="https://img.shields.io/badge/docs-online-0ea5e9"></a>
   </p>
 </div>
 
-## Luminesk 2.0
+---
 
-Luminesk-CLI (`nesk`) turns a declarative `luminesk.toml` recipe into a locked,
-verified `.lumineskpkg`, applies it transactionally, and runs the instance in Docker.
-Luminesk 2.0 accepts only its current recipe, lockfile, package, and instance formats;
-it does not read or convert earlier installations.
+## What is Luminesk-CLI?
 
-Upgrading from 1.x requires a fresh side-by-side instance. Follow the
-[2.0 migration guide](docs/docs/migrating-to-2.0.md) before moving server data.
-See [2.0.0 release notes](RELEASE_NOTES.md) for the release boundary and
-verification summary.
+Luminesk-CLI (`nesk`) is a command-line tool for provisioning and operating MCBE servers.
+It handles server creation, runtime configuration, downloads, updates, diagnostics, and lifecycle actions through one unified interface.
 
-The important properties are:
+## Key capabilities
 
-- exact artifact hashes and OCI image digests in `luminesk.lock`;
-- bounded downloads, archive extraction, and recipe checkouts;
-- deterministic packages and explicit install/update plans;
-- ownership-aware updates that preserve user data;
-- rollback after failed installs, updates, or readiness checks;
-- argv-only process execution—recipes cannot inject shell commands;
-- stable `--json --non-interactive` behavior for automation.
+- Create and manage multiple MCBE server instances with stable tags.
+- Download supported cores and update them when new versions are available.
+- Run servers with a local Java runtime or Docker runtime.
+- Validate environment and provider availability with diagnostics.
+- Inspect server state, logs, and metadata from CLI commands.
+- Use consistent commands across Linux, macOS, and Windows.
 
-## Install
+## Start here
 
-Python 3.13+ and Docker are required. Git is not required for normal GitHub recipe
-installs; Luminesk uses the GitHub API and exact commit-pinned recipe snapshots.
+- [Getting Started](https://luminesk.taskov1ch.xyz/docs/getting-started)
+- [Installation](https://luminesk.taskov1ch.xyz/docs/installation)
+- [Quick Start](https://luminesk.taskov1ch.xyz/docs/quick-start)
+- [Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference)
+- [Runtime & Docker Model](https://luminesk.taskov1ch.xyz/docs/runtime-and-docker)
+- [Troubleshooting](https://luminesk.taskov1ch.xyz/docs/troubleshooting)
 
-```bash
-uv tool install luminesk-cli
-nesk --version
-nesk doctor
-```
+## Installation
 
-Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
-[GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
-
-## Typical workflow
+### Linux / macOS
 
 ```bash
-# Inspect recipes before trusting one.
-nesk search
-nesk info lumi
-
-# Preview, confirm, and install a GitHub recipe without a local Git executable.
-nesk install OWNER/RECIPE --dir ./servers/example --dry-run
-nesk install OWNER/RECIPE --dir ./servers/example --yes
-
-# Operate and update the instance.
-nesk start --dir ./servers/example
-nesk status --dir ./servers/example
-nesk logs --dir ./servers/example
-nesk outdated --dir ./servers/example
-nesk update --dir ./servers/example --dry-run
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
 ```
 
-For local recipe development:
+### Windows (PowerShell)
+
+```powershell
+iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
+```
+
+### PyPI
 
 ```bash
-nesk init --dir ./recipe --name example-server
-nesk validate --dir ./recipe --static
-nesk lock --dir ./recipe
-nesk plan --dir ./recipe
+pip install luminesk-cli
 ```
 
-See the [documentation](https://luminesk.taskov1ch.xyz), especially the
-[command reference](https://luminesk.taskov1ch.xyz/docs/command-reference) and
-[trust model](https://luminesk.taskov1ch.xyz/docs/recipes-and-updates).
+## Quick start
+
+```bash
+nesk --help
+nesk diagnostic
+nesk create -n "My Server" -d ./servers/my -c nukkit -t my-server
+nesk start my-server
+nesk list
+```
+
+For full command behavior, use the [Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference).
 
 ## Development
 
-```bash
-uv sync --locked --extra dev
-uv run python scripts/format.py --fix
-uv run mypy .
-uv run pytest
-```
+- Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Documentation-specific contributor notes: [Development & Contributing](https://luminesk.taskov1ch.xyz/docs/development-and-contributing)
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Recipe trust, tested backups, and
-workload-specific validation remain the operator's responsibility.
+## Project status
+
+Luminesk-CLI is in active **beta** development.
+Validate behavior in your own environment before production-critical usage.
 
 ## License
 

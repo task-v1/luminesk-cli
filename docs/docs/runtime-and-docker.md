@@ -2,37 +2,50 @@
 sidebar_position: 9
 ---
 
-# Runtime and Docker
+# Runtime & Docker Model
 
-Docker is the only runtime driver in Luminesk 2.0. The lockfile must contain a full
-`repository@sha256:...` image reference; a tag alone is never accepted at apply
-or start time.
+Luminesk-CLI runs server processes in Docker containers.
 
-## Container boundary
+## Default runtime behavior
 
-- The recipe command is passed as an argv array with `shell=False` semantics.
-- Mount sources are relative to the instance root; container targets are
-  absolute and validated.
-- Ports are explicit TCP or UDP mappings.
-- A read-only root filesystem is enabled by default.
-- Recipes can declare a non-root `run_as` identity, memory limit, restart policy,
-  stop signal, and stop timeout.
-- Luminesk labels containers with the instance identity and reconciles labels before
-  trusting a discovered container.
+- default image: `eclipse-temurin:21-jre`;
+- default memory limit: `1g`;
+- server directory is mounted into container at `/server`.
 
-## Dockerfile builds
+## Networking model
 
-Builds run only when both `[build]` and `[permissions].build = true` are present.
-Every external `FROM` image is parsed before execution, resolved to a repository
-digest, recorded in the lock, and substituted into the build context. Dynamic
-`FROM $VARIABLE` expressions are rejected.
+### Linux
 
-The build context is bounded, excludes links and special files, and runs with
-declared CPU, memory, timeout, and network settings. Build output is copied from
-the container rather than executed on the host.
+- uses `--network host`.
 
-## Readiness checks
+### macOS and Windows (Docker Desktop)
 
-Supported checks include process-alive, log pattern, local TCP, and explicit
-container command arrays. TCP readiness is restricted to loopback targets.
-Required failures trigger rollback.
+- publishes detected server port (UDP + TCP) with `--publish`.
+
+## Logs and attach model
+
+- `nesk start` (without `--detached`) starts and attaches to runtime flow.
+- `nesk attach` follows logs for a running server.
+- You can also follow logs with Docker:
+
+```bash
+docker logs --follow luminesk_cli-<tag>
+```
+
+## Loop mode
+
+`nesk start --loop` enables automatic restart behavior after server exit.
+
+Use loop mode carefully in production-like environments and confirm your stop/kill automation handles loop controller behavior.
+
+## Image selection and validation
+
+- `create --image` and `change-image --image` validate image syntax and existence.
+- version-only values without repository/tag format are rejected.
+
+## Operational constraints
+
+- Docker binary must be available in PATH.
+- Server deletion requires stopped state.
+- Image change and core upgrade are intended for stopped servers.
+- Luminesk-CLI is currently beta software; validate changes before critical workloads.

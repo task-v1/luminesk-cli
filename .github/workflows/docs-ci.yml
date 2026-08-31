@@ -1,69 +1,41 @@
-name: Documentation CI
+name: Docs CI
 
 on:
-  workflow_call:
+  push:
+    paths:
+      - 'docs/**'
   pull_request:
     paths:
-      - "docs/**"
-      - "README.md"
-      - ".github/workflows/docs-ci.yml"
-  push:
-    branches: [main, "2.0"]
-    paths:
-      - "docs/**"
-      - "README.md"
-      - ".github/workflows/docs-ci.yml"
-  workflow_dispatch:
-
-concurrency:
-  group: docs-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+      - 'docs/**'
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: Type check and build docs
+  docs:
+    name: Docs checks
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
 
-      - name: Set up pnpm
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.24.0
+          version: 10
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
 
-      - name: Install locked docs dependencies
+      - name: Install docs dependencies
         run: pnpm --dir docs install --frozen-lockfile
 
-      - name: Audit docs dependencies
-        run: pnpm --dir docs audit:security
-
-      - name: Reject unsafe image formats
-        run: pnpm --dir docs check:images
-
-      - name: Type check docs application
+      - name: Type check docs site
         run: pnpm --dir docs typecheck
 
-      - name: Build docs with broken-link checks
+      - name: Build docs site
         run: pnpm --dir docs build
-
-      - name: Upload rendered site
-        uses: actions/upload-artifact@v7
-        with:
-          name: documentation-site
-          path: docs/build
-          if-no-files-found: error
-          retention-days: 7

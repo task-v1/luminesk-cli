@@ -17,11 +17,10 @@ tmp/
 .codex/
 *.spec
 sources/
-!luminesk_cli/infrastructure/sources/
-!luminesk_cli/infrastructure/sources/*.py
 report/
 servers/
 workspaces/
+luminesk_cli-legacy/
 temp_*/
 
 # Docs

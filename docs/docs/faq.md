@@ -4,41 +4,47 @@ sidebar_position: 11
 
 # FAQ
 
-## Do end users need Git?
+## Is Luminesk-CLI production-ready?
 
-No. Normal GitHub installs use API metadata and a bounded commit-pinned archive.
-Git is required only for the opt-in `--keep-git` path.
+Luminesk-CLI is in active beta. It is suitable for local development and smaller operational setups. Test carefully before high-risk production workloads.
 
 ## Do I need Docker?
 
-Yes. Docker is the runtime driver and also provides the isolated build boundary
-for recipes that declare builds.
+Yes. Luminesk-CLI uses Docker to run managed server processes.
 
-## Is an image tag reproducible?
+## Can I run multiple servers?
 
-No. Luminesk resolves tags during locking and records a full repository SHA-256
-digest. Apply and runtime operations reject malformed or tag-only lock entries.
+Yes. Use unique tags and paths per server, then manage all servers through `nesk list`, filters, and per-tag operations.
 
-## Can a recipe run host shell commands?
+## Do I always need to pass a tag?
 
-No. Host commands are forbidden. Runtime and readiness commands are explicit
-argument arrays executed without a shell. Optional build code runs in a bounded
-Docker build after an explicit permission declaration.
+No. Most commands can resolve the server from the current working directory if tag is omitted.
 
-## What happens to worlds and configuration on update?
+## Can I target by PID?
 
-Recipe ownership modes and `[update].backup` decide this. Preserved and data
-paths remain user-owned. Managed files are changed only when their applied
-digest still matches. Protected paths are backed up before commit.
+`stop` and `kill` accept PID-based targeting in addition to tag and directory resolution.
 
-## Can I automate Luminesk?
+## How do I change Java runtime image?
 
-Yes. Use `--json --non-interactive`, inspect the stable exit code and error
-object, and add `--yes` only after your automation has approved the plan.
+Use:
 
-## Is Luminesk production-ready?
+```bash
+nesk change-image <tag> --image <image>
+```
 
-Luminesk 2.0 has release gates for its transactions, verification boundaries,
-platform bundles, and Docker lifecycle. Recipe quality, Docker availability,
-tested backups, and workload-specific acceptance remain the operator's
-responsibility.
+## How do I update server core binaries?
+
+Use:
+
+```bash
+nesk upgrade-core <tag>
+```
+
+Add `--redownload` to force refresh.
+
+## Where should I start if something breaks?
+
+1. `nesk diagnostic`
+2. `nesk list`
+3. `nesk attach <tag>`
+4. [Troubleshooting](/docs/troubleshooting)

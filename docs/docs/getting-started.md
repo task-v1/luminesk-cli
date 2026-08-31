@@ -4,40 +4,47 @@ sidebar_position: 2
 
 # Getting Started
 
+This guide explains what Luminesk-CLI manages and what you need before creating your first server.
+
+## What Luminesk-CLI manages
+
+Luminesk-CLI tracks each managed server by a **tag** and stores server metadata in a local SQLite-backed state database.
+
+Each server record includes:
+
+- server name and tag;
+- filesystem path;
+- selected core and downloaded executable metadata;
+- runtime settings (Docker image, memory limit);
+- runtime status metadata (running/stopped, PID, last start/stop).
+
 ## Requirements
 
-- Python 3.13 or newer when using the Python package;
-- Docker Engine or Docker Desktop for builds and runtime;
-- outbound HTTPS access for remote recipes and artifacts.
+- Python **3.13+** if you install from PyPI.
+- Docker installed and accessible from your shell.
 
-Git is optional. A normal `nesk install OWNER/REPO` resolves the requested ref
-through the GitHub API and downloads a bounded archive for the exact commit.
-Only `--keep-git` asks for a local Git executable and retains `.git` metadata.
+## Supported operating model
 
-Run the environment check after installation:
+Luminesk-CLI is designed for:
+
+- local development;
+- private and small production-like deployments;
+- multi-server operations from one CLI.
+
+Luminesk-CLI is currently in **beta**. Validate your workloads before large production use.
+
+## Verify your environment
+
+Run:
 
 ```bash
-nesk doctor
+nesk diagnostic
 ```
 
-Docker is reported as required for runtime and mutable image resolution. Git is
-reported as optional.
+This checks core download/provider endpoints and exits non-zero when a source check fails.
 
-## What an instance contains
+## Next steps
 
-An installed instance keeps its contract beside the server files:
-
-- `luminesk.toml` — reviewed recipe intent;
-- `luminesk.lock` — exact source hashes, image digests, platform, and recipe
-  revision;
-- `.luminesk_cli/` — transaction journal, ownership ledger, backups, and runtime
-  state.
-
-The global SQLite index is only a discovery aid. `nesk import PATH --scan` can
-rebuild it from valid local instance state.
-
-## Trust before install
-
-Review the recipe source, declared build permission, network permission,
-runtime image, mounts, ports, and protected paths. Use `--dry-run` before the
-first write and reserve `--yes` for a plan you have reviewed.
+- [Installation](/docs/installation)
+- [Quick Start](/docs/quick-start)
+- [Runtime & Docker Model](/docs/runtime-and-docker)

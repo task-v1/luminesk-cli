@@ -4,7 +4,6 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'getting-started',
-    'migrating-to-2.0',
     'installation',
     'quick-start',
     {
@@ -15,12 +14,12 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Operations',
-      items: ['recipes-and-updates', 'server-lifecycle', 'runtime-and-docker'],
+      items: ['server-lifecycle', 'cores-and-upgrades', 'runtime-and-docker'],
     },
     {
       type: 'category',
-      label: 'Contracts',
-      items: ['manifest-and-lockfile'],
+      label: 'Configuration',
+      items: ['configuration-and-language'],
     },
     {
       type: 'category',

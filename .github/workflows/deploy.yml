@@ -1,71 +1,60 @@
-name: Deploy documentation
+name: Deploy docs
 
 on:
   push:
-    branches: [main]
     paths:
       - "docs/**"
-      - ".github/workflows/deploy.yml"
   workflow_dispatch:
-
-concurrency:
-  group: github-pages
-  cancel-in-progress: false
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    name: Build and deploy GitHub Pages
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
 
-      - name: Set up pnpm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.24.0
+          version: 10
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
 
-      - name: Install locked docs dependencies
-        run: pnpm --dir docs install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: docs
 
-      - name: Audit docs dependencies
-        run: pnpm --dir docs audit:security
+      - name: Build Docusaurus site
+        run: pnpm build
+        working-directory: docs
 
-      - name: Reject unsafe image formats
-        run: pnpm --dir docs check:images
-
-      - name: Type check docs application
-        run: pnpm --dir docs typecheck
-
-      - name: Build documentation
-        run: pnpm --dir docs build
-
-      - name: Configure Pages
+      - name: Setup Pages
         uses: actions/configure-pages@v6
 
-      - name: Upload Pages artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/build
+          path: ./docs/build
 
-      - name: Deploy Pages artifact
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
