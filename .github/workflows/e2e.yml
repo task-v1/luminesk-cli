@@ -1,6 +1,7 @@
 name: Docker E2E
 
 on:
+  workflow_call:
   push:
     branches: [main, "2.0"]
   schedule:

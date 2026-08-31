@@ -38,6 +38,7 @@ object, and add `--yes` only after your automation has approved the plan.
 
 ## Is Luminesk production-ready?
 
-Luminesk 2.0 is beta software. Its transactions and verification boundaries are
-designed for safe operation, but recipe quality, Docker availability, backups,
-and workload-specific testing remain the operator's responsibility.
+Luminesk 2.0 has release gates for its transactions, verification boundaries,
+platform bundles, and Docker lifecycle. Recipe quality, Docker availability,
+tested backups, and workload-specific acceptance remain the operator's
+responsibility.

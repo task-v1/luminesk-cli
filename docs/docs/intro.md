@@ -15,6 +15,10 @@ Luminesk 2.0 is a clean format boundary. It accepts only the current
 `luminesk.toml`, `luminesk.lock`, `.lumineskpkg`, and instance-state contracts and
 does not convert earlier installations.
 
+Operators coming from 1.x must use the documented
+[side-by-side migration](/docs/migrating-to-2.0); do not point 2.0 at an old
+instance directory.
+
 ## Design guarantees
 
 - Remote artifacts are downloaded with size limits and verified by SHA-256.

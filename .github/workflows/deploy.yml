@@ -46,6 +46,12 @@ jobs:
       - name: Install locked docs dependencies
         run: pnpm --dir docs install --frozen-lockfile
 
+      - name: Audit docs dependencies
+        run: pnpm --dir docs audit:security
+
+      - name: Reject unsafe image formats
+        run: pnpm --dir docs check:images
+
       - name: Type check docs application
         run: pnpm --dir docs typecheck
 

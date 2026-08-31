@@ -23,6 +23,11 @@ verified `.lumineskpkg`, applies it transactionally, and runs the instance in Do
 Luminesk 2.0 accepts only its current recipe, lockfile, package, and instance formats;
 it does not read or convert earlier installations.
 
+Upgrading from 1.x requires a fresh side-by-side instance. Follow the
+[2.0 migration guide](docs/docs/migrating-to-2.0.md) before moving server data.
+See [2.0.0 release notes](RELEASE_NOTES.md) for the release boundary and
+verification summary.
+
 The important properties are:
 
 - exact artifact hashes and OCI image digests in `luminesk.lock`;
@@ -88,8 +93,8 @@ uv run mypy .
 uv run pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The project is beta software; validate
-recipes and backups before production-critical use.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Recipe trust, tested backups, and
+workload-specific validation remain the operator's responsibility.
 
 ## License
 

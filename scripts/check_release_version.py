@@ -9,10 +9,14 @@ from pathlib import Path
 
 from luminesk_cli._version import __version__
 
+RELEASE_TAG_RE = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+(?:(?:a|b|rc)[1-9][0-9]*)?")
+
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 1 or re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", argv[0]) is None:
-        raise SystemExit("release tag must be vMAJOR.MINOR.PATCH")
+    if len(argv) != 1 or RELEASE_TAG_RE.fullmatch(argv[0]) is None:
+        raise SystemExit(
+            "release tag must be vMAJOR.MINOR.PATCH with an optional aN, bN, or rcN"
+        )
 
     tag_version = argv[0].removeprefix("v")
     project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))

@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'getting-started',
+    'migrating-to-2.0',
     'installation',
     'quick-start',
     {
