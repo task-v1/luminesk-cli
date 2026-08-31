@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import re
+import runpy
 import sys
 import tomllib
 from pathlib import Path
-
-from luminesk_cli._version import __version__
 
 RELEASE_TAG_RE = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+(?:(?:a|b|rc)[1-9][0-9]*)?")
 
@@ -21,11 +20,13 @@ def main(argv: list[str]) -> int:
     tag_version = argv[0].removeprefix("v")
     project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     project_version = project["project"]["version"]
+    runtime = runpy.run_path("luminesk_cli/_version.py")
+    runtime_version = runtime.get("__version__")
 
-    if len({tag_version, project_version, __version__}) != 1:
+    if len({tag_version, project_version, runtime_version}) != 1:
         raise SystemExit(
             f"version mismatch: tag={tag_version}, project={project_version}, "
-            f"runtime={__version__}"
+            f"runtime={runtime_version}"
         )
 
     print(f"Verified release version {tag_version}.")
