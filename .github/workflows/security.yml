@@ -145,3 +145,18 @@ jobs:
           path: luminesk-cli.cdx.json
           if-no-files-found: error
           retention-days: 30
+
+  required:
+    name: Security required gate
+    if: always()
+    needs: [codeql, dependency-review, security-contract, dependency-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every security job to pass
+        shell: bash
+        run: |
+          test "${{ needs.codeql.result }}" = "success"
+          test "${{ needs['security-contract'].result }}" = "success"
+          test "${{ needs['dependency-audit'].result }}" = "success"
+          test "${{ needs['dependency-review'].result }}" = "success" || \
+            test "${{ needs['dependency-review'].result }}" = "skipped"
