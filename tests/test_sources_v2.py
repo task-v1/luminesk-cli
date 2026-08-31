@@ -271,6 +271,66 @@ def test_maven_release_resolution_reads_optional_sha256() -> None:
     assert result.digest == f"sha256:{digest}"
 
 
+@pytest.mark.parametrize("checksum", ["", "not-a-sha256"])
+def test_maven_ignores_empty_or_malformed_optional_sha256(checksum: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("maven-metadata.xml"):
+            return httpx.Response(
+                200,
+                content=b"""\
+<metadata><versioning><versions><version>2.0.0</version>
+</versions></versioning></metadata>
+""",
+            )
+
+        return httpx.Response(200, text=checksum)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    source = SourceSpec(
+        id="core",
+        type="maven",
+        target="server.jar",
+        options=MavenOptions(
+            repository="https://repo.example/releases",
+            group="org.example",
+            artifact="server",
+            version="2.0.0",
+        ),
+        allow_private_network=True,
+    )
+
+    result = MavenResolver().resolve(source, client)
+
+    assert result.digest is None
+
+
+def test_maven_rejects_dangerous_xml_entities() -> None:
+    malicious_metadata = b"""\
+<!DOCTYPE metadata [<!ENTITY secret SYSTEM "file:///etc/passwd">]>
+<metadata><versioning><release>&secret;</release></versioning></metadata>
+"""
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=malicious_metadata)
+        )
+    )
+    source = SourceSpec(
+        id="core",
+        type="maven",
+        target="server.jar",
+        options=MavenOptions(
+            repository="https://repo.example/releases",
+            group="org.example",
+            artifact="server",
+            version="2.0.0",
+        ),
+        allow_private_network=True,
+    )
+
+    with pytest.raises(ResolutionError, match="invalid Maven metadata XML"):
+        MavenResolver().resolve(source, client)
+
+
 def test_maven_snapshot_resolution_uses_timestamped_artifact() -> None:
     calls = 0
 

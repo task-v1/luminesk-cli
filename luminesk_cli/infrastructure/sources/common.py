@@ -12,6 +12,9 @@ import httpx
 from luminesk_cli.domain.errors import NetworkError, ResolutionError
 from luminesk_cli.domain.manifest import SourceSpec
 from luminesk_cli.infrastructure.security.network import validate_remote_url
+from luminesk_cli.infrastructure.security.transport import (
+    ALLOW_PRIVATE_NETWORK_EXTENSION,
+)
 
 MAX_METADATA_SIZE = 2 * 1024 * 1024
 MAX_METADATA_REDIRECTS = 5
@@ -57,6 +60,9 @@ def request_metadata(
                 current_url,
                 headers=request_headers,
                 follow_redirects=False,
+                extensions={
+                    ALLOW_PRIVATE_NETWORK_EXTENSION: source.allow_private_network
+                },
             ) as response:
                 if response.is_redirect:
                     location = response.headers.get("location")

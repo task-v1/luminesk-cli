@@ -35,6 +35,7 @@ from luminesk_cli.infrastructure.recipe_snapshot import (
     declared_recipe_assets,
 )
 from luminesk_cli.infrastructure.security.archive import ArchiveLimits, extract_archive
+from luminesk_cli.infrastructure.security.transport import create_secure_client
 from luminesk_cli.infrastructure.sources.common import request_json_object
 from luminesk_cli.infrastructure.state import atomic_write
 
@@ -138,10 +139,7 @@ def acquire_github_recipe(
         raise ConflictError("GitHub recipe target must be an empty directory")
     destination.mkdir(parents=True, exist_ok=True)
     owned_client = client is None
-    active_client = client or httpx.Client(
-        timeout=httpx.Timeout(30.0, connect=10.0),
-        follow_redirects=False,
-    )
+    active_client = client or create_secure_client()
     metadata_source = SourceSpec(
         id="recipe",
         type="http",
@@ -354,10 +352,7 @@ def _checkout_github_archive(
 
     api_root = f"https://api.github.com/repos/{source.owner}/{source.repository}"
 
-    with httpx.Client(
-        timeout=httpx.Timeout(30.0, connect=10.0),
-        follow_redirects=False,
-    ) as client:
+    with create_secure_client() as client:
         requested_ref = source.requested_ref
         tracking_ref = None
 

@@ -21,6 +21,7 @@ from luminesk_cli.infrastructure.dockerfile import resolve_build_images
 from luminesk_cli.infrastructure.fetch import SecureFetcher
 from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.platform import current_platform
+from luminesk_cli.infrastructure.security.transport import create_secure_client
 from luminesk_cli.infrastructure.sources.base import ResolverRegistry, default_registry
 
 
@@ -66,10 +67,7 @@ class LockService:
             )
 
         owned_client = self.client is None
-        client = self.client or httpx.Client(
-            timeout=httpx.Timeout(30.0, connect=10.0),
-            follow_redirects=False,
-        )
+        client = self.client or create_secure_client()
 
         try:
             sources = {

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from xml.etree import ElementTree as ET
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element, ParseError
 
 import httpx
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
-from luminesk_cli.domain.errors import ResolutionError
+from luminesk_cli.domain.errors import LumineskError, ResolutionError
 from luminesk_cli.domain.manifest import MavenOptions, SourceSpec
 from luminesk_cli.infrastructure.sources.base import Resolution
 from luminesk_cli.infrastructure.sources.common import (
@@ -89,8 +90,8 @@ def _artifact_url(source: SourceSpec, version: str, resolved_version: str) -> st
 
 def _parse_xml(content: bytes, url: str) -> Element:
     try:
-        root = ET.fromstring(content)
-    except ET.ParseError as exc:
+        root = DefusedET.fromstring(content)
+    except (ParseError, DefusedXmlException) as exc:
         raise ResolutionError("invalid Maven metadata XML", url=url) from exc
 
     for node in root.iter():
@@ -162,10 +163,15 @@ def _optional_sha256(
 ) -> str | None:
     try:
         response = request_metadata(client, f"{artifact_url}.sha256", source)
-    except Exception:
+    except LumineskError:
         return None
 
-    value = response.text.strip().split()[0].lower()
+    fields = response.text.split()
+
+    if not fields:
+        return None
+
+    value = fields[0].lower()
 
     if len(value) == 64 and all(character in "0123456789abcdef" for character in value):
         return f"sha256:{value}"

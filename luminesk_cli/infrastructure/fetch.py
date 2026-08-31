@@ -19,6 +19,10 @@ from luminesk_cli.infrastructure.security.network import (
     validate_redirect,
     validate_remote_url,
 )
+from luminesk_cli.infrastructure.security.transport import (
+    ALLOW_PRIVATE_NETWORK_EXTENSION,
+    create_secure_client,
+)
 
 DOWNLOAD_CHUNK_SIZE = 256 * 1024
 MAX_REDIRECTS = 5
@@ -57,10 +61,7 @@ class SecureFetcher:
                 return cached
 
         owned_client = self._client is None
-        client = self._client or httpx.Client(
-            timeout=httpx.Timeout(30.0, connect=10.0),
-            follow_redirects=False,
-        )
+        client = self._client or create_secure_client(resolver=self._address_resolver)
 
         try:
             return self._fetch_with_client(
@@ -111,6 +112,7 @@ class SecureFetcher:
                     current_url,
                     follow_redirects=False,
                     headers=request_headers,
+                    extensions={ALLOW_PRIVATE_NETWORK_EXTENSION: allow_private_network},
                 ) as response:
                     if response.is_redirect:
                         location = response.headers.get("location")

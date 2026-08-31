@@ -36,6 +36,7 @@ from luminesk_cli.infrastructure.recipe_snapshot import (
     create_recipe_snapshot,
     declared_recipe_assets,
 )
+from luminesk_cli.infrastructure.security.transport import create_secure_client
 from luminesk_cli.infrastructure.sources.common import (
     request_json_object,
     request_metadata,
@@ -201,10 +202,7 @@ class CatalogClient:
 
     def update(self) -> CatalogSnapshot:
         owned_client = self.client is None
-        client = self.client or httpx.Client(
-            timeout=httpx.Timeout(30.0, connect=10.0),
-            follow_redirects=False,
-        )
+        client = self.client or create_secure_client()
         try:
             distribution_revision = self._resolve_revision(client)
             metadata_source = self._metadata_source()
@@ -256,10 +254,7 @@ class CatalogClient:
             raise ValidationError("catalog recipe target must be an empty directory")
         destination.mkdir(parents=True, exist_ok=True)
         owned_client = self.client is None
-        client = self.client or httpx.Client(
-            timeout=httpx.Timeout(30.0, connect=10.0),
-            follow_redirects=False,
-        )
+        client = self.client or create_secure_client()
         try:
             self._fetch_manifest(client, snapshot, entry, destination)
             manifest = load_manifest(destination / MANIFEST_NAME)

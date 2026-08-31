@@ -24,6 +24,60 @@ def _is_public_address(address: str) -> bool:
     return bool(ip.is_global)
 
 
+def resolve_remote_addresses(
+    host: str,
+    port: int,
+    *,
+    allow_private_network: bool = False,
+    resolver: AddressResolver = _resolve_addresses,
+    url: str | None = None,
+) -> tuple[str, ...]:
+    """Resolve once and return normalized addresses allowed by the policy."""
+
+    try:
+        literal = ipaddress.ip_address(host.strip("[]"))
+        raw_addresses = [str(literal)]
+    except ValueError:
+        try:
+            raw_addresses = list(resolver(host, port))
+        except OSError as exc:
+            raise SecurityError(
+                f"cannot resolve remote host {host}: {exc}", url=url
+            ) from exc
+
+    if not raw_addresses:
+        raise SecurityError(f"remote host {host} resolved to no addresses", url=url)
+
+    addresses: list[str] = []
+
+    for raw_address in raw_addresses:
+        try:
+            address = str(ipaddress.ip_address(raw_address))
+        except ValueError as exc:
+            raise SecurityError(
+                f"remote host {host} resolved to an invalid IP address",
+                url=url,
+                address=raw_address,
+            ) from exc
+
+        if address not in addresses:
+            addresses.append(address)
+
+    if not allow_private_network:
+        blocked = sorted(
+            address for address in addresses if not _is_public_address(address)
+        )
+
+        if blocked:
+            raise SecurityError(
+                f"remote host resolves to a private or special address: {blocked[0]}",
+                url=url,
+                address=blocked[0],
+            )
+
+    return tuple(addresses)
+
+
 def validate_remote_url(
     url: str,
     *,
@@ -60,30 +114,13 @@ def validate_remote_url(
     if allow_private_network:
         return url
 
-    try:
-        address = ipaddress.ip_address(host.strip("[]"))
-        addresses = [str(address)]
-    except ValueError:
-        try:
-            addresses = list(resolver(host, port))
-        except OSError as exc:
-            raise SecurityError(
-                f"cannot resolve remote host {host}: {exc}", url=url
-            ) from exc
-
-    if not addresses:
-        raise SecurityError(f"remote host {host} resolved to no addresses", url=url)
-
-    blocked = sorted(
-        address for address in addresses if not _is_public_address(address)
+    resolve_remote_addresses(
+        host,
+        port,
+        allow_private_network=False,
+        resolver=resolver,
+        url=url,
     )
-
-    if blocked:
-        raise SecurityError(
-            f"remote host resolves to a private or special address: {blocked[0]}",
-            url=url,
-            address=blocked[0],
-        )
 
     return url
 
