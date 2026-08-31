@@ -76,6 +76,25 @@ command = ["java", "-jar", "server.jar"]
     assert payload["dryRun"] is False
     assert (root / "server.jar").read_bytes() == b"server"
     assert (root / ".luminesk_cli/state.json").is_file()
+    lock = json.loads((root / "luminesk.lock").read_text(encoding="utf-8"))
+    assert lock["recipe"] == {
+        "kind": "local",
+        "source": "local",
+        "revision": lock["manifestDigest"],
+        "entry": None,
+        "path": None,
+        "ref": None,
+        "tracking": False,
+        "version": "2.0.0",
+        "manifestDigest": lock["manifestDigest"],
+        "templateDigest": None,
+    }
+
+    assert main(["diff", "--dir", str(root), "--json"]) == 0
+    diff = json.loads(capsys.readouterr().out)
+    assert diff["recipeDrift"] == []
+    assert diff["upstreamRecipeDiff"] == []
+    assert diff["managedFileDrift"] == []
 
 
 def test_keep_git_reports_missing_optional_executable(
@@ -161,8 +180,11 @@ command = ["server"]
         sources={},
         runtime=RuntimeLock(image=f"example/server@sha256:{'a' * 64}"),
         recipe=RecipeLock(
+            kind="github",
             source="github:owner/repo",
             revision="b" * 40,
+            version="2.0.0",
+            manifest_digest=manifest.digest,
             ref="main",
             tracking=True,
         ),

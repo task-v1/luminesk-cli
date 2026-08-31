@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.primitives import (
+    SEMVER_RE,
     reject_unknown,
     require_int,
     require_keys,
@@ -29,10 +31,61 @@ MAX_LOCKFILE_SIZE = 4 * 1024 * 1024
 
 @dataclass(slots=True, frozen=True)
 class RecipeLock:
+    kind: Literal["database", "github", "local"]
     source: str
     revision: str
+    version: str
+    manifest_digest: str
     ref: str | None = None
     tracking: bool = False
+    entry: str | None = None
+    path: str | None = None
+    template_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in {"database", "github", "local"}:
+            raise ValidationError("lockfile.recipe.kind is invalid")
+        require_string(self.source, "lockfile.recipe.source")
+        require_string(self.revision, "lockfile.recipe.revision")
+        if not isinstance(self.tracking, bool):
+            raise ValidationError("lockfile.recipe.tracking must be a boolean")
+        if SEMVER_RE.fullmatch(self.version) is None:
+            raise ValidationError("lockfile.recipe.version must be semantic versioning")
+        validate_digest(self.manifest_digest, "lockfile.recipe.manifestDigest")
+        if self.template_digest is not None:
+            validate_digest(self.template_digest, "lockfile.recipe.templateDigest")
+
+        if self.kind == "database":
+            if self.source != "github:task-v1/luminesk-database":
+                raise ValidationError("database recipe source is not official")
+            if re.fullmatch(r"[0-9a-f]{40}", self.revision) is None:
+                raise ValidationError("database recipe revision must be a Git commit")
+            if not self.tracking or self.entry is None or self.path is None:
+                raise ValidationError(
+                    "database recipe origin requires tracking, entry, and path"
+                )
+        elif self.kind == "github":
+            if (
+                re.fullmatch(r"github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", self.source)
+                is None
+            ):
+                raise ValidationError("GitHub recipe source must be canonical")
+            if re.fullmatch(r"[0-9a-f]{40}", self.revision) is None:
+                raise ValidationError("GitHub recipe revision must be a Git commit")
+            if self.ref is None:
+                raise ValidationError("GitHub recipe origin requires an exact ref")
+        else:
+            if self.source != "local" or self.tracking:
+                raise ValidationError("local recipe origin must be untracked and local")
+            if any(value is not None for value in (self.ref, self.entry, self.path)):
+                raise ValidationError("local recipe origin has remote-only fields")
+
+        if self.ref is not None:
+            require_string(self.ref, "lockfile.recipe.ref")
+        if self.entry is not None:
+            safe_relative_path(self.entry, "lockfile.recipe.entry")
+        if self.path is not None:
+            safe_relative_path(self.path, "lockfile.recipe.path", allow_dot=True)
 
 
 @dataclass(slots=True, frozen=True)
@@ -97,10 +150,16 @@ class Lockfile:
 
         if self.recipe is not None:
             result["recipe"] = {
+                "kind": self.recipe.kind,
                 "source": self.recipe.source,
                 "revision": self.recipe.revision,
+                "entry": self.recipe.entry,
+                "path": self.recipe.path,
                 "ref": self.recipe.ref,
                 "tracking": self.recipe.tracking,
+                "version": self.recipe.version,
+                "manifestDigest": self.recipe.manifest_digest,
+                "templateDigest": self.recipe.template_digest,
             }
 
         return result
@@ -230,27 +289,76 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
         recipe_table = require_table(table["recipe"], "lockfile.recipe")
         reject_unknown(
             recipe_table,
-            {"source", "revision", "ref", "tracking"},
+            {
+                "kind",
+                "source",
+                "revision",
+                "entry",
+                "path",
+                "ref",
+                "tracking",
+                "version",
+                "manifestDigest",
+                "templateDigest",
+            },
             "lockfile.recipe",
         )
-        require_keys(recipe_table, {"source", "revision"}, "lockfile.recipe")
-        ref = recipe_table.get("ref")
-
-        if ref is not None:
-            ref = require_string(ref, "lockfile.recipe.ref")
-
-        tracking = recipe_table.get("tracking", False)
+        require_keys(
+            recipe_table,
+            {
+                "kind",
+                "source",
+                "revision",
+                "entry",
+                "path",
+                "ref",
+                "tracking",
+                "version",
+                "manifestDigest",
+                "templateDigest",
+            },
+            "lockfile.recipe",
+        )
+        kind = require_string(recipe_table["kind"], "lockfile.recipe.kind")
+        if kind not in {"database", "github", "local"}:
+            raise ValidationError("lockfile.recipe.kind is invalid")
+        source_value = require_string(recipe_table["source"], "lockfile.recipe.source")
+        if Path(source_value).is_absolute() or source_value.startswith("file:"):
+            raise ValidationError("lockfile.recipe.source must not be a local path")
+        if source_value.startswith(("http://", "https://")):
+            validate_https_url(source_value, "lockfile.recipe.source")
+        if kind == "local" and source_value != "local":
+            raise ValidationError("local recipe source must be local")
+        ref = _nullable_string(recipe_table["ref"], "lockfile.recipe.ref")
+        entry = _nullable_safe_path(recipe_table["entry"], "lockfile.recipe.entry")
+        recipe_path = _nullable_safe_path(
+            recipe_table["path"], "lockfile.recipe.path", allow_dot=True
+        )
+        template_digest = recipe_table["templateDigest"]
+        if template_digest is not None:
+            template_digest = validate_digest(
+                template_digest, "lockfile.recipe.templateDigest"
+            )
+        tracking = recipe_table["tracking"]
 
         if not isinstance(tracking, bool):
             raise ValidationError("lockfile.recipe.tracking must be a boolean")
 
         recipe = RecipeLock(
-            source=require_string(recipe_table["source"], "lockfile.recipe.source"),
+            kind=kind,  # type: ignore[arg-type]
+            source=source_value,
             revision=require_string(
                 recipe_table["revision"], "lockfile.recipe.revision"
             ),
+            version=require_string(recipe_table["version"], "lockfile.recipe.version"),
+            manifest_digest=validate_digest(
+                recipe_table["manifestDigest"], "lockfile.recipe.manifestDigest"
+            ),
             ref=ref,
             tracking=tracking,
+            entry=entry,
+            path=recipe_path,
+            template_digest=template_digest,
         )
 
     build = None
@@ -282,6 +390,23 @@ def parse_lockfile(content: bytes, *, source: str = LOCKFILE_NAME) -> Lockfile:
         build=build,
         recipe=recipe,
     )
+
+
+def _nullable_string(value: Any, path: str) -> str | None:
+    if value is None:
+        return None
+    return require_string(value, path)
+
+
+def _nullable_safe_path(
+    value: Any,
+    path: str,
+    *,
+    allow_dot: bool = False,
+) -> str | None:
+    if value is None:
+        return None
+    return safe_relative_path(value, path, allow_dot=allow_dot)
 
 
 def load_lockfile(path: Path) -> Lockfile:

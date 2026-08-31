@@ -15,6 +15,7 @@ from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, load_lockfile
 from luminesk_cli.domain.manifest import MANIFEST_NAME, Manifest, load_manifest
 from luminesk_cli.domain.package import ServerPackage
+from luminesk_cli.domain.recipe import RecipeOrigin
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.catalog import CatalogStore
@@ -67,10 +68,7 @@ def resolve_lock(
     manifest: Manifest,
     *,
     frozen: bool,
-    recipe_source: str | None = None,
-    recipe_revision: str | None = None,
-    recipe_ref: str | None = None,
-    recipe_tracking: bool = False,
+    recipe_origin: RecipeOrigin | None = None,
 ) -> Lockfile:
     content_cache = cache()
 
@@ -80,10 +78,7 @@ def resolve_lock(
     return LockService(content_cache).create(
         manifest,
         root,
-        recipe_source=recipe_source,
-        recipe_revision=recipe_revision,
-        recipe_ref=recipe_ref,
-        recipe_tracking=recipe_tracking,
+        recipe_origin=recipe_origin,
     )
 
 

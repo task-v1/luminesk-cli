@@ -23,8 +23,16 @@ OWNERSHIP_VERSION = 1
 
 @dataclass(slots=True, frozen=True)
 class RecipeState:
+    kind: Literal["database", "github", "local"] | None = None
     source: str | None = None
     revision: str | None = None
+    ref: str | None = None
+    tracking: bool = False
+    entry: str | None = None
+    path: str | None = None
+    version: str | None = None
+    manifest_digest: str | None = None
+    template_digest: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -61,8 +69,16 @@ class InstanceState:
             "appliedLockDigest": self.applied_lock_digest,
             "installedPackageDigest": self.installed_package_digest,
             "recipe": {
+                "kind": self.recipe.kind,
                 "source": self.recipe.source,
                 "revision": self.recipe.revision,
+                "entry": self.recipe.entry,
+                "path": self.recipe.path,
+                "ref": self.recipe.ref,
+                "tracking": self.recipe.tracking,
+                "version": self.recipe.version,
+                "manifestDigest": self.recipe.manifest_digest,
+                "templateDigest": self.recipe.template_digest,
             },
             "inputs": dict(sorted(self.inputs.items())),
             "runtime": {
@@ -131,8 +147,22 @@ def parse_state(content: bytes) -> InstanceState:
         raise ValidationError(f"unsupported state version {version}")
 
     recipe_table = require_table(table["recipe"], "state.recipe")
-    reject_unknown(recipe_table, {"source", "revision"}, "state.recipe")
-    require_keys(recipe_table, {"source", "revision"}, "state.recipe")
+    recipe_keys = {
+        "kind",
+        "source",
+        "revision",
+        "entry",
+        "path",
+        "ref",
+        "tracking",
+        "version",
+        "manifestDigest",
+        "templateDigest",
+    }
+    legacy_recipe = set(recipe_table) == {"source", "revision"}
+    reject_unknown(recipe_table, recipe_keys, "state.recipe")
+    if not legacy_recipe:
+        require_keys(recipe_table, recipe_keys, "state.recipe")
     runtime_table = require_table(table["runtime"], "state.runtime")
     reject_unknown(runtime_table, {"driver", "containerId", "status"}, "state.runtime")
     require_keys(runtime_table, {"driver", "containerId", "status"}, "state.runtime")
@@ -154,6 +184,17 @@ def parse_state(content: bytes) -> InstanceState:
 
         inputs[name] = input_value
 
+    recipe_kind = (
+        _optional_nullable_string(recipe_table, "kind", "state.recipe")
+        if not legacy_recipe
+        else None
+    )
+    if recipe_kind not in {None, "database", "github", "local"}:
+        raise ValidationError("state.recipe.kind is invalid")
+    recipe_tracking = recipe_table.get("tracking", False)
+    if not isinstance(recipe_tracking, bool):
+        raise ValidationError("state.recipe.tracking must be a boolean")
+
     return InstanceState(
         instance_id=require_string(table["instanceId"], "state.instanceId"),
         name=require_string(table["name"], "state.name"),
@@ -166,9 +207,21 @@ def parse_state(content: bytes) -> InstanceState:
             table["installedPackageDigest"], "state.installedPackageDigest"
         ),
         recipe=RecipeState(
+            kind=recipe_kind,  # type: ignore[arg-type]
             source=_optional_nullable_string(recipe_table, "source", "state.recipe"),
             revision=_optional_nullable_string(
                 recipe_table, "revision", "state.recipe"
+            ),
+            entry=_recipe_optional(recipe_table, "entry", legacy_recipe),
+            path=_recipe_optional(recipe_table, "path", legacy_recipe),
+            ref=_recipe_optional(recipe_table, "ref", legacy_recipe),
+            tracking=recipe_tracking,
+            version=_recipe_optional(recipe_table, "version", legacy_recipe),
+            manifest_digest=_recipe_optional_digest(
+                recipe_table, "manifestDigest", legacy_recipe
+            ),
+            template_digest=_recipe_optional_digest(
+                recipe_table, "templateDigest", legacy_recipe
             ),
         ),
         inputs=inputs,
@@ -235,3 +288,16 @@ def _optional_nullable_string(table: dict[str, Any], key: str, path: str) -> str
         return None
 
     return require_string(value, f"{path}.{key}")
+
+
+def _recipe_optional(table: dict[str, Any], key: str, legacy: bool) -> str | None:
+    if legacy:
+        return None
+    return _optional_nullable_string(table, key, "state.recipe")
+
+
+def _recipe_optional_digest(
+    table: dict[str, Any], key: str, legacy: bool
+) -> str | None:
+    value = _recipe_optional(table, key, legacy)
+    return validate_digest(value, f"state.recipe.{key}") if value is not None else None

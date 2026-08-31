@@ -7,12 +7,8 @@ import pytest
 
 from luminesk_cli.application.install import TransactionalInstaller
 from luminesk_cli.application.locking import LockService
-from luminesk_cli.application.recipe_update import (
-    RecipeUpdater,
-    record_recipe_ownership,
-    restore_recipe_backup,
-)
 from luminesk_cli.application.update import UpdateService
+from luminesk_cli.cli.commands.update import _security_changes
 from luminesk_cli.domain.errors import RuntimeOperationError, TransactionError
 from luminesk_cli.domain.instance import RuntimeState
 from luminesk_cli.domain.lockfile import Lockfile
@@ -21,10 +17,7 @@ from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.oci import OciImageResolver
-from luminesk_cli.infrastructure.recipe import (
-    GitRecipeSource,
-    RecipeCheckout,
-)
+from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import load_state, write_state
 
 
@@ -57,8 +50,12 @@ command = ["./server.bin"]
     (recipe / "luminesk.toml").write_bytes(manifest_bytes)
     manifest = parse_manifest(manifest_bytes)
     cache = ContentCache(tmp_path / "cache")
+    snapshot = create_recipe_snapshot(recipe, manifest)
     lockfile = LockService(cache, image_resolver=OciImageResolver()).create(
-        manifest, recipe, target="linux/amd64"
+        manifest,
+        recipe,
+        recipe_origin=snapshot.origin,
+        target="linux/amd64",
     )
     package = DeclarativeBuilder(cache).build(
         manifest,
@@ -123,6 +120,7 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
         old_lock,
         old_package,
         target,
+        recipe_snapshot=create_recipe_snapshot(old_recipe, old_manifest),
     )
     assert old_state is not None
     old_state = replace(
@@ -137,6 +135,10 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
     _, new_manifest, new_lock, new_package = make_release(tmp_path, "2.1.0", b"broken")
     runtime = FailingThenRecoveringRuntime(new_package.digest)
     service = UpdateService(runtime=runtime)  # type: ignore[arg-type]
+    new_snapshot = create_recipe_snapshot(
+        tmp_path / "recipe-2.1.0",
+        new_manifest,
+    )
 
     with pytest.raises(TransactionError, match="previous instance was restored"):
         service.update(
@@ -145,6 +147,7 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
             new_lock,
             new_package,
             inputs={},
+            recipe_snapshot=new_snapshot,
         )
 
     restored = load_state(target)
@@ -153,44 +156,53 @@ def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> 
     assert restored.installed_package_digest == old_package.digest
     assert restored.runtime.status == "running"
     assert (target / "server.bin").read_bytes() == b"working"
+    assert (target / "luminesk.lock").read_bytes() == old_lock.to_bytes()
+    assert (target / "luminesk.toml").read_bytes() == (
+        old_recipe / "luminesk.toml"
+    ).read_bytes()
+    assert (target / ".luminesk_cli/recipe/artifact.bin").read_bytes() == b"working"
 
 
-def test_recipe_tree_can_be_restored_from_update_backup(tmp_path: Path) -> None:
-    source = GitRecipeSource(
-        canonical="github:owner/repo",
-        clone_url="https://github.com/owner/repo.git",
-        owner="owner",
-        repository="repo",
-        requested_ref=None,
+def test_security_sensitive_endpoint_changes_are_explicit() -> None:
+    def manifest(version: str, repository: str, image: str) -> Manifest:
+        return parse_manifest(
+            f'''\
+manifest_version = 1
+[package]
+name = "endpoint-fixture"
+version = "{version}"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[[sources]]
+id = "core"
+type = "maven"
+target = "server.jar"
+[sources.options]
+repository = "{repository}"
+group = "example"
+artifact = "server"
+version = "latest"
+[runtime]
+image = "{image}"
+command = ["java", "-jar", "server.jar"]
+'''.encode()
+        )
+
+    changes = _security_changes(
+        manifest("1.0.0", "https://old.example/releases", "old/server:1"),
+        manifest("1.0.1", "https://new.example/releases", "new/server:1"),
     )
-    old_root = tmp_path / "old-recipe"
-    old_root.mkdir()
-    (old_root / "luminesk.toml").write_text("old", encoding="utf-8")
-    old_checkout = RecipeCheckout(
-        old_root,
-        source,
-        "a" * 40,
-        "main",
-        ("luminesk.toml",),
-    )
-    target = tmp_path / "instance"
-    target.mkdir()
-    (target / "luminesk.toml").write_text("old", encoding="utf-8")
-    record_recipe_ownership(old_checkout, target)
-    new_root = tmp_path / "new-recipe"
-    new_root.mkdir()
-    (new_root / "luminesk.toml").write_text("new", encoding="utf-8")
-    new_checkout = RecipeCheckout(
-        new_root,
-        source,
-        "b" * 40,
-        "main",
-        ("luminesk.toml",),
-    )
-    backup = target / ".luminesk_cli" / "backups" / "transaction"
 
-    RecipeUpdater().apply(new_checkout, target, backup)
-    assert (target / "luminesk.toml").read_text(encoding="utf-8") == "new"
-
-    restore_recipe_backup(target, backup)
-    assert (target / "luminesk.toml").read_text(encoding="utf-8") == "old"
+    assert changes == [
+        {
+            "field": "sources.core.repository",
+            "from": "https://old.example/releases",
+            "to": "https://new.example/releases",
+        },
+        {
+            "field": "runtime.imageRepository",
+            "from": "old/server",
+            "to": "new/server",
+        },
+    ]

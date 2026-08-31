@@ -15,6 +15,7 @@ from luminesk_cli.domain.lockfile import (
     RuntimeLock,
 )
 from luminesk_cli.domain.manifest import LocalFileOptions, Manifest, SourceSpec
+from luminesk_cli.domain.recipe import RecipeOrigin
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.dockerfile import resolve_build_images
 from luminesk_cli.infrastructure.fetch import SecureFetcher
@@ -44,13 +45,16 @@ class LockService:
         manifest: Manifest,
         recipe_root: Path,
         *,
-        recipe_source: str | None = None,
-        recipe_revision: str | None = None,
-        recipe_ref: str | None = None,
-        recipe_tracking: bool = False,
+        recipe_origin: RecipeOrigin | None = None,
         target: str | None = None,
     ) -> Lockfile:
         target_platform = target or current_platform()
+
+        if recipe_origin is not None and (
+            recipe_origin.manifest_digest != manifest.digest
+            or recipe_origin.version != manifest.package.version
+        ):
+            raise ResolutionError("recipe origin does not match the resolved manifest")
 
         if (
             manifest.package.platforms
@@ -77,20 +81,22 @@ class LockService:
             if owned_client:
                 client.close()
 
-        recipe = None
-
-        if recipe_source is not None or recipe_revision is not None:
-            if not recipe_source or not recipe_revision:
-                raise ResolutionError(
-                    "recipe source and revision must be provided together"
-                )
-
-            recipe = RecipeLock(
-                source=recipe_source,
-                revision=recipe_revision,
-                ref=recipe_ref,
-                tracking=recipe_tracking,
+        recipe = (
+            RecipeLock(
+                kind=recipe_origin.kind,
+                source=recipe_origin.source,
+                revision=recipe_origin.revision,
+                ref=recipe_origin.ref,
+                tracking=recipe_origin.tracking,
+                entry=recipe_origin.entry,
+                path=recipe_origin.path,
+                version=recipe_origin.version,
+                manifest_digest=recipe_origin.manifest_digest,
+                template_digest=recipe_origin.template_digest,
             )
+            if recipe_origin is not None
+            else None
+        )
 
         return Lockfile(
             manifest_digest=manifest.digest,

@@ -82,6 +82,7 @@ class TransactionalInstaller:
     ) -> tuple[Plan, InstanceState | None]:
         root = target.resolve()
         _validate_package_binding(manifest, lockfile, package)
+        _validate_recipe_binding(lockfile, recipe_snapshot)
         old_state = load_state(root)
 
         if old_state is not None and old_state.pending_transaction is not None:
@@ -207,6 +208,42 @@ def _validate_package_binding(
 
     if package.metadata.target != lockfile.target:
         raise ValidationError("package target does not match lockfile")
+
+
+def _validate_recipe_binding(
+    lockfile: Lockfile,
+    snapshot: RecipeSnapshot | None,
+) -> None:
+    if snapshot is None:
+        return
+    recipe = lockfile.recipe
+    if recipe is None:
+        raise ValidationError("recipe snapshot has no matching lock origin")
+    origin = snapshot.origin
+    if (
+        recipe.kind,
+        recipe.source,
+        recipe.revision,
+        recipe.ref,
+        recipe.tracking,
+        recipe.entry,
+        recipe.path,
+        recipe.version,
+        recipe.manifest_digest,
+        recipe.template_digest,
+    ) != (
+        origin.kind,
+        origin.source,
+        origin.revision,
+        origin.ref,
+        origin.tracking,
+        origin.entry,
+        origin.path,
+        origin.version,
+        origin.manifest_digest,
+        origin.template_digest,
+    ):
+        raise ValidationError("recipe snapshot does not match lock origin")
 
 
 def _plan_changes(
@@ -567,8 +604,20 @@ def _new_state(
         applied_lock_digest=lockfile.digest,
         installed_package_digest=package.digest,
         recipe=RecipeState(
+            kind=lockfile.recipe.kind if lockfile.recipe else None,
             source=lockfile.recipe.source if lockfile.recipe else None,
             revision=lockfile.recipe.revision if lockfile.recipe else None,
+            entry=lockfile.recipe.entry if lockfile.recipe else None,
+            path=lockfile.recipe.path if lockfile.recipe else None,
+            ref=lockfile.recipe.ref if lockfile.recipe else None,
+            tracking=lockfile.recipe.tracking if lockfile.recipe else False,
+            version=lockfile.recipe.version if lockfile.recipe else None,
+            manifest_digest=(
+                lockfile.recipe.manifest_digest if lockfile.recipe else None
+            ),
+            template_digest=(
+                lockfile.recipe.template_digest if lockfile.recipe else None
+            ),
         ),
         inputs=_persisted_inputs(manifest, inputs),
         runtime=old_state.runtime if old_state else RuntimeState(),

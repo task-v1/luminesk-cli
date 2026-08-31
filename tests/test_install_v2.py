@@ -53,8 +53,12 @@ retain_backups = 2
     (recipe / "luminesk.toml").write_bytes(manifest_bytes)
     manifest = parse_manifest(manifest_bytes)
     cache = ContentCache(tmp_path / "cache")
+    snapshot = create_recipe_snapshot(recipe, manifest)
     lockfile = LockService(cache, image_resolver=OciImageResolver()).create(
-        manifest, recipe, target="linux/amd64"
+        manifest,
+        recipe,
+        recipe_origin=snapshot.origin,
+        target="linux/amd64",
     )
     package = DeclarativeBuilder(cache).build(
         manifest,

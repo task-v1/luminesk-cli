@@ -9,6 +9,7 @@ from luminesk_cli.domain.lockfile import (
     LOCKFILE_NAME,
     BuildLock,
     Lockfile,
+    RecipeLock,
     ResolvedSource,
     RuntimeLock,
     load_lockfile,
@@ -96,3 +97,72 @@ def test_lockfile_round_trips_pinned_build_images() -> None:
     )
 
     assert parse_lockfile(original.to_bytes()) == original
+
+
+@pytest.mark.parametrize("kind", ["database", "github", "local"])
+def test_lockfile_round_trips_complete_recipe_origin(kind: str) -> None:
+    original = make_lockfile()
+    if kind == "database":
+        recipe = RecipeLock(
+            kind="database",
+            source="github:task-v1/luminesk-database",
+            revision="d" * 40,
+            entry="paper",
+            path="paper",
+            tracking=True,
+            version="1.0.1",
+            manifest_digest=f"sha256:{'e' * 64}",
+            template_digest=f"sha256:{'f' * 64}",
+        )
+    elif kind == "github":
+        recipe = RecipeLock(
+            kind="github",
+            source="github:owner/repository",
+            revision="d" * 40,
+            ref="main",
+            tracking=True,
+            version="1.0.1",
+            manifest_digest=f"sha256:{'e' * 64}",
+        )
+    else:
+        recipe = RecipeLock(
+            kind="local",
+            source="local",
+            revision=f"sha256:{'d' * 64}",
+            tracking=False,
+            version="1.0.1",
+            manifest_digest=f"sha256:{'e' * 64}",
+        )
+    complete = Lockfile(
+        manifest_digest=original.manifest_digest,
+        target=original.target,
+        sources=original.sources,
+        runtime=original.runtime,
+        recipe=recipe,
+    )
+
+    assert parse_lockfile(complete.to_bytes()) == complete
+    assert set(complete.to_dict()["recipe"]) == {
+        "kind",
+        "source",
+        "revision",
+        "entry",
+        "path",
+        "ref",
+        "tracking",
+        "version",
+        "manifestDigest",
+        "templateDigest",
+    }
+
+
+def test_recipe_lock_rejects_absolute_local_origin() -> None:
+    with pytest.raises(ValidationError, match="local"):
+        RecipeLock(
+            kind="local",
+            source="/private/recipe",
+            revision=f"sha256:{'d' * 64}",
+            tracking=False,
+            version="1.0.0",
+            manifest_digest=f"sha256:{'e' * 64}",
+        )

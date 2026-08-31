@@ -3,82 +3,72 @@ from __future__ import annotations
 import difflib
 import json
 import tempfile
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from luminesk_cli.application.install import restore_install_backup
-from luminesk_cli.application.recipe_update import restore_recipe_backup
-from luminesk_cli.application.update import UpdateService
+from luminesk_cli.application.update import UpdateResult, UpdateService
 from luminesk_cli.cli.commands.common import (
     build_package,
+    cache,
+    catalog_store,
     emit,
     parse_inputs,
-    recipe,
     resolve_lock,
 )
 from luminesk_cli.cli.commands.runtime import _instance_root
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
-from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, load_lockfile
+from luminesk_cli.domain.lockfile import (
+    LOCKFILE_NAME,
+    Lockfile,
+    RecipeLock,
+    load_lockfile,
+)
 from luminesk_cli.domain.manifest import MANIFEST_NAME, Manifest, load_manifest
+from luminesk_cli.domain.recipe import RecipeOrigin, RecipeSnapshot
 from luminesk_cli.infrastructure.cache import digest_file
+from luminesk_cli.infrastructure.catalog import CatalogClient
 from luminesk_cli.infrastructure.recipe import (
-    RecipeCheckout,
-    checkout_recipe,
+    acquire_github_recipe,
     normalize_git_source,
 )
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import (
+    RECIPE_DIRECTORY,
     load_ownership,
+    load_state,
     state_directory,
 )
+
+MAX_TEXT_DIFF_SIZE = 512 * 1024
 
 
 def run(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
+    installed = _installed_recipe(root, old_lock, verify=True)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-update-recipe-") as temporary:
-        checkout = _updated_checkout(old_lock, Path(temporary) / "recipe")
-        recipe_source: str | None
-        recipe_revision: str | None
-        recipe_ref: str | None
-
-        if checkout is not None:
-            recipe_root = checkout.root
-            manifest = load_manifest(recipe_root / MANIFEST_NAME)
-            recipe_source = checkout.source.canonical
-            recipe_revision = checkout.revision
-            recipe_ref = checkout.tracking_ref or checkout.source.requested_ref
-            recipe_tracking = checkout.tracking_ref is not None
-        else:
-            recipe_root, manifest = recipe(root)
-            recipe_source = old_lock.recipe.source if old_lock.recipe else None
-            recipe_revision = old_lock.recipe.revision if old_lock.recipe else None
-            recipe_ref = old_lock.recipe.ref if old_lock.recipe else None
-            recipe_tracking = old_lock.recipe.tracking if old_lock.recipe else False
-
+        candidate = _candidate_recipe(
+            old_lock,
+            installed,
+            Path(temporary) / "recipe",
+        )
+        manifest = candidate.manifest
         new_lock = resolve_lock(
-            recipe_root,
+            candidate.root,
             manifest,
             frozen=False,
-            recipe_source=recipe_source,
-            recipe_revision=recipe_revision,
-            recipe_ref=recipe_ref,
-            recipe_tracking=recipe_tracking,
+            recipe_origin=candidate.origin,
         )
         new_lock = _select_component(namespace.component, old_lock, new_lock)
-        values = parse_inputs(manifest, namespace.set)
-        snapshot = create_recipe_snapshot(
-            recipe_root,
-            manifest,
-            kind="github" if checkout is not None else "local",
-            source=recipe_source or "local",
-            revision=recipe_revision,
-            ref=recipe_ref,
-            tracking=recipe_tracking,
-        )
+        values = _update_inputs(root, manifest, namespace.set)
         temporary_package, package = build_package(
-            recipe_root, manifest, new_lock, values
+            candidate.root,
+            manifest,
+            new_lock,
+            values,
         )
 
         try:
@@ -89,13 +79,21 @@ def run(namespace: Any) -> int:
                 new_lock,
                 package,
                 inputs=values,
-                checkout=checkout,
-                recipe_snapshot=snapshot,
+                recipe_snapshot=candidate,
                 dry_run=True,
             )
+            recipe_changes = _snapshot_diff(installed, candidate)
+            security_changes = _security_changes(installed.manifest, manifest)
 
             if not namespace.dry_run:
-                _confirm_update(namespace, root, old_lock, new_lock, manifest, preview)
+                _confirm_update(
+                    namespace,
+                    root,
+                    old_lock,
+                    new_lock,
+                    manifest,
+                    security_changes,
+                )
 
             result = (
                 preview
@@ -106,23 +104,25 @@ def run(namespace: Any) -> int:
                     new_lock,
                     package,
                     inputs=values,
-                    checkout=checkout,
-                    recipe_snapshot=snapshot,
+                    recipe_snapshot=candidate,
                 )
             )
         finally:
             temporary_package.cleanup()
 
-    changes = _result_changes(result)
+    package_changes = _result_changes(result)
     emit(
         namespace,
         {
             "dryRun": namespace.dry_run,
-            "changes": changes,
+            "recipeChanges": recipe_changes,
+            "packageChanges": package_changes,
+            "changes": package_changes,
+            "securitySensitiveChanges": security_changes,
             "instanceId": result.state.instance_id if result.state else None,
         },
         ("Planned" if namespace.dry_run else "Updated")
-        + f" {root} ({len(changes)} changes)",
+        + f" {root} ({len(recipe_changes) + len(package_changes)} changes)",
     )
     return 0
 
@@ -130,70 +130,64 @@ def run(namespace: Any) -> int:
 def outdated(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
+    installed = _installed_recipe(root, old_lock, verify=True)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-outdated-") as temporary:
-        checkout = _updated_checkout(old_lock, Path(temporary) / "recipe")
-        recipe_root = checkout.root if checkout else root
-        manifest = load_manifest(recipe_root / MANIFEST_NAME)
+        candidate = _candidate_recipe(
+            old_lock,
+            installed,
+            Path(temporary) / "recipe",
+        )
         new_lock = resolve_lock(
-            recipe_root,
-            manifest,
+            candidate.root,
+            candidate.manifest,
             frozen=False,
-            recipe_source=(checkout.source.canonical if checkout else None),
-            recipe_revision=(checkout.revision if checkout else None),
-            recipe_ref=(checkout.tracking_ref if checkout else None),
-            recipe_tracking=bool(checkout and checkout.tracking_ref),
+            recipe_origin=candidate.origin,
         )
 
     updates = _lock_changes(old_lock, new_lock)
+    lines = [
+        f"  {item['component']}: {item['from']} -> {item['to']}" for item in updates
+    ]
     emit(
         namespace,
         {"outdated": updates, "count": len(updates)},
         "No updates available."
         if not updates
-        else "Available updates:\n"
-        + "\n".join(
-            f"  {item['component']}: {item['from']} -> {item['to']}" for item in updates
-        ),
+        else f"{candidate.origin.entry or candidate.manifest.package.name}\n"
+        + "\n".join(lines),
     )
     return 0
 
 
 def diff(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
-    ledger = load_ownership(root)
-    changes = []
-
-    for relative, entry in ledger.files.items():
-        if entry.digest is None:
-            continue
-
-        path = root / relative
-
-        if not path.is_file() or path.is_symlink():
-            changes.append({"path": relative, "status": "missing"})
-            continue
-
-        digest_value, _ = digest_file(path)
-
-        if digest_value != entry.digest:
-            changes.append({"path": relative, "status": "modified"})
-
     lockfile = load_lockfile(root / LOCKFILE_NAME)
-    recipe_diff = []
+    installed = _installed_recipe(root, lockfile, verify=False)
+    recipe_drift = _recipe_drift(root, lockfile, installed)
+    managed_drift = _managed_drift(root)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-diff-") as temporary:
-        checkout = _updated_checkout(lockfile, Path(temporary) / "recipe")
+        candidate = _candidate_recipe(
+            lockfile,
+            installed,
+            Path(temporary) / "recipe",
+        )
+        upstream_diff = _snapshot_diff(installed, candidate)
 
-        if checkout is not None:
-            recipe_diff = _recipe_diff(root, checkout)
-
-    lines = [f"{item['status']:8} {item['path']}" for item in changes]
-    lines.extend(recipe_diff)
+    sections = [
+        _plain_drift_section("Recipe drift", recipe_drift),
+        _plain_diff_section("Template/recipe upstream diff", upstream_diff),
+        _plain_drift_section("Managed instance file drift", managed_drift),
+    ]
     emit(
         namespace,
-        {"managed": changes, "recipeDiff": recipe_diff},
-        "No drift or recipe changes." if not lines else "\n".join(lines),
+        {
+            "recipeDrift": recipe_drift,
+            "upstreamRecipeDiff": upstream_diff,
+            "managedFileDrift": managed_drift,
+        },
+        "\n\n".join(sections),
     )
     return 0
 
@@ -221,29 +215,125 @@ def recover(namespace: Any) -> int:
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
-
         if not candidates:
             raise TransactionError("no recoverable transaction was found")
-
         backup = candidates[0]
 
-    if (backup / "install-plan.json").is_file():
-        restore_install_backup(root, backup)
-
-    restore_recipe_backup(root, backup)
+    restore_install_backup(root, backup)
     journal.unlink(missing_ok=True)
     emit(namespace, {"backup": str(backup)}, f"Recovered instance from {backup}")
     return 0
 
 
-def _updated_checkout(lockfile: Lockfile, destination: Path) -> RecipeCheckout | None:
-    recipe_lock = lockfile.recipe
+def _origin(recipe: RecipeLock) -> RecipeOrigin:
+    return RecipeOrigin(
+        kind=recipe.kind,
+        source=recipe.source,
+        revision=recipe.revision,
+        ref=recipe.ref,
+        tracking=recipe.tracking,
+        entry=recipe.entry,
+        path=recipe.path,
+        version=recipe.version,
+        manifest_digest=recipe.manifest_digest,
+        template_digest=recipe.template_digest,
+    )
 
-    if recipe_lock is None or not recipe_lock.tracking:
-        return None
 
-    source = normalize_git_source(recipe_lock.source, recipe_lock.ref)
-    return checkout_recipe(source, destination)
+def _installed_recipe(
+    root: Path,
+    lockfile: Lockfile,
+    *,
+    verify: bool,
+) -> RecipeSnapshot:
+    if lockfile.recipe is None:
+        raise ValidationError(
+            "instance lock has no recipe origin; reinstall it with Luminesk 2.0"
+        )
+    origin = _origin(lockfile.recipe)
+    canonical = state_directory(root) / RECIPE_DIRECTORY
+    snapshot = create_recipe_snapshot(
+        canonical,
+        load_manifest(canonical / MANIFEST_NAME),
+        kind=origin.kind,
+        source=origin.source,
+        revision=origin.revision,
+        ref=origin.ref,
+        tracking=origin.tracking,
+        entry=origin.entry,
+        path=origin.path,
+    )
+    if verify and (
+        snapshot.origin.manifest_digest != origin.manifest_digest
+        or snapshot.origin.template_digest != origin.template_digest
+        or snapshot.origin.version != origin.version
+    ):
+        raise ValidationError(
+            "canonical installed recipe has drift; inspect it with `nesk diff`"
+        )
+    return snapshot
+
+
+def _candidate_recipe(
+    lockfile: Lockfile,
+    installed: RecipeSnapshot,
+    destination: Path,
+) -> RecipeSnapshot:
+    recipe = lockfile.recipe
+    assert recipe is not None
+    if recipe.kind == "local":
+        return installed
+
+    if not recipe.tracking:
+        if recipe.kind != "github" or installed.manifest.build is None:
+            return installed
+        source = normalize_git_source(recipe.source, recipe.revision)
+        fetched = acquire_github_recipe(source, destination, cache())
+        if (
+            fetched.origin.revision != recipe.revision
+            or fetched.origin.manifest_digest != recipe.manifest_digest
+            or fetched.origin.template_digest != recipe.template_digest
+            or fetched.origin.version != recipe.version
+        ):
+            raise ValidationError(
+                "pinned GitHub recipe content no longer matches its lock"
+            )
+        return RecipeSnapshot(
+            root=fetched.root,
+            manifest=fetched.manifest,
+            origin=_origin(recipe),
+            entries=fetched.entries,
+        )
+
+    if recipe.kind == "database":
+        if recipe.entry is None:
+            raise ValidationError("database recipe origin has no entry name")
+        store = catalog_store()
+        catalog = store.load_active()
+        entry = next(
+            (item for item in catalog.entries if item.name == recipe.entry),
+            None,
+        )
+        if entry is None:
+            raise ValidationError(
+                f"active catalog has no installed recipe: {recipe.entry}"
+            )
+        if catalog.revision == recipe.revision:
+            return installed
+        return CatalogClient(store).acquire_entry(catalog, entry, destination)
+
+    if recipe.kind == "github":
+        if recipe.ref is None:
+            raise ValidationError("tracking GitHub recipe origin has no branch ref")
+        source = normalize_git_source(recipe.source, recipe.ref)
+        candidate = acquire_github_recipe(source, destination, cache())
+        if not candidate.origin.tracking or candidate.origin.ref != recipe.ref:
+            raise ValidationError(
+                "tracked GitHub branch no longer resolves as a branch"
+            )
+        return candidate
+
+    raise ValidationError(f"unsupported recipe origin kind: {recipe.kind}")
 
 
 def _select_component(
@@ -253,104 +343,281 @@ def _select_component(
 ) -> Lockfile:
     if component is None or component == "recipe":
         return new
-
     if component == "runtime":
         return Lockfile(
             manifest_digest=new.manifest_digest,
             target=new.target,
             sources=old.sources,
             runtime=new.runtime,
-            build=old.build,
+            build=new.build,
             recipe=new.recipe,
         )
-
     if component not in new.sources:
         raise ValidationError(f"unknown update component: {component}")
-
-    sources = {**old.sources, component: new.sources[component]}
     return Lockfile(
         manifest_digest=new.manifest_digest,
         target=new.target,
-        sources=sources,
+        sources={**old.sources, component: new.sources[component]},
         runtime=old.runtime,
-        build=old.build,
+        build=new.build,
         recipe=new.recipe,
     )
 
 
 def _lock_changes(old: Lockfile, new: Lockfile) -> list[dict[str, str]]:
-    changes = []
-
-    if old.recipe and new.recipe and old.recipe.revision != new.recipe.revision:
-        changes.append(
-            {
-                "component": "recipe",
-                "from": old.recipe.revision,
-                "to": new.recipe.revision,
-            }
-        )
-
-    for source_id, source in new.sources.items():
-        previous = old.sources.get(source_id)
-
-        if previous is None or previous.digest != source.digest:
+    changes: list[dict[str, str]] = []
+    if old.recipe is not None and new.recipe is not None:
+        if old.recipe.version != new.recipe.version:
             changes.append(
                 {
-                    "component": source_id,
-                    "from": previous.version if previous else "absent",
-                    "to": source.version,
+                    "component": "recipe version",
+                    "from": old.recipe.version,
+                    "to": new.recipe.version,
+                }
+            )
+        if old.recipe.revision != new.recipe.revision:
+            changes.append(
+                {
+                    "component": "recipe revision",
+                    "from": old.recipe.revision,
+                    "to": new.recipe.revision,
+                }
+            )
+        if (
+            old.recipe.manifest_digest != new.recipe.manifest_digest
+            or old.recipe.template_digest != new.recipe.template_digest
+        ) and old.recipe.version == new.recipe.version:
+            changes.append(
+                {
+                    "component": "recipe content",
+                    "from": (
+                        f"{old.recipe.manifest_digest} "
+                        f"{old.recipe.template_digest or 'none'}"
+                    ),
+                    "to": (
+                        f"{new.recipe.manifest_digest} "
+                        f"{new.recipe.template_digest or 'none'}"
+                    ),
                 }
             )
 
+    for source_id, source in sorted(new.sources.items()):
+        previous = old.sources.get(source_id)
+        if previous is None or (
+            previous.version,
+            previous.digest,
+        ) != (source.version, source.digest):
+            before = f"{previous.version} {previous.digest}" if previous else "absent"
+            changes.append(
+                {
+                    "component": source_id,
+                    "from": before,
+                    "to": f"{source.version} {source.digest}",
+                }
+            )
+    for source_id in sorted(set(old.sources) - set(new.sources)):
+        previous = old.sources[source_id]
+        changes.append(
+            {
+                "component": source_id,
+                "from": f"{previous.version} {previous.digest}",
+                "to": "absent",
+            }
+        )
     if old.runtime.image != new.runtime.image:
         changes.append(
             {"component": "runtime", "from": old.runtime.image, "to": new.runtime.image}
         )
-
     return changes
 
 
-def _result_changes(result: Any) -> list[dict[str, str]]:
-    plans = [result.install_plan]
-
-    if result.recipe_plan is not None:
-        plans.append(result.recipe_plan)
-
+def _result_changes(result: UpdateResult) -> list[dict[str, str]]:
     return [
         {"action": change.action, "path": change.path, "reason": change.reason}
-        for plan in plans
-        for change in plan.changes
+        for change in result.install_plan.changes
         if change.action != "preserve"
     ]
 
 
-def _recipe_diff(root: Path, checkout: RecipeCheckout) -> list[str]:
-    lines: list[str] = []
-
-    for relative in checkout.tracked_files:
-        old = root / relative
-        new = checkout.root / relative
-
-        if old.is_file():
-            try:
-                old_lines = old.read_text(encoding="utf-8").splitlines()
-                new_lines = new.read_text(encoding="utf-8").splitlines()
-            except UnicodeDecodeError:
-                continue
-
-            lines.extend(
-                difflib.unified_diff(
-                    old_lines,
-                    new_lines,
-                    fromfile=f"current/{relative}",
-                    tofile=f"incoming/{relative}",
-                    lineterm="",
-                )
+def _snapshot_diff(
+    installed: RecipeSnapshot,
+    candidate: RecipeSnapshot,
+) -> list[dict[str, Any]]:
+    old_entries = {entry.path: entry for entry in installed.entries}
+    new_entries = {entry.path: entry for entry in candidate.entries}
+    changes: list[dict[str, Any]] = []
+    for relative in sorted(set(old_entries) | set(new_entries)):
+        old = old_entries.get(relative)
+        new = new_entries.get(relative)
+        if old is None:
+            changes.append({"path": relative, "status": "added", "diff": []})
+            continue
+        if new is None:
+            changes.append({"path": relative, "status": "removed", "diff": []})
+            continue
+        if (old.type, old.mode, old.digest) == (new.type, new.mode, new.digest):
+            continue
+        lines: list[str] = []
+        if old.type == new.type == "file":
+            lines = _text_diff(
+                installed.root / relative,
+                candidate.root / relative,
+                relative,
             )
-        else:
-            lines.append(f"create   {relative}")
+        changes.append({"path": relative, "status": "changed", "diff": lines})
+    return changes
 
-    return lines
+
+def _text_diff(old: Path, new: Path, relative: str) -> list[str]:
+    if (
+        old.stat().st_size > MAX_TEXT_DIFF_SIZE
+        or new.stat().st_size > MAX_TEXT_DIFF_SIZE
+    ):
+        return []
+    try:
+        old_lines = old.read_text(encoding="utf-8").splitlines()
+        new_lines = new.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return []
+    return list(
+        difflib.unified_diff(
+            old_lines,
+            new_lines,
+            fromfile=f"installed/{relative}",
+            tofile=f"upstream/{relative}",
+            lineterm="",
+        )
+    )
+
+
+def _recipe_drift(
+    root: Path,
+    lockfile: Lockfile,
+    snapshot: RecipeSnapshot,
+) -> list[dict[str, str]]:
+    recipe = lockfile.recipe
+    assert recipe is not None
+    drift = []
+    if snapshot.origin.manifest_digest != recipe.manifest_digest:
+        drift.append(
+            {"path": ".luminesk_cli/recipe/luminesk.toml", "status": "modified"}
+        )
+    if snapshot.origin.template_digest != recipe.template_digest:
+        drift.append({"path": ".luminesk_cli/recipe/<template>", "status": "modified"})
+    root_manifest = root / "luminesk.toml"
+    canonical_manifest = snapshot.root / "luminesk.toml"
+    if not root_manifest.is_file() or root_manifest.is_symlink():
+        drift.append({"path": "luminesk.toml", "status": "missing"})
+    else:
+        root_digest, _ = digest_file(root_manifest)
+        canonical_digest, _ = digest_file(canonical_manifest)
+        if root_digest != canonical_digest:
+            drift.append({"path": "luminesk.toml", "status": "modified"})
+    return drift
+
+
+def _managed_drift(root: Path) -> list[dict[str, str]]:
+    changes = []
+    for relative, entry in load_ownership(root).files.items():
+        if entry.digest is None:
+            continue
+        path = root / relative
+        if not path.is_file() or path.is_symlink():
+            changes.append({"path": relative, "status": "missing"})
+            continue
+        digest_value, _ = digest_file(path)
+        if digest_value != entry.digest:
+            changes.append({"path": relative, "status": "modified"})
+    return changes
+
+
+def _security_changes(old: Manifest, new: Manifest) -> list[dict[str, str]]:
+    changes: list[dict[str, str]] = []
+    old_sources = {source.id: source for source in old.sources}
+    new_sources = {source.id: source for source in new.sources}
+    for source_id in sorted(set(old_sources) | set(new_sources)):
+        before = old_sources.get(source_id)
+        after = new_sources.get(source_id)
+        if before is None or after is None:
+            changes.append(
+                {
+                    "field": f"sources.{source_id}",
+                    "from": before.type if before else "absent",
+                    "to": after.type if after else "absent",
+                }
+            )
+            continue
+        if before.type != after.type:
+            changes.append(
+                {
+                    "field": f"sources.{source_id}.type",
+                    "from": before.type,
+                    "to": after.type,
+                }
+            )
+        before_options = asdict(before.options)
+        after_options = asdict(after.options)
+        for key in ("url", "repository", "base_url", "project"):
+            old_value = before_options.get(key)
+            new_value = after_options.get(key)
+            if old_value != new_value:
+                changes.append(
+                    {
+                        "field": f"sources.{source_id}.{key}",
+                        "from": str(old_value) if old_value is not None else "absent",
+                        "to": str(new_value) if new_value is not None else "absent",
+                    }
+                )
+    old_image = _image_repository(old.runtime.image)
+    new_image = _image_repository(new.runtime.image)
+    if old_image != new_image:
+        changes.append(
+            {"field": "runtime.imageRepository", "from": old_image, "to": new_image}
+        )
+    return changes
+
+
+def _image_repository(image: str) -> str:
+    unpinned = image.split("@", 1)[0]
+    parent, separator, name = unpinned.rpartition("/")
+    repository_name = name.rsplit(":", 1)[0]
+    return f"{parent}/{repository_name}" if separator else repository_name
+
+
+def _update_inputs(
+    root: Path,
+    manifest: Manifest,
+    arguments: list[str],
+) -> dict[str, str | int | bool]:
+    state = load_state(root)
+    known = {spec.name for spec in manifest.inputs}
+    values = (
+        {name: value for name, value in state.inputs.items() if name in known}
+        if state is not None
+        else {}
+    )
+    values.update(parse_inputs(manifest, arguments))
+    return values
+
+
+def _plain_drift_section(title: str, changes: list[dict[str, str]]) -> str:
+    if not changes:
+        return f"{title}\n  none"
+    return (
+        title
+        + "\n"
+        + "\n".join(f"  {item['status']:8} {item['path']}" for item in changes)
+    )
+
+
+def _plain_diff_section(title: str, changes: list[dict[str, Any]]) -> str:
+    if not changes:
+        return f"{title}\n  none"
+    lines = [title]
+    for item in changes:
+        lines.append(f"  {item['status']:8} {item['path']}")
+        lines.extend(f"    {line}" for line in item["diff"])
+    return "\n".join(lines)
 
 
 def _confirm_update(
@@ -359,28 +626,26 @@ def _confirm_update(
     old_lock: Lockfile,
     new_lock: Lockfile,
     manifest: Manifest,
-    preview: Any,
+    security_changes: list[dict[str, str]],
 ) -> None:
     changes = _lock_changes(old_lock, new_lock)
-    permission_summary = {
-        "build": manifest.build is not None,
-        "network": bool(manifest.build and manifest.build.network),
-        "runtimeImage": new_lock.runtime.image,
-        "backup": list(manifest.update.backup),
-    }
-
     if not namespace.json:
         print(f"Update target: {root}")
-        print(f"Capabilities: {permission_summary}")
-
+        print(
+            "Capabilities: "
+            f"build={'enabled' if manifest.build else 'disabled'}, "
+            f"build-network={'enabled' if manifest.build and manifest.build.network else 'disabled'}, "
+            f"runtime={new_lock.runtime.image}"
+        )
         for change in changes:
             print(f"  {change['component']}: {change['from']} -> {change['to']}")
-
+        for change in security_changes:
+            print(f"Security-sensitive source change: {change['field']}")
+            print(f"  - {change['from']}")
+            print(f"  + {change['to']}")
     if namespace.yes:
         return
-
     if namespace.non_interactive or namespace.json:
         raise ConflictError("update requires --yes in non-interactive mode")
-
     if input("Apply this update? [y/N] ").strip().lower() not in {"y", "yes"}:
         raise ConflictError("update was not confirmed")

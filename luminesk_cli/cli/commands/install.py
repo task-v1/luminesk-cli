@@ -133,10 +133,7 @@ def _install_snapshot(
         root,
         manifest,
         frozen=namespace.frozen,
-        recipe_source=origin.source,
-        recipe_revision=origin.revision,
-        recipe_ref=origin.ref,
-        recipe_tracking=origin.tracking,
+        recipe_origin=origin,
     )
     values = parse_inputs(manifest, namespace.set)
     temporary, package = build_package(root, manifest, lockfile, values)
