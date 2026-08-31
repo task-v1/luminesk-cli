@@ -48,6 +48,7 @@ from luminesk_cli.infrastructure.state import (
 )
 
 MAX_TEXT_DIFF_SIZE = 512 * 1024
+RECIPE_VERSION_WARNING = "Recipe content changed without a package.version bump."
 
 
 def run(namespace: Any) -> int:
@@ -109,6 +110,7 @@ def run(namespace: Any) -> int:
             )
             recipe_changes = _snapshot_diff(installed, candidate)
             security_changes = _security_changes(installed.manifest, manifest)
+            warnings = _recipe_warnings(old_lock, new_lock)
 
             if not namespace.dry_run:
                 _confirm_update(
@@ -118,6 +120,7 @@ def run(namespace: Any) -> int:
                     new_lock,
                     manifest,
                     security_changes,
+                    warnings,
                 )
 
             result = (
@@ -144,10 +147,16 @@ def run(namespace: Any) -> int:
             "packageChanges": package_changes,
             "changes": package_changes,
             "securitySensitiveChanges": security_changes,
+            "warnings": warnings,
             "instanceId": result.state.instance_id if result.state else None,
         },
         ("Planned" if namespace.dry_run else "Updated")
-        + f" {root} ({len(recipe_changes) + len(package_changes)} changes)",
+        + f" {root} ({len(recipe_changes) + len(package_changes)} changes)"
+        + (
+            "\n" + "\n".join(f"Warning: {warning}" for warning in warnings)
+            if namespace.dry_run and warnings
+            else ""
+        ),
     )
     return 0
 
@@ -171,16 +180,22 @@ def outdated(namespace: Any) -> int:
         )
 
     updates = _lock_changes(old_lock, new_lock)
+    warnings = _recipe_warnings(old_lock, new_lock)
     lines = [
         f"  {item['component']}: {item['from']} -> {item['to']}" for item in updates
     ]
     emit(
         namespace,
-        {"outdated": updates, "count": len(updates)},
+        {"outdated": updates, "count": len(updates), "warnings": warnings},
         "No updates available."
         if not updates
         else f"{candidate.origin.entry or candidate.manifest.package.name}\n"
-        + "\n".join(lines),
+        + "\n".join(lines)
+        + (
+            "\n" + "\n".join(f"  warning: {warning}" for warning in warnings)
+            if warnings
+            else ""
+        ),
     )
     return 0
 
@@ -481,6 +496,24 @@ def _lock_changes(old: Lockfile, new: Lockfile) -> list[dict[str, str]]:
     return changes
 
 
+def _recipe_warnings(old: Lockfile, new: Lockfile) -> list[str]:
+    before = old.recipe
+    after = new.recipe
+    if before is None or after is None:
+        return []
+    content_changed = (
+        before.manifest_digest != after.manifest_digest
+        or before.template_digest != after.template_digest
+    )
+    if (
+        before.kind == after.kind == "github"
+        and content_changed
+        and before.version == after.version
+    ):
+        return [RECIPE_VERSION_WARNING]
+    return []
+
+
 def _result_changes(result: UpdateResult) -> list[dict[str, str]]:
     return [
         {"action": change.action, "path": change.path, "reason": change.reason}
@@ -677,6 +710,7 @@ def _confirm_update(
     new_lock: Lockfile,
     manifest: Manifest,
     security_changes: list[dict[str, str]],
+    warnings: list[str],
 ) -> None:
     changes = _lock_changes(old_lock, new_lock)
     if not namespace.json:
@@ -693,6 +727,8 @@ def _confirm_update(
             print(f"Security-sensitive source change: {change['field']}")
             print(f"  - {change['from']}")
             print(f"  + {change['to']}")
+        for warning in warnings:
+            print(f"Warning: {warning}")
     if namespace.yes:
         return
     if namespace.non_interactive or namespace.json:

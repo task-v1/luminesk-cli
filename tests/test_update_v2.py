@@ -8,10 +8,20 @@ import pytest
 from luminesk_cli.application.install import TransactionalInstaller
 from luminesk_cli.application.locking import LockService
 from luminesk_cli.application.update import UpdateService
-from luminesk_cli.cli.commands.update import _security_changes
+from luminesk_cli.cli.commands.update import (
+    RECIPE_VERSION_WARNING,
+    _lock_changes,
+    _recipe_warnings,
+    _security_changes,
+)
 from luminesk_cli.domain.errors import RuntimeOperationError, TransactionError
 from luminesk_cli.domain.instance import RuntimeState
-from luminesk_cli.domain.lockfile import Lockfile
+from luminesk_cli.domain.lockfile import (
+    Lockfile,
+    RecipeLock,
+    ResolvedSource,
+    RuntimeLock,
+)
 from luminesk_cli.domain.manifest import Manifest, parse_manifest
 from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
@@ -206,3 +216,118 @@ command = ["java", "-jar", "server.jar"]
             "to": "new/server",
         },
     ]
+
+
+def update_lock(
+    *,
+    revision: str,
+    recipe_version: str,
+    recipe_digest: str,
+    artifact_version: str,
+    artifact_digest: str,
+    kind: str = "github",
+) -> Lockfile:
+    recipe = RecipeLock(
+        kind=kind,  # type: ignore[arg-type]
+        source=(
+            "github:example/server"
+            if kind == "github"
+            else "github:task-v1/luminesk-database"
+        ),
+        revision=revision,
+        ref="main" if kind == "github" else None,
+        tracking=True,
+        entry="server" if kind == "database" else None,
+        path="server" if kind == "database" else None,
+        version=recipe_version,
+        manifest_digest=recipe_digest,
+    )
+    return Lockfile(
+        manifest_digest=recipe_digest,
+        target="linux/amd64",
+        sources={
+            "core": ResolvedSource(
+                type="http",
+                version=artifact_version,
+                source_revision=artifact_version,
+                url="https://example.invalid/server.bin",
+                size=1,
+                digest=artifact_digest,
+                target="server.bin",
+            )
+        },
+        runtime=RuntimeLock(
+            image="example/server@sha256:" + "f" * 64,
+        ),
+        recipe=recipe,
+    )
+
+
+def test_lock_changes_separate_recipe_artifact_and_combined_updates() -> None:
+    old = update_lock(
+        revision="a" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "a" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+    )
+    recipe_only = update_lock(
+        revision="b" * 40,
+        recipe_version="1.0.1",
+        recipe_digest="sha256:" + "c" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+    )
+    artifact_only = update_lock(
+        revision="a" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "a" * 64,
+        artifact_version="1.1.0",
+        artifact_digest="sha256:" + "d" * 64,
+    )
+    combined = update_lock(
+        revision="b" * 40,
+        recipe_version="1.0.1",
+        recipe_digest="sha256:" + "c" * 64,
+        artifact_version="1.1.0",
+        artifact_digest="sha256:" + "d" * 64,
+    )
+
+    assert [item["component"] for item in _lock_changes(old, recipe_only)] == [
+        "recipe version",
+        "recipe revision",
+    ]
+    assert [item["component"] for item in _lock_changes(old, artifact_only)] == ["core"]
+    assert [item["component"] for item in _lock_changes(old, combined)] == [
+        "recipe version",
+        "recipe revision",
+        "core",
+    ]
+
+
+def test_direct_recipe_content_change_without_version_bump_warns() -> None:
+    old = update_lock(
+        revision="a" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "a" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+    )
+    changed = update_lock(
+        revision="b" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "c" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+    )
+    database_changed = update_lock(
+        revision="b" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "c" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+        kind="database",
+    )
+
+    assert _recipe_warnings(old, changed) == [RECIPE_VERSION_WARNING]
+    assert _recipe_warnings(old, database_changed) == []
