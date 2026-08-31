@@ -8,7 +8,13 @@ import stat
 from pathlib import Path
 
 from luminesk_cli.domain.errors import SecurityError, ValidationError
-from luminesk_cli.domain.manifest import MANIFEST_NAME, LocalFileOptions, Manifest
+from luminesk_cli.domain.lockfile import Lockfile
+from luminesk_cli.domain.manifest import (
+    MANIFEST_NAME,
+    LocalFileOptions,
+    Manifest,
+    load_manifest,
+)
 from luminesk_cli.domain.primitives import safe_relative_path
 from luminesk_cli.domain.recipe import (
     RecipeOrigin,
@@ -37,6 +43,63 @@ def declared_recipe_assets(manifest: Manifest) -> tuple[str, ...]:
     if manifest.build is not None:
         paths.append(manifest.build.file)
     return tuple(dict.fromkeys(paths))
+
+
+def full_recipe_context_entries(root: Path) -> tuple[RecipeSnapshotEntry, ...]:
+    """Describe a bounded build context for verified offline reuse."""
+
+    recipe_root = root.resolve()
+    collector = _SnapshotCollector(recipe_root)
+    for child in sorted(recipe_root.iterdir(), key=lambda item: item.name):
+        if child.name in {".git", ".luminesk_cli"}:
+            continue
+        collector.add(child.name)
+    return collector.entries()
+
+
+def load_verified_installed_recipe(root: Path, lockfile: Lockfile) -> RecipeSnapshot:
+    """Load the canonical recipe only after checking its root mirror and lock."""
+
+    from luminesk_cli.infrastructure.state import RECIPE_DIRECTORY, state_directory
+
+    recipe = lockfile.recipe
+    if recipe is None:
+        raise ValidationError("instance lock has no complete recipe origin")
+    canonical = state_directory(root) / RECIPE_DIRECTORY
+    manifest = load_manifest(canonical / MANIFEST_NAME)
+    snapshot = create_recipe_snapshot(
+        canonical,
+        manifest,
+        kind=recipe.kind,
+        source=recipe.source,
+        revision=recipe.revision,
+        ref=recipe.ref,
+        tracking=recipe.tracking,
+        entry=recipe.entry,
+        path=recipe.path,
+    )
+    if (
+        snapshot.origin.version != recipe.version
+        or snapshot.origin.manifest_digest != recipe.manifest_digest
+        or snapshot.origin.template_digest != recipe.template_digest
+        or lockfile.manifest_digest != recipe.manifest_digest
+    ):
+        raise ValidationError(
+            "Canonical installed recipe differs from the locked recipe snapshot. "
+            "Run `nesk diff` before continuing."
+        )
+    root_manifest = root / MANIFEST_NAME
+    if not root_manifest.is_file() or root_manifest.is_symlink():
+        raise ValidationError(
+            "Installed luminesk.toml is missing or unsafe. Run `nesk diff`."
+        )
+    root_digest, _ = digest_file(root_manifest)
+    if root_digest != recipe.manifest_digest:
+        raise ValidationError(
+            "Installed luminesk.toml differs from the locked recipe snapshot. "
+            "Run `nesk diff` before continuing."
+        )
+    return snapshot
 
 
 def create_recipe_snapshot(

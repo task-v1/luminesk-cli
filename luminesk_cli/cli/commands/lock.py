@@ -13,7 +13,7 @@ def run(namespace: Any) -> int:
     lockfile = resolve_lock(
         root,
         manifest,
-        frozen=False,
+        frozen=namespace.frozen,
         recipe_origin=snapshot.origin,
     )
     path = root / LOCKFILE_NAME

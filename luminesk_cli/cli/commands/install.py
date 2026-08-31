@@ -13,18 +13,22 @@ from luminesk_cli.cli.commands.common import (
     index_path,
     parse_inputs,
     recipe,
+    recipe_cache,
     resolve_lock,
+    validate_frozen_lock,
 )
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.primitives import PACKAGE_NAME_RE
 from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.catalog import CatalogClient
+from luminesk_cli.infrastructure.platform import current_platform
 from luminesk_cli.infrastructure.recipe import (
     acquire_github_recipe,
     ensure_empty_target,
     normalize_git_source,
 )
+from luminesk_cli.infrastructure.recipe_cache import database_locator, github_locator
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import InstanceIndex
 
@@ -62,10 +66,6 @@ def run(namespace: Any) -> int:
     if database_name is not None:
         if namespace.ref is not None:
             raise ValidationError("--ref is valid only for direct GitHub recipes")
-        if namespace.frozen:
-            raise ValidationError(
-                "database install cannot acquire a recipe with --frozen yet"
-            )
         ensure_empty_target(target)
         catalog = catalog_store().load_active()
         entry = next(
@@ -78,6 +78,16 @@ def run(namespace: Any) -> int:
         )
         if entry is None:
             raise ValidationError(f"catalog recipe not found: {database_name}")
+        locator = database_locator(catalog.revision, entry.name)
+        if namespace.frozen:
+            cached = recipe_cache().load_locator(locator, current_platform())
+            return _install_snapshot(
+                namespace,
+                cached.snapshot,
+                target,
+                confirm=True,
+                cached_lock=cached.lockfile,
+            )
         with tempfile.TemporaryDirectory(
             prefix="luminesk-database-recipe-"
         ) as temporary:
@@ -86,19 +96,39 @@ def run(namespace: Any) -> int:
                 entry,
                 Path(temporary) / "recipe",
             )
-            return _install_snapshot(namespace, snapshot, target, confirm=True)
+            return _install_snapshot(
+                namespace,
+                snapshot,
+                target,
+                confirm=True,
+                cache_locator=locator,
+            )
 
-    if namespace.frozen:
-        raise ValidationError("GitHub install cannot acquire a recipe with --frozen")
     ensure_empty_target(target)
     source = normalize_git_source(raw_source, namespace.ref)
+    locator = github_locator(source.canonical, source.requested_ref)
+    if namespace.frozen:
+        cached = recipe_cache().load_locator(locator, current_platform())
+        return _install_snapshot(
+            namespace,
+            cached.snapshot,
+            target,
+            confirm=True,
+            cached_lock=cached.lockfile,
+        )
     with tempfile.TemporaryDirectory(prefix="luminesk-github-recipe-") as temporary:
         snapshot = acquire_github_recipe(
             source,
             Path(temporary) / "recipe",
             cache(),
         )
-        return _install_snapshot(namespace, snapshot, target, confirm=True)
+        return _install_snapshot(
+            namespace,
+            snapshot,
+            target,
+            confirm=True,
+            cache_locator=locator,
+        )
 
 
 def _database_name(source: str) -> str | None:
@@ -125,20 +155,33 @@ def _install_snapshot(
     target: Path,
     *,
     confirm: bool,
+    cached_lock: Lockfile | None = None,
+    cache_locator: str | None = None,
 ) -> int:
     root = snapshot.root
     manifest = snapshot.manifest
     origin = snapshot.origin
-    lockfile = resolve_lock(
-        root,
-        manifest,
-        frozen=namespace.frozen,
-        recipe_origin=origin,
+    lockfile = (
+        validate_frozen_lock(
+            cached_lock,
+            manifest,
+            cache(),
+            recipe_origin=origin,
+        )
+        if cached_lock is not None
+        else resolve_lock(
+            root,
+            manifest,
+            frozen=namespace.frozen,
+            recipe_origin=origin,
+        )
     )
     values = parse_inputs(manifest, namespace.set)
     temporary, package = build_package(root, manifest, lockfile, values)
 
     try:
+        if origin.kind != "local" and cached_lock is None:
+            recipe_cache().store(snapshot, lockfile, locator=cache_locator)
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
         plan = installer.plan(package, target)
         if plan.has_conflicts:

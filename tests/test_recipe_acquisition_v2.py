@@ -277,6 +277,26 @@ def test_database_identity_installs_from_active_snapshot(
     assert not (target / "src").exists()
     assert not (target / "tests").exists()
 
+    if identity == "fixture":
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "frozen-config-home"))
+        frozen_target = tmp_path / "frozen-instance"
+        assert (
+            main(
+                [
+                    "i",
+                    "fixture",
+                    "--dir",
+                    str(frozen_target),
+                    "--frozen",
+                    "--yes",
+                    "--json",
+                ]
+            )
+            == 0
+        )
+        assert json.loads(capsys.readouterr().out)["ok"] is True
+        assert (frozen_target / "server.properties").read_bytes() == b"motd=fixture\n"
+
 
 def test_github_identity_never_falls_back_to_database(
     tmp_path: Path,

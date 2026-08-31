@@ -15,7 +15,9 @@ from luminesk_cli.cli.commands.common import (
     catalog_store,
     emit,
     parse_inputs,
+    recipe_cache,
     resolve_lock,
+    validate_frozen_lock,
 )
 from luminesk_cli.cli.commands.runtime import _instance_root
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
@@ -33,7 +35,11 @@ from luminesk_cli.infrastructure.recipe import (
     acquire_github_recipe,
     normalize_git_source,
 )
-from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
+from luminesk_cli.infrastructure.recipe_cache import database_locator, github_locator
+from luminesk_cli.infrastructure.recipe_snapshot import (
+    create_recipe_snapshot,
+    load_verified_installed_recipe,
+)
 from luminesk_cli.infrastructure.state import (
     RECIPE_DIRECTORY,
     load_ownership,
@@ -47,20 +53,33 @@ MAX_TEXT_DIFF_SIZE = 512 * 1024
 def run(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
-    installed = _installed_recipe(root, old_lock, verify=True)
+    installed = load_verified_installed_recipe(root, old_lock)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-update-recipe-") as temporary:
-        candidate = _candidate_recipe(
-            old_lock,
-            installed,
-            Path(temporary) / "recipe",
+        candidate = (
+            _frozen_candidate(old_lock, installed)
+            if namespace.frozen
+            else _candidate_recipe(
+                old_lock,
+                installed,
+                Path(temporary) / "recipe",
+            )
         )
         manifest = candidate.manifest
-        new_lock = resolve_lock(
-            candidate.root,
-            manifest,
-            frozen=False,
-            recipe_origin=candidate.origin,
+        new_lock = (
+            validate_frozen_lock(
+                old_lock,
+                manifest,
+                cache(),
+                recipe_origin=candidate.origin,
+            )
+            if namespace.frozen
+            else resolve_lock(
+                candidate.root,
+                manifest,
+                frozen=False,
+                recipe_origin=candidate.origin,
+            )
         )
         new_lock = _select_component(namespace.component, old_lock, new_lock)
         values = _update_inputs(root, manifest, namespace.set)
@@ -72,6 +91,12 @@ def run(namespace: Any) -> int:
         )
 
         try:
+            if not namespace.frozen and candidate.origin.kind != "local":
+                recipe_cache().store(
+                    candidate,
+                    new_lock,
+                    locator=_candidate_locator(candidate.origin),
+                )
             service = UpdateService()
             preview = service.update(
                 root,
@@ -130,7 +155,7 @@ def run(namespace: Any) -> int:
 def outdated(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
-    installed = _installed_recipe(root, old_lock, verify=True)
+    installed = load_verified_installed_recipe(root, old_lock)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-outdated-") as temporary:
         candidate = _candidate_recipe(
@@ -334,6 +359,31 @@ def _candidate_recipe(
         return candidate
 
     raise ValidationError(f"unsupported recipe origin kind: {recipe.kind}")
+
+
+def _frozen_candidate(
+    lockfile: Lockfile,
+    installed: RecipeSnapshot,
+) -> RecipeSnapshot:
+    if installed.origin.kind == "local":
+        return installed
+    try:
+        return recipe_cache().load_exact(installed.origin, lockfile).snapshot
+    except ValidationError:
+        if installed.manifest.build is not None:
+            raise ValidationError(
+                "frozen GitHub build context is absent from recipe cache"
+            ) from None
+        return installed
+
+
+def _candidate_locator(origin: RecipeOrigin) -> str:
+    if origin.kind == "database":
+        assert origin.entry is not None
+        return database_locator(origin.revision, origin.entry)
+    if origin.kind == "github":
+        return github_locator(origin.source, origin.ref)
+    raise ValidationError("local recipe does not have a remote cache locator")
 
 
 def _select_component(

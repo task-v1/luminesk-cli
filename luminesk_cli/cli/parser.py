@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     lock = commands.add_parser("lock", help="Resolve sources and write luminesk.lock.")
     lock.add_argument("--dir", default=".", help="Recipe directory.")
+    lock.add_argument("--frozen", action="store_true", help="Use lock and cache only.")
     _automation_options(lock)
     lock.set_defaults(handler="luminesk_cli.cli.commands.lock:run")
 
@@ -96,6 +97,9 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--dir", default=None, help="Instance directory.")
     update.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     update.add_argument("--dry-run", action="store_true")
+    update.add_argument(
+        "--frozen", action="store_true", help="Use lock and cache only."
+    )
     update.add_argument("--yes", action="store_true")
     _automation_options(update)
     update.set_defaults(handler="luminesk_cli.cli.commands.update:run")

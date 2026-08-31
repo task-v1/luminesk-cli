@@ -20,6 +20,7 @@ from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.catalog import CatalogStore
 from luminesk_cli.infrastructure.platform import current_platform
+from luminesk_cli.infrastructure.recipe_cache import RecipeCache
 
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
@@ -36,16 +37,22 @@ def catalog_store() -> CatalogStore:
     return CatalogStore(Path(user_cache_dir("luminesk_cli")) / "v2" / "catalog")
 
 
+def recipe_cache() -> RecipeCache:
+    return RecipeCache(Path(user_cache_dir("luminesk_cli")) / "v2" / "recipes")
+
+
 def recipe(directory: str | Path) -> tuple[Path, Manifest]:
     root = Path(directory).expanduser().resolve()
     return root, load_manifest(root / MANIFEST_NAME)
 
 
-def frozen_lock(
-    root: Path, manifest: Manifest, content_cache: ContentCache
+def validate_frozen_lock(
+    lockfile: Lockfile,
+    manifest: Manifest,
+    content_cache: ContentCache,
+    *,
+    recipe_origin: RecipeOrigin | None = None,
 ) -> Lockfile:
-    lockfile = load_lockfile(root / LOCKFILE_NAME)
-
     if lockfile.manifest_digest != manifest.digest:
         raise ValidationError("frozen lockfile does not match luminesk.toml")
 
@@ -60,7 +67,49 @@ def frozen_lock(
                 f"frozen source {source_id} is absent from content cache"
             )
 
+    if recipe_origin is not None:
+        recipe_lock = lockfile.recipe
+        if recipe_lock is None or (
+            recipe_lock.kind,
+            recipe_lock.source,
+            recipe_lock.revision,
+            recipe_lock.ref,
+            recipe_lock.tracking,
+            recipe_lock.entry,
+            recipe_lock.path,
+            recipe_lock.version,
+            recipe_lock.manifest_digest,
+            recipe_lock.template_digest,
+        ) != (
+            recipe_origin.kind,
+            recipe_origin.source,
+            recipe_origin.revision,
+            recipe_origin.ref,
+            recipe_origin.tracking,
+            recipe_origin.entry,
+            recipe_origin.path,
+            recipe_origin.version,
+            recipe_origin.manifest_digest,
+            recipe_origin.template_digest,
+        ):
+            raise ValidationError("frozen lockfile does not match recipe origin")
+
     return lockfile
+
+
+def frozen_lock(
+    root: Path,
+    manifest: Manifest,
+    content_cache: ContentCache,
+    *,
+    recipe_origin: RecipeOrigin | None = None,
+) -> Lockfile:
+    return validate_frozen_lock(
+        load_lockfile(root / LOCKFILE_NAME),
+        manifest,
+        content_cache,
+        recipe_origin=recipe_origin,
+    )
 
 
 def resolve_lock(
@@ -73,7 +122,12 @@ def resolve_lock(
     content_cache = cache()
 
     if frozen:
-        return frozen_lock(root, manifest, content_cache)
+        return frozen_lock(
+            root,
+            manifest,
+            content_cache,
+            recipe_origin=recipe_origin,
+        )
 
     return LockService(content_cache).create(
         manifest,

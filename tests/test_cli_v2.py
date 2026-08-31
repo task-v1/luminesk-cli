@@ -96,6 +96,15 @@ command = ["java", "-jar", "server.jar"]
     assert diff["upstreamRecipeDiff"] == []
     assert diff["managedFileDrift"] == []
 
+    assert main(["plan", "--dir", str(root), "--frozen", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["ok"] is True
+
+    with (root / "luminesk.toml").open("a", encoding="utf-8") as handle:
+        handle.write("\n# local drift\n")
+    assert main(["start", "--dir", str(root), "--json"]) != 0
+    error = json.loads(capsys.readouterr().out)
+    assert "differs from the locked recipe snapshot" in error["error"]["message"]
+
 
 def test_keep_git_reports_missing_optional_executable(
     tmp_path: Path, monkeypatch

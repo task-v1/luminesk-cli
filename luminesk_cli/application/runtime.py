@@ -14,8 +14,9 @@ from typing import Literal
 
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.instance import InstanceState, RuntimeState
-from luminesk_cli.domain.lockfile import LOCKFILE_NAME, load_lockfile
+from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, load_lockfile
 from luminesk_cli.domain.manifest import Check, Manifest, RuntimePort, load_manifest
+from luminesk_cli.infrastructure.recipe_snapshot import load_verified_installed_recipe
 from luminesk_cli.infrastructure.state import load_state, write_state
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
@@ -35,8 +36,7 @@ class DockerRuntime:
         wait_for_readiness: bool = True,
     ) -> InstanceState:
         root = root.resolve()
-        state, manifest = _load_instance(root)
-        lockfile = load_lockfile(root / LOCKFILE_NAME)
+        state, manifest, lockfile = _load_instance(root)
 
         if state.pending_transaction is not None:
             raise RuntimeOperationError("cannot start during a pending transaction")
@@ -103,7 +103,7 @@ class DockerRuntime:
 
     def stop(self, root: Path, *, remove: bool = False) -> InstanceState:
         root = root.resolve()
-        state, manifest = _load_instance(root)
+        state, manifest, _ = _load_instance(root)
         identifier = state.runtime.container_id or _container_name(state)
         result = self._run(
             [
@@ -134,7 +134,7 @@ class DockerRuntime:
 
     def status(self, root: Path) -> InstanceState:
         root = root.resolve()
-        state, _ = _load_instance(root)
+        state, _, _ = _load_instance(root)
         identifier = state.runtime.container_id
         running = bool(identifier and self.is_running(identifier))
         actual_status: Literal["running", "stopped"] = (
@@ -157,7 +157,7 @@ class DockerRuntime:
         return updated
 
     def logs(self, root: Path, *, follow: bool = False) -> int | str:
-        state, _ = _load_instance(root.resolve())
+        state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
 
         if follow:
@@ -178,7 +178,7 @@ class DockerRuntime:
         return result.stdout
 
     def attach(self, root: Path) -> int:
-        state, _ = _load_instance(root.resolve())
+        state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
         result = subprocess.run(
             ["docker", "attach", "--sig-proxy=true", identifier],
@@ -220,7 +220,7 @@ class DockerRuntime:
         """Run the declared readiness policy against the live instance."""
 
         root = root.resolve()
-        state, manifest = _load_instance(root)
+        state, manifest, _ = _load_instance(root)
 
         if state.runtime.status != "running" or not state.runtime.container_id:
             raise RuntimeOperationError("instance is not running")
@@ -450,14 +450,20 @@ def _validate_readiness_host(host: str) -> None:
         )
 
 
-def _load_instance(root: Path) -> tuple[InstanceState, Manifest]:
+def _load_instance(root: Path) -> tuple[InstanceState, Manifest, Lockfile]:
     state = load_state(root)
 
     if state is None:
         raise ValidationError("instance state is missing; run nesk install first")
 
-    manifest = load_manifest(root / "luminesk.toml")
-    return state, manifest
+    lockfile = load_lockfile(root / LOCKFILE_NAME)
+    if lockfile.recipe is None:
+        manifest = load_manifest(root / "luminesk.toml")
+        if manifest.digest != lockfile.manifest_digest:
+            raise ValidationError("Installed luminesk.toml differs from luminesk.lock.")
+    else:
+        manifest = load_verified_installed_recipe(root, lockfile).manifest
+    return state, manifest, lockfile
 
 
 def _container_name(state: InstanceState) -> str:
