@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "production": [
+    "github-release",
+    "github-source",
+    "gitlab-job-artifact",
+    "gitlab-release",
+    "http",
+    "jenkins",
+    "maven",
+    "mojang-version",
+    "paper"
+  ],
+  "development": ["local-file"]
+}
