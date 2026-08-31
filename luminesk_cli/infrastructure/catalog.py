@@ -206,11 +206,11 @@ class CatalogClient:
             follow_redirects=False,
         )
         try:
-            revision = self._resolve_revision(client)
+            distribution_revision = self._resolve_revision(client)
             metadata_source = self._metadata_source()
             digest_response = request_metadata(
                 client,
-                f"{RAW_ROOT}/{revision}/dist/index-v1.json.sha256",
+                f"{RAW_ROOT}/{distribution_revision}/dist/index-v1.json.sha256",
                 metadata_source,
                 headers=_github_headers(),
             )
@@ -222,17 +222,18 @@ class CatalogClient:
                 client=client,
             )
             blob = fetcher.fetch(
-                f"{RAW_ROOT}/{revision}/dist/index-v1.json",
+                f"{RAW_ROOT}/{distribution_revision}/dist/index-v1.json",
                 max_size=MAX_CATALOG_SIZE,
                 expected_digest=expected_digest,
                 allow_private_network=self.allow_private_network,
             )
             content = blob.path.read_bytes()
             snapshot = parse_catalog_index(content)
-            if snapshot.revision != revision:
-                raise SecurityError(
-                    "catalog index revision does not match the resolved database commit"
-                )
+            # The index is built from a content commit and published by a later
+            # commit containing only ``dist``. Requiring the index to contain
+            # its own publishing commit would be a cryptographic fixed point.
+            # Both commits remain authenticated by the official repository;
+            # entry acquisition is pinned to the content revision in the index.
             self.store.commit(snapshot, content)
             return snapshot
         finally:

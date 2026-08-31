@@ -21,6 +21,7 @@ from luminesk_cli.infrastructure.catalog import CatalogClient, CatalogStore
 from luminesk_cli.infrastructure.template import read_template_tree
 
 REVISION = "a" * 40
+DISTRIBUTION_REVISION = "f" * 40
 
 
 def _entry(**overrides: object) -> dict[str, object]:
@@ -133,12 +134,14 @@ def test_catalog_update_verifies_digest_and_is_atomic(tmp_path: Path) -> None:
     store.commit(old_snapshot, old_content)
     new_content = _index(_entry())
     digest = hashlib.sha256(new_content).hexdigest()
+    requested_paths: list[str] = []
 
     def valid_handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
         if request.url.path.endswith("/luminesk-database"):
             return httpx.Response(200, json={"default_branch": "main"})
         if request.url.path.endswith("/commits/main"):
-            return httpx.Response(200, json={"sha": REVISION})
+            return httpx.Response(200, json={"sha": DISTRIBUTION_REVISION})
         if request.url.path.endswith(".sha256"):
             return httpx.Response(200, text=digest)
         return httpx.Response(200, content=new_content)
@@ -151,6 +154,10 @@ def test_catalog_update_verifies_digest_and_is_atomic(tmp_path: Path) -> None:
     ).update()
     assert updated.revision == REVISION
     assert store.load_active() == updated
+    assert any(
+        f"/{DISTRIBUTION_REVISION}/dist/index-v1.json" in path
+        for path in requested_paths
+    )
 
     bad_revision = "c" * 40
 
