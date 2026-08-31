@@ -2,18 +2,23 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from luminesk_cli.application.install import TransactionalInstaller
 from luminesk_cli.application.locking import LockService
 from luminesk_cli.application.update import UpdateService
+from luminesk_cli.cli.commands import update as update_command
 from luminesk_cli.cli.commands.update import (
     RECIPE_VERSION_WARNING,
+    _candidate_recipe,
+    _database_entry_matches_lock,
     _lock_changes,
     _recipe_warnings,
     _security_changes,
 )
+from luminesk_cli.domain.catalog import CatalogEntry, CatalogSnapshot
 from luminesk_cli.domain.errors import RuntimeOperationError, TransactionError
 from luminesk_cli.domain.instance import RuntimeState
 from luminesk_cli.domain.lockfile import (
@@ -24,6 +29,7 @@ from luminesk_cli.domain.lockfile import (
 )
 from luminesk_cli.domain.manifest import Manifest, parse_manifest
 from luminesk_cli.domain.package import ServerPackage
+from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.oci import OciImageResolver
@@ -238,7 +244,7 @@ def update_lock(
         ref="main" if kind == "github" else None,
         tracking=True,
         entry="server" if kind == "database" else None,
-        path="server" if kind == "database" else None,
+        path="database/server" if kind == "database" else None,
         version=recipe_version,
         manifest_digest=recipe_digest,
     )
@@ -331,3 +337,68 @@ def test_direct_recipe_content_change_without_version_bump_warns() -> None:
 
     assert _recipe_warnings(old, changed) == [RECIPE_VERSION_WARNING]
     assert _recipe_warnings(old, database_changed) == []
+
+
+def test_database_entries_update_independently_of_catalog_revision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed_lock = update_lock(
+        revision="a" * 40,
+        recipe_version="1.0.0",
+        recipe_digest="sha256:" + "a" * 64,
+        artifact_version="1.0.0",
+        artifact_digest="sha256:" + "b" * 64,
+        kind="database",
+    )
+    recipe = installed_lock.recipe
+    assert recipe is not None
+    entry = CatalogEntry(
+        name="server",
+        display_name="Server",
+        recipe_version="1.0.0",
+        kind="core",
+        game="minecraft",
+        edition="java",
+        summary="Server fixture",
+        keywords=("server",),
+        path="database/server",
+        manifest_digest="sha256:" + "a" * 64,
+    )
+    catalog = CatalogSnapshot(
+        revision="b" * 40,
+        entries=(entry,),
+        index_digest="sha256:" + "c" * 64,
+    )
+
+    class Store:
+        def load_active(self) -> CatalogSnapshot:
+            return catalog
+
+    store = Store()
+    monkeypatch.setattr(update_command, "catalog_store", lambda: store)
+
+    def reject_acquisition(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("unchanged database entry was fetched")
+
+    monkeypatch.setattr(update_command, "CatalogClient", reject_acquisition)
+    installed = cast(RecipeSnapshot, object())
+
+    assert (
+        _candidate_recipe(installed_lock, installed, tmp_path / "candidate")
+        is installed
+    )
+    assert _database_entry_matches_lock(recipe, entry)
+    assert not _database_entry_matches_lock(
+        recipe,
+        replace(entry, recipe_version="1.0.1"),
+    )
+    assert not _database_entry_matches_lock(
+        recipe,
+        replace(entry, manifest_digest="sha256:" + "d" * 64),
+    )
+    assert not _database_entry_matches_lock(
+        recipe,
+        replace(entry, template_digest="sha256:" + "e" * 64),
+    )

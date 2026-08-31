@@ -20,6 +20,7 @@ from luminesk_cli.cli.commands.common import (
     validate_frozen_lock,
 )
 from luminesk_cli.cli.commands.runtime import _instance_root
+from luminesk_cli.domain.catalog import CatalogEntry
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
 from luminesk_cli.domain.lockfile import (
     LOCKFILE_NAME,
@@ -358,7 +359,7 @@ def _candidate_recipe(
             raise ValidationError(
                 f"active catalog has no installed recipe: {recipe.entry}"
             )
-        if catalog.revision == recipe.revision:
+        if _database_entry_matches_lock(recipe, entry):
             return installed
         return CatalogClient(store).acquire_entry(catalog, entry, destination)
 
@@ -374,6 +375,21 @@ def _candidate_recipe(
         return candidate
 
     raise ValidationError(f"unsupported recipe origin kind: {recipe.kind}")
+
+
+def _database_entry_matches_lock(
+    recipe: RecipeLock,
+    entry: CatalogEntry,
+) -> bool:
+    """Return whether an active entry is the exact installed database recipe."""
+
+    return (
+        recipe.entry == entry.name
+        and recipe.path == entry.path
+        and recipe.version == entry.recipe_version
+        and recipe.manifest_digest == entry.manifest_digest
+        and recipe.template_digest == entry.template_digest
+    )
 
 
 def _frozen_candidate(
