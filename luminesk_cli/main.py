@@ -1,22 +1,13 @@
-from importlib.metadata import PackageNotFoundError, version
+from __future__ import annotations
+
+from luminesk_cli._version import __version__ as __version__
 
 
-def _detect_version() -> str:
-    try:
-        return version("luminesk_cli")
-    except PackageNotFoundError:
-        return "0.0.0"
+def main(argv: list[str] | None = None) -> int:
+    from luminesk_cli.cli.entry import main as entry_main
 
-
-__version__ = _detect_version()
-
-
-def main() -> None:
-    from luminesk_cli.cli.main import app, init_cli_language
-
-    init_cli_language()
-    app()
+    return entry_main(argv)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

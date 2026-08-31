@@ -3,32 +3,35 @@ sidebar_position: 1
 slug: /
 ---
 
-# Luminesk-CLI Documentation
+# Luminesk-CLI 2.0
 
-Luminesk-CLI is a command-line tool for creating and operating Minecraft Bedrock Edition server instances with Docker.
+Luminesk composes Minecraft server instances from declarative recipes. A
+recipe declares sources, generated and preserved files, a Docker runtime,
+readiness checks, and update policy. Luminesk resolves mutable inputs into an
+immutable lockfile, builds a verified package, and applies changes through a
+transaction.
 
-Use this documentation as the canonical source for:
+Luminesk 2.0 is a clean format boundary. It accepts only the current
+`luminesk.toml`, `luminesk.lock`, `.lumineskpkg`, and instance-state contracts and
+does not convert earlier installations.
 
-- installation and upgrades;
-- command behavior and options;
-- server lifecycle workflows;
-- runtime and Docker behavior;
-- troubleshooting and operational constraints.
+Operators coming from 1.x must use the documented
+[side-by-side migration](/docs/migrating-to-2.0); do not point 2.0 at an old
+instance directory.
 
-## Start here
+## Design guarantees
 
-- [Getting Started](/docs/getting-started)
-- [Installation](/docs/installation)
-- [Quick Start](/docs/quick-start)
-- [Command Reference](/docs/command-reference)
+- Remote artifacts are downloaded with size limits and verified by SHA-256.
+- Runtime and Dockerfile images are locked to repository digests.
+- ZIP, TAR, package, and recipe paths are checked before extraction or writes.
+- Install and update plans distinguish managed, generated, preserved, and data
+  files.
+- Failed readiness checks restore the previous known-good instance.
+- Runtime commands are argument arrays; recipe-controlled shell evaluation is
+  not supported.
+- Automation receives stable JSON and exit codes.
 
-## Documentation audit summary
-
-The documentation set now covers the previously missing areas that caused drift between implementation and docs:
-
-- all CLI commands and aliases are documented;
-- command options and expected outcomes are documented;
-- workflow guides are documented (setup, daily operations, upgrades, multi-server filtering);
-- Docker runtime behavior and platform-specific networking are documented;
-- troubleshooting now includes symptom → cause → resolution guidance;
-- contribution guidance now includes a docs-update checklist.
+Start with [Installation](/docs/installation), then follow the
+[Quick Start](/docs/quick-start). Recipe authors should read
+[Manifest and Lockfile](/docs/manifest-and-lockfile) and
+[Recipes and Updates](/docs/recipes-and-updates).

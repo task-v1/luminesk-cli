@@ -193,8 +193,7 @@ fi
 
 LOCAL_VER=""
 if [ -n "$EXISTING_BIN" ]; then
-    LOCAL_VER_RAW=$("$EXISTING_BIN" -v 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
-    LOCAL_VER="${LOCAL_VER_RAW#v}"
+    LOCAL_VER=$("$EXISTING_BIN" -v 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
 fi
 
 REMOTE_VER=""

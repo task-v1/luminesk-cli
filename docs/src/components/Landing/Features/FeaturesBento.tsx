@@ -16,26 +16,26 @@ const featuresData = [
   {
     spanClass: styles.span2,
     icon: <DockerIcon />,
-    title: 'Docker Native Environments',
-    desc: 'Every server runs inside isolated, secure, and resource-controlled Docker containers. Manage background execution, memory limits, and custom Java runtimes seamlessly.',
+    title: 'Locked Docker Environments',
+    desc: 'Runtime and build images are resolved to immutable repository digests, with explicit mounts, ports, limits, users, and readiness checks.',
   },
   {
     spanClass: '',
     icon: <DiagnosticsIcon />,
-    title: 'Smart Diagnostics',
-    desc: 'Instantly evaluate your local environment, providers, and network settings.',
+    title: 'Verified Inputs',
+    desc: 'Bounded downloads, SHA-256 verification, safe archive extraction, and deterministic packages protect every installation boundary.',
   },
   {
     spanClass: '',
     icon: <LoopIcon />,
-    title: 'Loop Mode',
-    desc: 'Keep your servers highly available. If a crash occurs, Luminesk-CLI automatically restarts the engine.',
+    title: 'Transactional Updates',
+    desc: 'Preview ownership-aware changes, preserve user data, and restore the previous instance when validation or readiness fails.',
   },
   {
     spanClass: styles.span2,
     icon: <MultiEngineIcon />,
-    title: 'Multi-Engine Control',
-    desc: 'Manage and switch between Nukkit, PowerNukkitX, Nukkit-MOT, and Lumi with just one command. Seamless updates and installations built right into the CLI.',
+    title: 'Declarative Recipes',
+    desc: 'Compose Nukkit, PowerNukkitX, Nukkit-MOT, Lumi, and other engines through one strict manifest, lockfile, and automation-friendly CLI.',
   }
 ];
 
@@ -100,7 +100,7 @@ export default function FeaturesBento() {
             Infrastructure in <span className={landingStyles.gradientText}>One Tool.</span>
           </h2>
           <p style={{ color: 'var(--ifm-color-secondary)', maxWidth: '50ch', fontSize: '1.25rem' }}>
-            Luminesk-CLI abstracts away the complexity of managing MCBE servers so you can focus on building your plugins and communities.
+            Luminesk makes source resolution, package ownership, Docker runtime, and rollback explicit and reviewable.
           </p>
         </div>
 

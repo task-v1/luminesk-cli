@@ -4,118 +4,62 @@ sidebar_position: 10
 
 # Troubleshooting
 
-This page uses **symptom → cause → resolution**.
+## Docker is missing or unavailable
 
-## `nesk diagnostic` fails
+Run `nesk doctor` and `docker version`. Luminesk needs a reachable Docker daemon for
+mutable image resolution, builds, and runtime operations. On Linux, confirm the
+current user can access the daemon; on macOS and Windows, start Docker Desktop.
 
-**Symptom**
+## Git is reported missing
 
-- one or more source checks show failed status.
+This is informational for normal use. Luminesk uses the GitHub API and does not
+need a local Git executable for normal recipe installation.
 
-**Likely causes**
+## A remote install asks for confirmation
 
-- network outage;
-- provider endpoint unavailable;
-- DNS/proxy restrictions.
+Luminesk prints the source, resolved revision, build-code status, write target, and
+download count. Review the recipe, then rerun with `--yes`. Automation must use
+both `--non-interactive` and `--yes`; Luminesk will not silently trust a remote
+recipe.
 
-**Resolution**
+## `--frozen` fails
 
-1. Re-run `nesk diagnostic`.
-2. Verify internet/proxy access from your shell.
-3. Retry later if provider endpoints are down.
+Frozen mode is intentionally strict. Check that:
 
-## Docker not found / Docker commands fail
+- `luminesk.toml` still matches the lock's manifest digest;
+- the lock target matches the current platform;
+- every locked source blob exists in the content cache.
 
-**Symptom**
+Run `nesk cache verify`. To refresh the lock and cache, run a connected
+`nesk lock` or update after reviewing the new resolution.
 
-- startup fails with Docker-related errors.
+## Update refuses a managed file
 
-**Likely causes**
+Run `nesk diff --dir INSTANCE`. Luminesk refuses to overwrite a managed/generated
+file whose digest no longer matches the ownership ledger. Preserve your edit in
+a data path or recipe change, restore the applied file, and preview again.
 
-- Docker is not installed;
-- Docker daemon is not running;
-- current user lacks Docker access.
+## Runtime readiness fails
 
-**Resolution**
+Read `nesk logs --dir INSTANCE`, inspect the recipe checks, image digest, mounts,
+ports, and input values. A required readiness failure rolls the runtime back; it
+does not commit the failed container as healthy.
 
-1. Install Docker and ensure `docker` is in PATH.
-2. Start Docker daemon/Desktop.
-3. Validate with `docker ps`.
+## Interrupted transaction
 
-## Server start fails after creation
-
-**Symptom**
-
-- `nesk start` fails or exits immediately.
-
-**Likely causes**
-
-- invalid runtime image;
-- broken core download/provider response;
-- invalid server configuration for selected core.
-
-**Resolution**
-
-1. Confirm image with `nesk change-image <tag> --image <valid-image>`.
-2. Run `nesk diagnostic`.
-3. Re-download core: `nesk upgrade-core <tag> --redownload`.
-4. Attach logs: `nesk attach <tag>`.
-
-## `upgrade-core` reports missing hash guidance
-
-**Symptom**
-
-- upgrade suggests redownload due to missing hash metadata.
-
-**Likely cause**
-
-- server metadata lacks prior core hash.
-
-**Resolution**
-
-Run:
+Luminesk normally recovers from its journal on the next operation. For explicit
+recovery:
 
 ```bash
-nesk upgrade-core <tag> --redownload
+nesk recover --dir INSTANCE
+nesk validate --dir INSTANCE --instance
 ```
 
-## `delete` refuses running server
-
-**Symptom**
-
-- delete fails because server must be stopped.
-
-**Likely cause**
-
-- runtime is still running or loop controller remains active.
-
-**Resolution**
-
-1. Stop server: `nesk stop <tag>`.
-2. If loop-related, retry with `--force` where appropriate.
-3. Re-run delete: `nesk delete <tag>`.
-
-## Invalid status filter in `list`
-
-**Symptom**
-
-- `nesk list --status <value>` fails.
-
-**Likely cause**
-
-- only `running` and `stopped` are accepted.
-
-**Resolution**
-
-Use one of:
+## Rebuild a missing index entry
 
 ```bash
-nesk list --status running
-nesk list --status stopped
+nesk import INSTANCE
+nesk import /srv/minecraft --scan
 ```
 
-## Need more context
-
-- [Command Reference](/docs/command-reference)
-- [Server Lifecycle](/docs/server-lifecycle)
-- [Runtime & Docker Model](/docs/runtime-and-docker)
+Only directories with valid local instance state are imported.

@@ -2,124 +2,282 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
-
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      version:
-        description: "Release version (e.g. v1.0.0)"
+      release_tag:
+        description: Version to validate and build without publishing
         required: true
+        default: v2.0.0
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  UV_LOCKED: "1"
 
 jobs:
   ci:
+    name: Reuse required CI gates
     uses: ./.github/workflows/ci.yml
 
-  guard:
-    name: Guard (safety check)
+  security:
+    name: Reuse required security gates
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/security.yml
+
+  docs:
+    name: Reuse required documentation gates
+    uses: ./.github/workflows/docs-ci.yml
+
+  e2e:
+    name: Reuse required Docker lifecycle gate
+    uses: ./.github/workflows/e2e.yml
+
+  version:
+    name: Verify release version
     runs-on: ubuntu-latest
-    outputs:
-      ok: ${{ steps.check.outputs.ok }}
-
     steps:
-      - name: Validate release source
-        id: check
-        run: |
-          echo "Ref: $GITHUB_REF"
-          echo "Event: $GITHUB_EVENT_NAME"
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            echo "ok=true" >> $GITHUB_OUTPUT
-          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            echo "ok=true" >> $GITHUB_OUTPUT
-          else
-            echo "ok=false" >> $GITHUB_OUTPUT
-          fi
-
-  build:
-    name: Build Release (${{ matrix.os }}-${{ matrix.arch }})
-    needs: [guard, ci]
-    if: needs.guard.outputs.ok == 'true'
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            os_name: linux
-            arch: amd64
-          - os: macos-latest
-            os_name: darwin
-            arch: arm64
-          - os: windows-latest
-            os_name: windows
-            arch: amd64
-          - os: ubuntu-24.04-arm
-            os_name: linux
-            arch: arm64
-          - os: windows-11-arm
-            os_name: windows
-            arch: arm64
-          - os: macos-15-intel
-            os_name: darwin
-            arch: amd64
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@v7
+      - name: Match tag, package metadata, and runtime constant
+        run: python scripts/check_release_version.py "${RELEASE_TAG}"
 
-      - name: Install deps
-        run: uv sync --extra build
+  python-artifacts:
+    name: Build wheel and source distribution
+    needs: [ci, security, docs, e2e, version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Build binary
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Build canonical Python artifacts
+        run: uv build
+
+      - name: Verify wheel contents
+        run: uv run python scripts/verify_wheel.py dist/*.whl
+
+      - name: Attest Python artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-python
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  bundles:
+    name: Bundle (${{ matrix.name }})
+    needs: [ci, security, docs, e2e, version]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            runner: ubuntu-latest
+            installer_asset: luminesk_cli-linux-amd64
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            installer_asset: luminesk_cli-linux-arm64
+          - name: macos-arm64
+            runner: macos-latest
+            installer_asset: luminesk_cli-darwin-arm64
+          - name: macos-amd64
+            runner: macos-15-intel
+            installer_asset: luminesk_cli-darwin-amd64
+          - name: windows-amd64
+            runner: windows-latest
+            installer_asset: luminesk_cli-windows-amd64
+          - name: windows-arm64
+            runner: windows-11-arm
+            installer_asset: luminesk_cli-windows-arm64
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked bundle environment
+        run: uv sync --locked --extra build
+
+      - name: Build transparent onedir bundle
+        shell: bash
+        run: >-
+          uv run pyinstaller
+          --onedir
+          --name nesk
+          --collect-all luminesk_cli
+          --exclude-module tkinter
+          luminesk_cli/__main__.py
+
+      - name: Smoke test bundle
         shell: bash
         run: |
-          OS_NAME="${{ matrix.os_name }}"
-          ARCH="${{ matrix.arch }}"
-          NAME="luminesk_cli-$OS_NAME-$ARCH"
+          EXECUTABLE="dist/nesk/nesk"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then EXECUTABLE="${EXECUTABLE}.exe"; fi
+          "$EXECUTABLE" --version
+          "$EXECUTABLE" --help
+          "$EXECUTABLE" catalog status --json
 
-          uv run pyinstaller \
-            --onefile \
-            --name "$NAME" \
-            --exclude-module setuptools \
-            --exclude-module distutils \
-            --exclude-module unittest \
-            --exclude-module tkinter \
-            luminesk_cli/__main__.py
+      - name: Build one-file installer asset
+        shell: bash
+        run: >-
+          uv run pyinstaller
+          --onefile
+          --name "${{ matrix.installer_asset }}"
+          --distpath artifacts
+          --workpath build/installer-${{ matrix.name }}
+          --collect-all luminesk_cli
+          --exclude-module tkinter
+          luminesk_cli/__main__.py
 
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            echo "BINARY_NAME=$NAME.exe" >> $GITHUB_ENV
-          else
-            echo "BINARY_NAME=$NAME" >> $GITHUB_ENV
-          fi
+      - name: Smoke test one-file installer asset
+        shell: bash
+        run: |
+          EXECUTABLE="artifacts/${{ matrix.installer_asset }}"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then EXECUTABLE="${EXECUTABLE}.exe"; fi
+          "$EXECUTABLE" --version
+          "$EXECUTABLE" catalog status --json
 
-      - uses: actions/upload-artifact@v7
+      - name: Archive bundle
+        run: >-
+          uv run python scripts/archive_bundle.py
+          "dist/nesk"
+          "artifacts/luminesk-${{ matrix.name }}.zip"
+
+      - name: Attest bundle artifacts
+        uses: actions/attest-build-provenance@v4
         with:
-          name: binaries-${{ matrix.os }}
-          path: dist/${{ env.BINARY_NAME }}
+          subject-path: artifacts/*
 
-  release:
-    name: Create GitHub Release
-    needs: build
+      - name: Upload bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.name }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [python-artifacts, bundles]
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/luminesk-cli/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: release-python
+          path: dist
 
+      - name: Publish with trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Publish GitHub release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [python-artifacts, bundles, publish-pypi]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Check out release notes
+        uses: actions/checkout@v7
         with:
-          path: dist
-          pattern: binaries-*
+          persist-credentials: false
+
+      - name: Download every release artifact
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: release-*
           merge-multiple: true
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v3
+      - name: Download runtime SBOM
+        uses: actions/download-artifact@v8
         with:
-          files: dist/*
-          generate_release_notes: true
+          name: python-runtime-sbom
+          path: release-assets
+
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS
+
+      - name: Publish immutable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          PRERELEASE=()
+          if [[ "${RELEASE_TAG}" =~ (a|b|rc)[1-9][0-9]*$ ]]; then
+            PRERELEASE+=(--prerelease)
+          fi
+          gh release create "${RELEASE_TAG}" \
+            release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --notes-file RELEASE_NOTES.md \
+            --generate-notes \
+            "${PRERELEASE[@]}"

@@ -4,63 +4,45 @@ sidebar_position: 3
 
 # Installation
 
-## Option 1: One-line installer (recommended)
+## Isolated Python tool
 
-### Linux and macOS
-
-```bash
-curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
-```
-
-### Windows (PowerShell)
-
-```powershell
-iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
-```
-
-## Option 2: Install from PyPI
+With Python 3.13+ and uv installed:
 
 ```bash
-pip install luminesk-cli
+uv tool install luminesk-cli
+nesk --version
+nesk doctor
 ```
+
+Upgrade the tool with:
 
 ```bash
-uv pip install luminesk-cli
+uv tool upgrade luminesk-cli
 ```
 
-```bash
-pipx install luminesk-cli
-```
+## Prebuilt bundle
 
-## Option 3: Download prebuilt binaries
+Each tagged release publishes an onedir ZIP for these targets:
 
-Download from [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest):
+- `luminesk-linux-amd64.zip`
+- `luminesk-linux-arm64.zip`
+- `luminesk-macos-amd64.zip`
+- `luminesk-macos-arm64.zip`
+- `luminesk-windows-amd64.zip`
+- `luminesk-windows-arm64.zip`
 
-- `luminesk_cli-windows-amd64.exe`
-- `luminesk_cli-windows-arm64.exe`
-- `luminesk_cli-linux-amd64`
-- `luminesk_cli-linux-arm64`
-- `luminesk_cli-darwin-amd64`
-- `luminesk_cli-darwin-arm64`
+Download the matching archive from
+[GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest),
+extract the complete directory, and place that directory on `PATH`. Do not move
+only the executable; an onedir bundle needs its adjacent `_internal` files.
 
-## Install from source
-
-```bash
-git clone https://github.com/task-v1/luminesk-cli
-cd luminesk-cli
-
-uv venv
-uv sync
-
-uv run nesk --help
-```
-
-## Verify installation
+## Verify
 
 ```bash
 nesk --version
 nesk --help
-nesk diagnostic
+nesk doctor
 ```
 
-If `diagnostic` fails, see [Troubleshooting](/docs/troubleshooting).
+The CLI itself does not require Git. If `doctor` reports Git as missing, normal
+GitHub installs still work.

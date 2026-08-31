@@ -1,41 +1,69 @@
-name: Docs CI
+name: Documentation CI
 
 on:
-  push:
-    paths:
-      - 'docs/**'
+  workflow_call:
   pull_request:
     paths:
-      - 'docs/**'
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/docs-ci.yml"
+  push:
+    branches: [main, "2.0"]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/docs-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  docs:
-    name: Docs checks
+  build:
+    name: Type check and build docs
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Setup pnpm
+      - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 10
+          version: 11.24.0
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
 
-      - name: Install docs dependencies
+      - name: Install locked docs dependencies
         run: pnpm --dir docs install --frozen-lockfile
 
-      - name: Type check docs site
+      - name: Audit docs dependencies
+        run: pnpm --dir docs audit:security
+
+      - name: Reject unsafe image formats
+        run: pnpm --dir docs check:images
+
+      - name: Type check docs application
         run: pnpm --dir docs typecheck
 
-      - name: Build docs site
+      - name: Build docs with broken-link checks
         run: pnpm --dir docs build
+
+      - name: Upload rendered site
+        uses: actions/upload-artifact@v7
+        with:
+          name: documentation-site
+          path: docs/build
+          if-no-files-found: error
+          retention-days: 7

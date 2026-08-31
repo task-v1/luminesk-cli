@@ -10,7 +10,7 @@
 
 - [ ] CLI behavior
 - [ ] Runtime / Docker behavior
-- [ ] Core download or upgrade flow
+- [ ] Recipe, source, or update flow
 - [ ] Documentation (`/docs/docs/`)
 - [ ] CI / automation
 - [ ] Internal refactor (no behavior change)
@@ -20,7 +20,7 @@
 <!-- Replace placeholders with real command output summary. -->
 
 - [ ] `uv run ruff check .`
-- [ ] `uv run mypy luminesk_cli`
+- [ ] `uv run mypy .`
 - [ ] `uv run pytest`
 - [ ] `pnpm --dir docs typecheck` (if docs site code changed)
 - [ ] `pnpm --dir docs build` (if docs/content changed)
@@ -34,4 +34,4 @@
 
 ## Risks and rollout notes
 
-<!-- Note compatibility concerns, migration notes, or follow-up work. -->
+<!-- Note breaking changes, rollback concerns, or follow-up work. -->
