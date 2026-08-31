@@ -147,19 +147,45 @@ def build_parser() -> argparse.ArgumentParser:
 
     search = commands.add_parser(
         "search",
-        help="Search the Git-backed recipe catalog.",
+        help="Search the verified official recipe catalog offline.",
     )
     search.add_argument("query", nargs="?")
     search.add_argument("--type", choices=["core", "template"], default=None)
-    search.add_argument("--catalog", default=None, help="Alternate catalog directory.")
+    search.add_argument("--edition", choices=["java", "bedrock"], default=None)
     _automation_options(search)
     search.set_defaults(handler="luminesk_cli.cli.commands.catalog:search")
 
     info = commands.add_parser("info", help="Show one catalog recipe.")
-    info.add_argument("name", help="NAME or NAMESPACE/NAME.")
-    info.add_argument("--catalog", default=None, help="Alternate catalog directory.")
+    info.add_argument("name", help="Official database entry name.")
     _automation_options(info)
     info.set_defaults(handler="luminesk_cli.cli.commands.catalog:info")
+
+    catalog = commands.add_parser(
+        "catalog",
+        help="Manage the verified official catalog snapshot.",
+    )
+    catalog_commands = catalog.add_subparsers(dest="catalog_command", required=True)
+    catalog_update = catalog_commands.add_parser(
+        "update", help="Download and verify the latest official snapshot."
+    )
+    _automation_options(catalog_update)
+    catalog_update.set_defaults(handler="luminesk_cli.cli.commands.catalog:update")
+    catalog_status = catalog_commands.add_parser(
+        "status", help="Show the active catalog snapshot."
+    )
+    _automation_options(catalog_status)
+    catalog_status.set_defaults(handler="luminesk_cli.cli.commands.catalog:status")
+    catalog_verify = catalog_commands.add_parser(
+        "verify", help="Verify the active catalog snapshot."
+    )
+    _automation_options(catalog_verify)
+    catalog_verify.set_defaults(handler="luminesk_cli.cli.commands.catalog:verify")
+    catalog_use = catalog_commands.add_parser(
+        "use", help="Activate a previously cached exact snapshot."
+    )
+    catalog_use.add_argument("revision", help="Exact cached database commit SHA.")
+    _automation_options(catalog_use)
+    catalog_use.set_defaults(handler="luminesk_cli.cli.commands.catalog:use")
 
     doctor = commands.add_parser(
         "doctor",

@@ -17,6 +17,7 @@ from luminesk_cli.domain.manifest import MANIFEST_NAME, Manifest, load_manifest
 from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
+from luminesk_cli.infrastructure.catalog import CatalogStore
 from luminesk_cli.infrastructure.platform import current_platform
 
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -28,6 +29,10 @@ def cache() -> ContentCache:
 
 def index_path() -> Path:
     return Path(user_config_dir("luminesk_cli")) / "state.sqlite3"
+
+
+def catalog_store() -> CatalogStore:
+    return CatalogStore(Path(user_cache_dir("luminesk_cli")) / "v2" / "catalog")
 
 
 def recipe(directory: str | Path) -> tuple[Path, Manifest]:
