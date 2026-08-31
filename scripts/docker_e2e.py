@@ -1,4 +1,4 @@
-"""Real Docker smoke test used by the scheduled Nesk 2.0 E2E workflow."""
+"""Real Docker smoke test used by the scheduled Luminesk 2.0 E2E workflow."""
 
 from __future__ import annotations
 
@@ -43,12 +43,12 @@ def main_entry() -> int:
 
     pinned_image = str(digests[0])
 
-    with tempfile.TemporaryDirectory(prefix="nesk-e2e-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-e2e-") as temporary:
         root = Path(temporary) / "instance"
         root.mkdir()
         os.environ["XDG_CACHE_HOME"] = str(Path(temporary) / "cache")
         os.environ["XDG_CONFIG_HOME"] = str(Path(temporary) / "config")
-        (root / "fixture.in").write_bytes(b"nesk 2.0 e2e")
+        (root / "fixture.in").write_bytes(b"luminesk 2.0 e2e")
         (root / "luminesk.toml").write_text(
             f'''\
 manifest_version = 1
@@ -83,7 +83,7 @@ timeout = 5
                 ["stop", "--dir", str(root), "--json", "--non-interactive"],
             ):
                 if main(arguments) != 0:
-                    raise SystemExit(f"Nesk E2E command failed: {arguments}")
+                    raise SystemExit(f"Luminesk E2E command failed: {arguments}")
         finally:
             state = load_state(root)
 

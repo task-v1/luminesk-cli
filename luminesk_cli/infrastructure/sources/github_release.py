@@ -28,7 +28,7 @@ class GitHubReleaseResolver:
         owner, repository = _parse_repository(options.repository)
         headers = {
             "Accept": "application/vnd.github+json",
-            "User-Agent": "nesk/2",
+            "User-Agent": "luminesk/2",
             "X-GitHub-Api-Version": "2022-11-28",
         }
         token = os.environ.get("GITHUB_TOKEN")

@@ -34,7 +34,7 @@ def _validation_levels(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nesk",
-        description="Nesk 2.0 server and server-template composer.",
+        description="Luminesk 2.0 server and server-template composer.",
     )
     parser.add_argument("--version", "-v", action="store_true", help="Show version.")
     commands = parser.add_subparsers(dest="command", required=False)
@@ -242,7 +242,7 @@ def parse_command(argv: list[str]) -> ParsedCommand:
     if namespace.version:
         from luminesk_cli._version import __version__
 
-        parser.exit(message=f"nesk {__version__}\n")
+        parser.exit(message=f"Luminesk {__version__}\n")
 
     handler = getattr(namespace, "handler", None)
 

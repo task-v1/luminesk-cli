@@ -78,7 +78,9 @@ def run(namespace: Any) -> int:
         )
         if entry is None:
             raise ValidationError(f"catalog recipe not found: {database_name}")
-        with tempfile.TemporaryDirectory(prefix="nesk-database-recipe-") as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix="luminesk-database-recipe-"
+        ) as temporary:
             snapshot = CatalogClient(catalog_store()).acquire_entry(
                 catalog,
                 entry,
@@ -90,7 +92,7 @@ def run(namespace: Any) -> int:
         raise ValidationError("GitHub install cannot acquire a recipe with --frozen")
     ensure_empty_target(target)
     source = normalize_git_source(raw_source, namespace.ref)
-    with tempfile.TemporaryDirectory(prefix="nesk-github-recipe-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-github-recipe-") as temporary:
         snapshot = acquire_github_recipe(
             source,
             Path(temporary) / "recipe",

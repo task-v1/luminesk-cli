@@ -60,7 +60,7 @@ retain_backups = 2
         manifest,
         lockfile,
         recipe,
-        tmp_path / f"fixture-{version}.neskpkg",
+        tmp_path / f"fixture-{version}.lumineskpkg",
     )
     return manifest, lockfile, package
 

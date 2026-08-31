@@ -286,7 +286,7 @@ def _plan_changes(
                 PlanChange(
                     "conflict",
                     item.path,
-                    "managed file was modified outside Nesk",
+                    "managed file was modified outside Luminesk",
                     current_digest,
                 )
             )

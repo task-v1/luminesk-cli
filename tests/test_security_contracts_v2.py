@@ -51,7 +51,7 @@ def test_package_verifier_rejects_duplicate_payload_member(tmp_path: Path) -> No
             ),
         ),
     )
-    package = tmp_path / "duplicate.neskpkg"
+    package = tmp_path / "duplicate.lumineskpkg"
 
     with zipfile.ZipFile(package, "w") as archive:
         archive.writestr("metadata.json", metadata.to_bytes())

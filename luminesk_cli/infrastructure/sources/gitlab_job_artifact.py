@@ -20,7 +20,9 @@ class GitLabJobArtifactResolver:
             raise ResolutionError("gitlab-job-artifact source has invalid options")
 
         options = source.options
-        headers = {"User-Agent": "nesk/2.0 (https://github.com/task-v1/luminesk-cli)"}
+        headers = {
+            "User-Agent": "luminesk/2.0 (https://github.com/task-v1/luminesk-cli)"
+        }
         token = os.environ.get("GITLAB_TOKEN")
         if token:
             headers["PRIVATE-TOKEN"] = token

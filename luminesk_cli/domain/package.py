@@ -19,7 +19,7 @@ from luminesk_cli.domain.primitives import (
 )
 
 PACKAGE_FORMAT_VERSION = 1
-PACKAGE_SUFFIX = ".neskpkg"
+PACKAGE_SUFFIX = ".lumineskpkg"
 
 
 @dataclass(slots=True, frozen=True)

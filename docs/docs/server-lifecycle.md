@@ -10,7 +10,7 @@ sidebar_position: 8
 nesk start --dir ./instance
 ```
 
-Nesk creates a Docker container from the locked image and the recipe's explicit
+Luminesk creates a Docker container from the locked image and the recipe's explicit
 argv, mounts, ports, limits, user, restart policy, stop signal, and stop timeout.
 It then evaluates required readiness checks. A failed check stops/removes the
 new container, restores the previous runtime state, and returns a runtime error.

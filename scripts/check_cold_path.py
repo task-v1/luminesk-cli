@@ -39,7 +39,7 @@ def _imports(arguments: list[str]) -> set[str]:
         "code=0; "
         "\ntry: code=main(args)\n"
         "except SystemExit as exc: code=exc.code or 0\n"
-        "print('__NESK_MODULES__'+json.dumps(sorted(sys.modules))); "
+        "print('__LUMINESK_MODULES__'+json.dumps(sorted(sys.modules))); "
         "raise SystemExit(code)"
     )
     result = subprocess.run(
@@ -55,9 +55,9 @@ def _imports(arguments: list[str]) -> set[str]:
 
     marker = next(
         (
-            line.removeprefix("__NESK_MODULES__")
+            line.removeprefix("__LUMINESK_MODULES__")
             for line in result.stdout.splitlines()
-            if line.startswith("__NESK_MODULES__")
+            if line.startswith("__LUMINESK_MODULES__")
         ),
         None,
     )

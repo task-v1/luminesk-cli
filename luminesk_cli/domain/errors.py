@@ -21,7 +21,7 @@ class ErrorCode(IntEnum):
     INTERNAL = 10
 
 
-class NeskError(Exception):
+class LumineskError(Exception):
     """Base exception carrying a stable code and structured context."""
 
     code = ErrorCode.INTERNAL
@@ -32,43 +32,43 @@ class NeskError(Exception):
         self.details = details
 
 
-class ValidationError(NeskError):
+class ValidationError(LumineskError):
     """A manifest, lock, package, or instance violated its contract."""
 
     code = ErrorCode.VALIDATION
 
 
-class ResolutionError(NeskError):
+class ResolutionError(LumineskError):
     """A declared source could not be resolved unambiguously."""
 
     code = ErrorCode.RESOLUTION
 
 
-class NetworkError(NeskError):
+class NetworkError(LumineskError):
     """A bounded network operation failed."""
 
     code = ErrorCode.NETWORK
 
 
-class SecurityError(NeskError):
+class SecurityError(LumineskError):
     """Untrusted input violated a security boundary."""
 
     code = ErrorCode.SECURITY
 
 
-class ConflictError(NeskError):
+class ConflictError(LumineskError):
     """Applying a plan would overwrite user-owned state."""
 
     code = ErrorCode.CONFLICT
 
 
-class RuntimeOperationError(NeskError):
+class RuntimeOperationError(LumineskError):
     """A runtime driver operation failed."""
 
     code = ErrorCode.RUNTIME
 
 
-class TransactionError(NeskError):
+class TransactionError(LumineskError):
     """An install or update transaction could not commit safely."""
 
     code = ErrorCode.TRANSACTION

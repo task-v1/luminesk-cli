@@ -1,1 +1,1 @@
-"""Bundled seed of the Git-backed Nesk community catalog."""
+"""Bundled seed of the Git-backed Luminesk community catalog."""

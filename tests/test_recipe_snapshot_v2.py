@@ -11,12 +11,12 @@ from luminesk_cli.infrastructure.recipe_snapshot import (
 
 def test_snapshot_contains_only_declared_recipe_assets(tmp_path: Path) -> None:
     root = tmp_path / "upstream"
-    (root / ".nesk/template").mkdir(parents=True)
+    (root / ".luminesk/template").mkdir(parents=True)
     (root / "src").mkdir()
     (root / "tests").mkdir()
     manifest_bytes = b"""\
 manifest_version = 1
-template = ".nesk/template"
+template = ".luminesk/template"
 [package]
 name = "upstream-fixture"
 version = "1.4.0"
@@ -28,7 +28,7 @@ image = "example/server:2"
 command = ["./server"]
 """
     (root / "luminesk.toml").write_bytes(manifest_bytes)
-    (root / ".nesk/template/server.toml.tmpl").write_text(
+    (root / ".luminesk/template/server.toml.tmpl").write_text(
         "name=${input.name}\n",
         encoding="utf-8",
     )
@@ -49,7 +49,7 @@ command = ["./server"]
     stage_recipe_snapshot(snapshot, staged)
 
     assert (staged / "luminesk.toml").is_file()
-    assert (staged / ".nesk/template/server.toml.tmpl").is_file()
+    assert (staged / ".luminesk/template/server.toml.tmpl").is_file()
     assert not (staged / "src").exists()
     assert not (staged / "tests").exists()
     assert not (staged / "README.md").exists()

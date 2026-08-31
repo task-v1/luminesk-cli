@@ -93,12 +93,12 @@ def build_package(
     lockfile: Lockfile,
     values: dict[str, str | int | bool],
 ) -> tuple[tempfile.TemporaryDirectory[str], ServerPackage]:
-    temporary = tempfile.TemporaryDirectory(prefix="nesk-cli-package-")
+    temporary = tempfile.TemporaryDirectory(prefix="luminesk-cli-package-")
     package = DeclarativeBuilder(cache()).build(
         manifest,
         lockfile,
         root,
-        Path(temporary.name) / f"{manifest.package.name}.neskpkg",
+        Path(temporary.name) / f"{manifest.package.name}.lumineskpkg",
         inputs=values,
     )
     return temporary, package

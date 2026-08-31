@@ -7,7 +7,7 @@ import type { Props } from '@theme/NotFound/Content';
 import styles from './styles.module.css';
 
 const LOG_DATA = [
-  '[Luminesk-CLI] Nesk 2.0 runtime starting...',
+  '[Luminesk-CLI] Luminesk 2.0 runtime starting...',
   '[Luminesk-CLI] Loading configuration: /etc/luminesk/daemon.json',
   '[Luminesk-CLI] MCBE Server bridge listening on 0.0.0.0:19132',
   '[Luminesk-CLI] Connection established with Nukkit runtime',

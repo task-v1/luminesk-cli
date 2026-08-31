@@ -462,7 +462,7 @@ def _load_instance(root: Path) -> tuple[InstanceState, Manifest]:
 
 def _container_name(state: InstanceState) -> str:
     normalized = CONTAINER_NAME_RE.sub("-", state.tag.lower()).strip("-._")
-    return f"nesk-{normalized[:32]}-{state.instance_id[:8]}"
+    return f"luminesk-{normalized[:32]}-{state.instance_id[:8]}"
 
 
 def _save_readiness_logs(root: Path, check_id: str, content: str) -> None:

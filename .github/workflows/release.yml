@@ -127,7 +127,7 @@ jobs:
         run: >-
           uv run pyinstaller
           --onedir
-          --name nesk-${{ matrix.name }}
+          --name nesk
           --collect-all luminesk_cli
           --exclude-module tkinter
           luminesk_cli/__main__.py
@@ -135,7 +135,7 @@ jobs:
       - name: Smoke test bundle
         shell: bash
         run: |
-          EXECUTABLE="dist/nesk-${{ matrix.name }}/nesk-${{ matrix.name }}"
+          EXECUTABLE="dist/nesk/nesk"
           if [[ "$RUNNER_OS" == "Windows" ]]; then EXECUTABLE="${EXECUTABLE}.exe"; fi
           "$EXECUTABLE" --version
           "$EXECUTABLE" --help
@@ -144,8 +144,8 @@ jobs:
       - name: Archive bundle
         run: >-
           uv run python scripts/archive_bundle.py
-          "dist/nesk-${{ matrix.name }}"
-          "artifacts/nesk-${{ matrix.name }}.zip"
+          "dist/nesk"
+          "artifacts/luminesk-${{ matrix.name }}.zip"
 
       - name: Upload bundle
         uses: actions/upload-artifact@v7

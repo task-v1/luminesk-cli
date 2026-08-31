@@ -1,4 +1,4 @@
-# Bundled Nesk 2.0 recipe.
+# Bundled Luminesk 2.0 recipe.
 manifest_version = 1
 [package]
 name = "powernukkitx"

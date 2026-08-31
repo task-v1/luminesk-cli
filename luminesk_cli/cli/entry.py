@@ -11,7 +11,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
 
     if arguments in (["--version"], ["-v"]):
-        print(f"nesk {__version__}")
+        print(f"Luminesk {__version__}")
         return 0
 
     from luminesk_cli.cli.dispatch import dispatch

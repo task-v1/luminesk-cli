@@ -34,7 +34,7 @@ game = "minecraft"
 edition = "bedrock"
 [inputs.name]
 type = "string"
-default = "Nesk"
+default = "Luminesk"
 [inputs.port]
 type = "integer"
 default = 19132
@@ -69,8 +69,8 @@ path = "server.jar"
         image_resolver=OciImageResolver(),
     ).create(manifest, recipe, target="linux/amd64")
     builder = DeclarativeBuilder(cache)
-    first = builder.build(manifest, lockfile, recipe, tmp_path / "one.neskpkg")
-    second = builder.build(manifest, lockfile, recipe, tmp_path / "two.neskpkg")
+    first = builder.build(manifest, lockfile, recipe, tmp_path / "one.lumineskpkg")
+    second = builder.build(manifest, lockfile, recipe, tmp_path / "two.lumineskpkg")
 
     assert first.digest == second.digest
     assert verify_package(first.path).metadata.name == "fixture-server"
@@ -113,7 +113,7 @@ command = ["./server.jar"]
         manifest, recipe, target="linux/amd64"
     )
     package = DeclarativeBuilder(cache).build(
-        manifest, lockfile, recipe, tmp_path / "package.neskpkg"
+        manifest, lockfile, recipe, tmp_path / "package.lumineskpkg"
     )
 
     import zipfile
@@ -186,7 +186,7 @@ command = ["./server"]
         manifest,
         lockfile,
         recipe,
-        tmp_path / "github-source.neskpkg",
+        tmp_path / "github-source.lumineskpkg",
     )
 
     import zipfile

@@ -4,7 +4,7 @@ from luminesk_cli.bundled_recipes import BUNDLED_RECIPE_IDS, recipe_root
 from luminesk_cli.domain.manifest import load_manifest
 
 
-def test_all_bundled_recipes_are_strict_nesk_2_manifests() -> None:
+def test_all_bundled_recipes_are_strict_luminesk_2_manifests() -> None:
     assert len(BUNDLED_RECIPE_IDS) == 12
 
     for recipe_id in BUNDLED_RECIPE_IDS:

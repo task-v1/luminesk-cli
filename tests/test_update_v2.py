@@ -64,7 +64,7 @@ command = ["./server.bin"]
         manifest,
         lockfile,
         recipe,
-        tmp_path / f"update-{version}.neskpkg",
+        tmp_path / f"update-{version}.lumineskpkg",
     )
     return recipe, manifest, lockfile, package
 

@@ -30,7 +30,7 @@ game = "minecraft"
 edition = "cross-platform"
 [inputs.name]
 type = "string"
-default = "Nesk Server"
+default = "Luminesk Server"
 [inputs.eula]
 type = "boolean"
 default = true
@@ -77,7 +77,7 @@ executable = ["run-helper"]
         manifest,
         _lock(manifest.digest),
         recipe,
-        tmp_path / "template.neskpkg",
+        tmp_path / "template.lumineskpkg",
     )
 
     metadata = {item.path: item for item in package.metadata.files}
@@ -89,7 +89,7 @@ executable = ["run-helper"]
     with zipfile.ZipFile(package.path) as archive:
         assert archive.read("payload/eula.txt") == b"eula=true\n"
         assert archive.read("payload/server.properties") == (
-            b"motd=Nesk Server\nliteral=${HOME}\n"
+            b"motd=Luminesk Server\nliteral=${HOME}\n"
         )
         assert archive.read("payload/icon.bin") == b"\x00\xff\x01"
         assert "payload/eula.txt.tmpl" not in archive.namelist()
@@ -130,7 +130,7 @@ def test_template_rejects_missing_input(tmp_path: Path) -> None:
             manifest,
             _lock(manifest.digest),
             recipe,
-            tmp_path / "missing.neskpkg",
+            tmp_path / "missing.lumineskpkg",
         )
 
 
@@ -196,5 +196,5 @@ path = "artifact.jar"
             manifest,
             lockfile,
             recipe,
-            tmp_path / "collision.neskpkg",
+            tmp_path / "collision.lumineskpkg",
         )

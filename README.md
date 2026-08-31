@@ -16,11 +16,11 @@
   </p>
 </div>
 
-## Nesk 2.0
+## Luminesk 2.0
 
 Luminesk-CLI (`nesk`) turns a declarative `luminesk.toml` recipe into a locked,
-verified `.neskpkg`, applies it transactionally, and runs the instance in Docker.
-Nesk 2.0 accepts only its current recipe, lockfile, package, and instance formats;
+verified `.lumineskpkg`, applies it transactionally, and runs the instance in Docker.
+Luminesk 2.0 accepts only its current recipe, lockfile, package, and instance formats;
 it does not read or convert earlier installations.
 
 The important properties are:
@@ -36,8 +36,7 @@ The important properties are:
 ## Install
 
 Python 3.13+ and Docker are required. Git is not required for normal GitHub recipe
-installs; Nesk uses the GitHub API and downloads an archive pinned to a commit.
-Git is used only when `nesk install --keep-git` is requested.
+installs; Luminesk uses the GitHub API and exact commit-pinned recipe snapshots.
 
 ```bash
 uv tool install luminesk-cli

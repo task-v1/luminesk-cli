@@ -6,5 +6,5 @@ manifest = "luminesk_cli/bundled_recipes/allay/luminesk.toml"
 maintainers = ["github:task-v1"]
 license = "GPL-3.0-or-later"
 trust = "official"
-description = "Allay server recipe for Nesk 2.0"
+description = "Allay server recipe for Luminesk 2.0"
 type = "core"

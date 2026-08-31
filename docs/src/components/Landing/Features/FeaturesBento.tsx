@@ -100,7 +100,7 @@ export default function FeaturesBento() {
             Infrastructure in <span className={landingStyles.gradientText}>One Tool.</span>
           </h2>
           <p style={{ color: 'var(--ifm-color-secondary)', maxWidth: '50ch', fontSize: '1.25rem' }}>
-            Nesk makes source resolution, package ownership, Docker runtime, and rollback explicit and reviewable.
+            Luminesk makes source resolution, package ownership, Docker runtime, and rollback explicit and reviewable.
           </p>
         </div>
 

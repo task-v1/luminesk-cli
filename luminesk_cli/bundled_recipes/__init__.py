@@ -1,4 +1,4 @@
-"""Data-only Nesk 2.0 recipes shipped as catalog fixtures."""
+"""Data-only Luminesk 2.0 recipes shipped as catalog fixtures."""
 
 from __future__ import annotations
 

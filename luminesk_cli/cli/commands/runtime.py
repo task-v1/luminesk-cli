@@ -97,7 +97,7 @@ def _instance_root(value: str | None) -> Path:
 
     if value is not None:
         if not (current / MANIFEST_NAME).is_file():
-            raise ValidationError(f"{current} is not a Nesk instance")
+            raise ValidationError(f"{current} is not a Luminesk instance")
 
         return current
 

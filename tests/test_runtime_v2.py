@@ -100,7 +100,7 @@ def test_runtime_command_keeps_shell_metacharacters_in_one_argv_element(
         root,
         manifest,
         lockfile.runtime.image,
-        "nesk-fixture",
+        "luminesk-fixture",
         {"port": 19132},
     )
 

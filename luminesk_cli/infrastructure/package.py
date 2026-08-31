@@ -1,4 +1,4 @@
-"""Deterministic ``.neskpkg`` writer and independent verifier."""
+"""Deterministic ``.lumineskpkg`` writer and independent verifier."""
 
 from __future__ import annotations
 

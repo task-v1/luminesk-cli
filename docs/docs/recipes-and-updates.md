@@ -6,7 +6,7 @@ sidebar_position: 6
 
 ## Recipe trust model
 
-A recipe is untrusted input. Before install, Nesk parses a strict schema and
+A recipe is untrusted input. Before install, Luminesk parses a strict schema and
 rejects unknown keys, unsafe paths, host commands, dynamic Dockerfile base
 images, ambiguous release assets, and unsupported source providers.
 
@@ -34,7 +34,7 @@ or a missing cache blob instead of reaching the network.
 
 Package entries have one of four ownership modes:
 
-- `managed` — Nesk may replace it when the applied digest still matches;
+- `managed` — Luminesk may replace it when the applied digest still matches;
 - `generated` — rendered from declared inputs and tracked by digest;
 - `preserve` — an existing user file wins;
 - `data` — user-owned paths such as worlds and plugin data.

@@ -22,11 +22,11 @@ def dispatch(command: ParsedCommand) -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        from luminesk_cli.domain.errors import ErrorCode, NeskError
+        from luminesk_cli.domain.errors import ErrorCode, LumineskError
 
         is_json = bool(getattr(command.namespace, "json", False))
 
-        if isinstance(exc, NeskError):
+        if isinstance(exc, LumineskError):
             code = exc.code
             details = exc.details
             message = exc.message

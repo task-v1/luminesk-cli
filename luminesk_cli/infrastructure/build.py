@@ -50,7 +50,9 @@ class DockerfileBuilder:
         destination: Path,
         images: dict[str, str],
     ) -> None:
-        with tempfile.TemporaryDirectory(prefix="nesk-build-context-") as context_name:
+        with tempfile.TemporaryDirectory(
+            prefix="luminesk-build-context-"
+        ) as context_name:
             context = Path(context_name)
             _copy_build_context(recipe_root, context)
             dockerfile = context / spec.file
@@ -61,7 +63,7 @@ class DockerfileBuilder:
                     path=spec.file,
                 )
 
-            pinned_dockerfile = context / ".nesk-pinned.Dockerfile"
+            pinned_dockerfile = context / ".luminesk-pinned.Dockerfile"
             pinned_dockerfile.write_text(
                 rewrite_dockerfile(
                     dockerfile.read_text(encoding="utf-8"),
@@ -73,8 +75,8 @@ class DockerfileBuilder:
             destination.mkdir(parents=True, exist_ok=True)
             network = "default" if spec.network else "none"
             build_id = uuid.uuid4().hex
-            image_tag = f"nesk-build:{build_id}"
-            container_name = f"nesk-build-output-{build_id}"
+            image_tag = f"luminesk-build:{build_id}"
+            container_name = f"luminesk-build-output-{build_id}"
             argv = [
                 "docker",
                 "build",
@@ -188,7 +190,9 @@ class DeclarativeBuilder:
         values = _resolve_inputs(manifest, inputs or {})
         template_tree = read_template_tree(recipe_root, manifest)
 
-        with tempfile.TemporaryDirectory(prefix="nesk-package-stage-") as stage_name:
+        with tempfile.TemporaryDirectory(
+            prefix="luminesk-package-stage-"
+        ) as stage_name:
             payload = Path(stage_name) / "payload"
             payload.mkdir()
             ownership: dict[str, str] = {}
@@ -290,7 +294,7 @@ def _extract_source(
         extract_archive(archive, target, limits=limits)
         return
 
-    with tempfile.TemporaryDirectory(prefix="nesk-github-source-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-github-source-") as temporary:
         extracted = Path(temporary)
         extract_archive(archive, extracted, limits=limits)
         roots = list(extracted.iterdir())

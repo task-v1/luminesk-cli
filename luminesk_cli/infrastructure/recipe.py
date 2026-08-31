@@ -280,7 +280,7 @@ def _materialize_exact_archive(
         allow_private_network=allow_private_network,
     )
     with tempfile.TemporaryDirectory(
-        prefix="nesk-recipe-build-", dir=destination.parent
+        prefix="luminesk-recipe-build-", dir=destination.parent
     ) as extraction_name:
         extraction = Path(extraction_name)
         extract_archive(
@@ -414,7 +414,7 @@ def _checkout_github_archive(
         )
 
     with tempfile.TemporaryDirectory(
-        prefix="nesk-recipe-extract-", dir=destination.parent
+        prefix="luminesk-recipe-extract-", dir=destination.parent
     ) as extraction_name:
         extraction = Path(extraction_name)
         extract_archive(
@@ -456,7 +456,7 @@ def _checkout_github_archive(
 def _github_headers() -> dict[str, str]:
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "nesk/2",
+        "User-Agent": "luminesk/2",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     token = os.environ.get("GITHUB_TOKEN")

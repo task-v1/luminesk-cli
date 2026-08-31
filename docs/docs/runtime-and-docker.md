@@ -4,7 +4,7 @@ sidebar_position: 9
 
 # Runtime and Docker
 
-Docker is the only runtime driver in Nesk 2.0. The lockfile must contain a full
+Docker is the only runtime driver in Luminesk 2.0. The lockfile must contain a full
 `repository@sha256:...` image reference; a tag alone is never accepted at apply
 or start time.
 
@@ -17,7 +17,7 @@ or start time.
 - A read-only root filesystem is enabled by default.
 - Recipes can declare a non-root `run_as` identity, memory limit, restart policy,
   stop signal, and stop timeout.
-- Nesk labels containers with the instance identity and reconciles labels before
+- Luminesk labels containers with the instance identity and reconciles labels before
   trusting a discovered container.
 
 ## Dockerfile builds

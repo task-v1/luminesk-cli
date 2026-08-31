@@ -1,1 +1,1 @@
-"""Adapters for external systems used by Nesk application operations."""
+"""Adapters for external systems used by Luminesk application operations."""

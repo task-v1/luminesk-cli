@@ -1,4 +1,4 @@
-# Bundled Nesk 2.0 recipe.
+# Bundled Luminesk 2.0 recipe.
 manifest_version = 1
 [package]
 name = "dragonfly"
@@ -15,7 +15,7 @@ target = ".build/dragonfly"
 path = "build.marker"
 [build]
 file = "Dockerfile"
-output = "/nesk-out"
+output = "/luminesk-out"
 timeout = 1200
 cpu = 2
 network = true

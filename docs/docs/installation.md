@@ -24,12 +24,12 @@ uv tool upgrade luminesk-cli
 
 Each tagged release publishes an onedir ZIP for these targets:
 
-- `nesk-linux-amd64.zip`
-- `nesk-linux-arm64.zip`
-- `nesk-macos-amd64.zip`
-- `nesk-macos-arm64.zip`
-- `nesk-windows-amd64.zip`
-- `nesk-windows-arm64.zip`
+- `luminesk-linux-amd64.zip`
+- `luminesk-linux-arm64.zip`
+- `luminesk-macos-amd64.zip`
+- `luminesk-macos-arm64.zip`
+- `luminesk-windows-amd64.zip`
+- `luminesk-windows-arm64.zip`
 
 Download the matching archive from
 [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest),
@@ -45,4 +45,4 @@ nesk doctor
 ```
 
 The CLI itself does not require Git. If `doctor` reports Git as missing, normal
-GitHub installs still work; do not pass `--keep-git`.
+GitHub installs still work.

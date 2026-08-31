@@ -5,14 +5,14 @@ slug: /
 
 # Luminesk-CLI 2.0
 
-Nesk composes Minecraft Bedrock server instances from declarative recipes. A
+Luminesk composes Minecraft server instances from declarative recipes. A
 recipe declares sources, generated and preserved files, a Docker runtime,
-readiness checks, and update policy. Nesk resolves mutable inputs into an
+readiness checks, and update policy. Luminesk resolves mutable inputs into an
 immutable lockfile, builds a verified package, and applies changes through a
 transaction.
 
-Nesk 2.0 is a clean format boundary. It accepts only the current
-`luminesk.toml`, `luminesk.lock`, `.neskpkg`, and instance-state contracts and
+Luminesk 2.0 is a clean format boundary. It accepts only the current
+`luminesk.toml`, `luminesk.lock`, `.lumineskpkg`, and instance-state contracts and
 does not convert earlier installations.
 
 ## Design guarantees

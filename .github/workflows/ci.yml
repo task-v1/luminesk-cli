@@ -108,7 +108,7 @@ jobs:
       - name: Install locked development environment
         run: uv sync --locked --extra dev
 
-      - name: Run Nesk 2.0 suite
+      - name: Run Luminesk 2.0 suite
         run: >-
           uv run pytest
           --strict-config

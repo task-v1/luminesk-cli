@@ -37,7 +37,7 @@ def run(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
 
-    with tempfile.TemporaryDirectory(prefix="nesk-update-recipe-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-update-recipe-") as temporary:
         checkout = _updated_checkout(old_lock, Path(temporary) / "recipe")
         recipe_source: str | None
         recipe_revision: str | None
@@ -131,7 +131,7 @@ def outdated(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     old_lock = load_lockfile(root / LOCKFILE_NAME)
 
-    with tempfile.TemporaryDirectory(prefix="nesk-outdated-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-outdated-") as temporary:
         checkout = _updated_checkout(old_lock, Path(temporary) / "recipe")
         recipe_root = checkout.root if checkout else root
         manifest = load_manifest(recipe_root / MANIFEST_NAME)
@@ -182,7 +182,7 @@ def diff(namespace: Any) -> int:
     lockfile = load_lockfile(root / LOCKFILE_NAME)
     recipe_diff = []
 
-    with tempfile.TemporaryDirectory(prefix="nesk-diff-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="luminesk-diff-") as temporary:
         checkout = _updated_checkout(lockfile, Path(temporary) / "recipe")
 
         if checkout is not None:

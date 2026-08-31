@@ -114,9 +114,7 @@ def test_manifest_rejects_host_commands() -> None:
 
 
 def test_manifest_rejects_retired_runtime_driver() -> None:
-    content = VALID_MANIFEST.replace(
-        b"[runtime]\n", b'[runtime]\ndriver = "docker"\n'
-    )
+    content = VALID_MANIFEST.replace(b"[runtime]\n", b'[runtime]\ndriver = "docker"\n')
 
     with pytest.raises(ValidationError, match="driver"):
         parse_manifest(content)
@@ -143,9 +141,9 @@ def test_manifest_rejects_unknown_source_type() -> None:
 
 def test_manifest_parses_java_template_and_ownership() -> None:
     content = VALID_MANIFEST.replace(
-        b'manifest_version = 1', b'manifest_version = 1\ntemplate = "template"'
+        b"manifest_version = 1", b'manifest_version = 1\ntemplate = "template"'
     ).replace(b'edition = "bedrock"', b'edition = "java"')
-    content += b'''\n[ownership]\npreserve = ["server.properties"]\ndata = ["world"]\nexecutable = ["run-helper"]\n'''
+    content += b"""\n[ownership]\npreserve = ["server.properties"]\ndata = ["world"]\nexecutable = ["run-helper"]\n"""
 
     manifest = parse_manifest(content)
 
@@ -166,7 +164,9 @@ def test_manifest_rejects_unsafe_template_path(template: str) -> None:
 
 
 def test_manifest_rejects_duplicate_ownership_path() -> None:
-    content = VALID_MANIFEST + b'''\n[ownership]\npreserve = ["world"]\ndata = ["world"]\n'''
+    content = (
+        VALID_MANIFEST + b"""\n[ownership]\npreserve = ["world"]\ndata = ["world"]\n"""
+    )
 
     with pytest.raises(ValidationError, match="policy path"):
         parse_manifest(content)

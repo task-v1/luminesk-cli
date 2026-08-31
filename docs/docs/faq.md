@@ -16,7 +16,7 @@ for recipes that declare builds.
 
 ## Is an image tag reproducible?
 
-No. Nesk resolves tags during locking and records a full repository SHA-256
+No. Luminesk resolves tags during locking and records a full repository SHA-256
 digest. Apply and runtime operations reject malformed or tag-only lock entries.
 
 ## Can a recipe run host shell commands?
@@ -31,13 +31,13 @@ Recipe ownership modes and `[update].backup` decide this. Preserved and data
 paths remain user-owned. Managed files are changed only when their applied
 digest still matches. Protected paths are backed up before commit.
 
-## Can I automate Nesk?
+## Can I automate Luminesk?
 
 Yes. Use `--json --non-interactive`, inspect the stable exit code and error
 object, and add `--yes` only after your automation has approved the plan.
 
-## Is Nesk production-ready?
+## Is Luminesk production-ready?
 
-Nesk 2.0 is beta software. Its transactions and verification boundaries are
+Luminesk 2.0 is beta software. Its transactions and verification boundaries are
 designed for safe operation, but recipe quality, Docker availability, backups,
 and workload-specific testing remain the operator's responsibility.

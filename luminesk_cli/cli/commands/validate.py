@@ -28,12 +28,12 @@ def run(namespace: Any) -> int:
     if "build" in phases:
         assert lockfile is not None
 
-        with tempfile.TemporaryDirectory(prefix="nesk-validate-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="luminesk-validate-") as temporary:
             package = DeclarativeBuilder(cache()).build(
                 manifest,
                 lockfile,
                 root,
-                Path(temporary) / "validation.neskpkg",
+                Path(temporary) / "validation.lumineskpkg",
             )
             results.append(
                 {"phase": "build", "ok": True, "packageDigest": package.digest}
