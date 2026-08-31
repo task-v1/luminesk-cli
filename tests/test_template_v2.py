@@ -55,13 +55,12 @@ def test_template_suffix_interpolation_binary_and_ownership(tmp_path: Path) -> N
     recipe = tmp_path / "recipe"
     template = recipe / "template"
     (template / "world").mkdir(parents=True)
-    (template / "eula.txt.tmpl").write_text("eula=${input.eula}\n", encoding="utf-8")
-    (template / "server.properties.tmpl").write_text(
-        "motd=${input.name}\nliteral=${HOME}\n",
-        encoding="utf-8",
+    (template / "eula.txt.tmpl").write_bytes(b"eula=${input.eula}\n")
+    (template / "server.properties.tmpl").write_bytes(
+        b"motd=${input.name}\nliteral=${HOME}\n"
     )
     (template / "icon.bin").write_bytes(b"\x00\xff\x01")
-    (template / "run-helper").write_text("helper", encoding="utf-8")
+    (template / "run-helper").write_bytes(b"helper")
     (template / "world" / ".keep").write_bytes(b"")
     manifest_bytes = _manifest(
         b"""\
