@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: docker-e2e-${{ github.ref }}
+  group: docker-e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

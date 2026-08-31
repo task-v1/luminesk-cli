@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: security-${{ github.event.pull_request.number || github.ref }}
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
