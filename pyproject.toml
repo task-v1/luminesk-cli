@@ -1,7 +1,7 @@
 [project]
 name = "luminesk-cli"
 version = "2.0.0"
-description = "Luminesk-CLI: MCBE server composer."
+description = "Docker-first Minecraft server recipe composer for Java and Bedrock."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.13"
 license = "GPL-3.0-or-later"
@@ -10,11 +10,11 @@ authors = [{ name = "Taskov1ch", email = "sudo.taskov1ch@gmail.com" }]
 keywords = [
   "cli",
   "docker",
-  "lumi",
+  "java",
   "minecraft",
-  "nukkit",
-  "nukkit-mot",
-  "powernukkitx",
+  "minecraft-server",
+  "bedrock",
+  "server-management",
   "tool",
 ]
 classifiers = [
@@ -64,14 +64,6 @@ ignore = ["E501"]
 
 [tool.setuptools.packages.find]
 include = ["luminesk_cli*"]
-
-[tool.setuptools.package-data]
-"luminesk_cli.bundled_recipes" = [
-  "*/Dockerfile",
-  "*/build.marker",
-  "*/luminesk.toml",
-]
-"luminesk_cli.community_catalog" = ["recipes/*.toml"]
 
 [tool.uv]
 package = true

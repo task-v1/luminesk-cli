@@ -1,0 +1,59 @@
+manifest_version = 1
+template = "template"
+
+[package]
+name = "paper-java-fixture"
+version = "1.0.0"
+display_name = "Synthetic Paper Java Fixture"
+kind = "core"
+game = "minecraft"
+edition = "java"
+summary = "Test-only Paper Java reference recipe"
+keywords = ["synthetic", "java", "paper"]
+
+[inputs.server_name]
+type = "string"
+default = "Minecraft Server"
+prompt = "Server name"
+
+[inputs.eula]
+type = "boolean"
+required = true
+prompt = "Accept the Minecraft EULA"
+
+[inputs.memory]
+type = "string"
+default = "4g"
+pattern = "^[1-9][0-9]*[mMgG]$"
+prompt = "Memory limit"
+
+[[sources]]
+id = "core"
+type = "paper"
+target = "server.jar"
+
+[sources.options]
+minecraft = "1.21.8"
+build = "latest"
+
+[runtime]
+image = "eclipse-temurin:21-jre"
+command = ["java", "-Xms${input.memory}", "-Xmx${input.memory}", "-jar", "server.jar", "nogui"]
+memory = "${input.memory}"
+
+[[runtime.ports]]
+name = "game"
+host = 25565
+container = 25565
+protocol = "tcp"
+
+[[checks]]
+id = "ready"
+phase = "readiness"
+kind = "log-regex"
+pattern = "Done .* For help, type"
+timeout = 120
+
+[ownership]
+preserve = ["server.properties"]
+data = ["world", "world_nether", "world_the_end", "plugins"]

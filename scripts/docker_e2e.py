@@ -1,4 +1,4 @@
-"""Real Docker smoke test used by the scheduled Luminesk 2.0 E2E workflow."""
+"""Hermetic Java 21 Docker lifecycle used by the release-blocking E2E job."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from pathlib import Path
 from luminesk_cli.cli.entry import main
 from luminesk_cli.infrastructure.state import load_state
 
-IMAGE = "busybox:1.37"
+COMPILER_IMAGE = "eclipse-temurin:21-jdk"
+RUNTIME_IMAGE = "eclipse-temurin:21-jre"
 
 
 def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
@@ -24,69 +25,163 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def main_entry() -> int:
-    _run(["docker", "pull", IMAGE])
+def _pinned_image(image: str) -> str:
+    _run(["docker", "pull", image])
     inspect = _run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            IMAGE,
-            "--format",
-            "{{json .RepoDigests}}",
-        ]
+        ["docker", "image", "inspect", image, "--format", "{{json .RepoDigests}}"]
     )
     digests = json.loads(inspect.stdout)
-
     if not isinstance(digests, list) or not digests:
-        raise SystemExit("Docker returned no BusyBox repository digest")
+        raise SystemExit(f"Docker returned no repository digest for {image}")
+    return str(digests[0])
 
-    pinned_image = str(digests[0])
 
-    with tempfile.TemporaryDirectory(prefix="luminesk-e2e-") as temporary:
-        root = Path(temporary) / "instance"
-        root.mkdir()
-        os.environ["XDG_CACHE_HOME"] = str(Path(temporary) / "cache")
-        os.environ["XDG_CONFIG_HOME"] = str(Path(temporary) / "config")
-        (root / "fixture.in").write_bytes(b"luminesk 2.0 e2e")
-        (root / "luminesk.toml").write_text(
-            f'''\
+def _prepare_java_recipe(root: Path, pinned_image: str) -> None:
+    root.mkdir()
+    (root / "template").mkdir()
+    (root / "Server.java").write_text(
+        """\
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public final class Server {
+    public static void main(String[] args) throws Exception {
+        try (ServerSocket server = new ServerSocket(25565)) {
+            System.out.println("Done (hermetic Java fixture) For help, type help");
+            System.out.flush();
+            while (true) {
+                try (Socket ignored = server.accept()) {
+                    // TCP readiness probes are accepted and closed.
+                }
+            }
+        }
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    _run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--mount",
+            f"type=bind,src={root.resolve()},dst=/work",
+            "--workdir",
+            "/work",
+            COMPILER_IMAGE,
+            "javac",
+            "Server.java",
+        ]
+    )
+    (root / "Server.class").replace(root / "Server.class.in")
+    (root / "template/eula.txt.tmpl").write_text(
+        "eula=${input.eula}\n", encoding="utf-8"
+    )
+    (root / "template/server.properties.tmpl").write_text(
+        "motd=${input.server_name}\nserver-port=25565\n",
+        encoding="utf-8",
+    )
+    (root / "luminesk.toml").write_text(
+        f'''\
 manifest_version = 1
+template = "template"
 [package]
-name = "docker-e2e"
+name = "java-docker-e2e"
 version = "2.0.0"
+display_name = "Hermetic Java Docker E2E"
+kind = "core"
+game = "minecraft"
+edition = "java"
+summary = "Synthetic Java 21 lifecycle fixture"
+keywords = ["synthetic", "java"]
+[inputs.server_name]
+type = "string"
+default = "Luminesk E2E"
+[inputs.eula]
+type = "boolean"
+required = true
+[inputs.memory]
+type = "string"
+default = "256m"
+pattern = "^[1-9][0-9]*[mMgG]$"
 [[sources]]
 id = "fixture"
-provider = "local-file"
-path = "fixture.in"
-target = "fixture.txt"
+type = "local-file"
+target = "Server.class"
+[sources.options]
+path = "Server.class.in"
+version = "2.0.0"
 [runtime]
-driver = "docker"
 image = "{pinned_image}"
-command = ["sleep", "300"]
+command = ["java", "-Xms${{input.memory}}", "-Xmx${{input.memory}}", "Server"]
+memory = "${{input.memory}}"
 run_as = "65534:65534"
 read_only_root = true
+[[runtime.ports]]
+name = "game"
+host = 25565
+container = 25565
+protocol = "tcp"
 [[checks]]
-id = "alive"
+id = "ready"
 phase = "readiness"
-kind = "process-alive"
-timeout = 5
+kind = "log-regex"
+pattern = "Done .* For help, type"
+timeout = 30
+[ownership]
+preserve = ["server.properties"]
 ''',
-            encoding="utf-8",
+        encoding="utf-8",
+    )
+
+
+def main_entry() -> int:
+    _run(["docker", "pull", COMPILER_IMAGE])
+    pinned_image = _pinned_image(RUNTIME_IMAGE)
+
+    with tempfile.TemporaryDirectory(prefix="luminesk-java-e2e-") as temporary:
+        base = Path(temporary)
+        recipe = base / "recipe"
+        instance = base / "instance"
+        os.environ["XDG_CACHE_HOME"] = str(base / "cache")
+        os.environ["XDG_CONFIG_HOME"] = str(base / "config")
+        _prepare_java_recipe(recipe, pinned_image)
+
+        commands = (
+            [
+                "install",
+                str(recipe),
+                "--dir",
+                str(instance),
+                "--set",
+                "eula=true",
+                "--yes",
+                "--json",
+                "--non-interactive",
+            ],
+            ["start", "--dir", str(instance), "--json", "--non-interactive"],
+            ["status", "--dir", str(instance), "--json", "--non-interactive"],
+            ["logs", "--dir", str(instance), "--json", "--non-interactive"],
+            ["restart", "--dir", str(instance), "--json", "--non-interactive"],
+            [
+                "update",
+                "--dir",
+                str(instance),
+                "--yes",
+                "--json",
+                "--non-interactive",
+            ],
+            ["stop", "--dir", str(instance), "--json", "--non-interactive"],
         )
-
         try:
-            for arguments in (
-                ["install", "--dir", str(root), "--json", "--non-interactive"],
-                ["start", "--dir", str(root), "--json", "--non-interactive"],
-                ["status", "--dir", str(root), "--json", "--non-interactive"],
-                ["stop", "--dir", str(root), "--json", "--non-interactive"],
-            ):
+            for arguments in commands:
                 if main(arguments) != 0:
-                    raise SystemExit(f"Luminesk E2E command failed: {arguments}")
+                    raise SystemExit(f"Luminesk Java E2E command failed: {arguments}")
         finally:
-            state = load_state(root)
-
+            state = load_state(instance)
             if state is not None and state.runtime.container_id:
                 subprocess.run(
                     ["docker", "rm", "--force", state.runtime.container_id],
@@ -95,7 +190,7 @@ timeout = 5
                     shell=False,
                 )
 
-    print("Docker lifecycle E2E passed.")
+    print("Hermetic Java 21 Docker lifecycle E2E passed.")
     return 0
 
 

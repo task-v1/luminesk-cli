@@ -1,4 +1,4 @@
-"""Fail a release if the wheel omits 2.0 data or ships retired 1.x code."""
+"""Fail a release if the wheel ships retired code or a production registry."""
 
 from __future__ import annotations
 
@@ -7,21 +7,9 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
-REQUIRED_RECIPE_IDS = {
-    "allay",
-    "better-altay",
-    "dragonfly",
-    "endstone",
-    "lumi",
-    "lunacy",
-    "nukkit",
-    "nukkit-mot",
-    "pnx",
-    "pocketmine",
-    "pumpkin",
-    "serenity",
-}
 RETIRED_DIRECTORIES = {
+    "bundled_recipes",
+    "community_catalog",
     "compatibility_recipes",
     "core",
     "cores",
@@ -72,22 +60,6 @@ def main(argv: list[str]) -> int:
 
     if any(name.endswith((".pyc", ".pyo")) for name in names):
         raise SystemExit("wheel contains bytecode files")
-
-    missing_recipes = {
-        recipe_id
-        for recipe_id in REQUIRED_RECIPE_IDS
-        if f"luminesk_cli/bundled_recipes/{recipe_id}/luminesk.toml" not in names
-    }
-
-    if missing_recipes:
-        raise SystemExit(f"wheel omits bundled recipes: {sorted(missing_recipes)}")
-
-    if not any(
-        name.startswith("luminesk_cli/community_catalog/recipes/")
-        and name.endswith(".toml")
-        for name in names
-    ):
-        raise SystemExit("wheel omits the bundled catalog")
 
     print(f"Verified {wheel} ({len(names)} members).")
     return 0
