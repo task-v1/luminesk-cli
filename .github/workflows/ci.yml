@@ -157,7 +157,7 @@ jobs:
           --cov-branch
           --cov-report=term-missing
           --cov-report=xml
-          --cov-fail-under=70
+          --cov-fail-under=75
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
