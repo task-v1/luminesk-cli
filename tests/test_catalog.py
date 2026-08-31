@@ -34,7 +34,7 @@ def _entry(**overrides: object) -> dict[str, object]:
         "edition": "bedrock",
         "summary": "Lumi Minecraft server",
         "keywords": ["lumi", "bedrock"],
-        "path": "lumi",
+        "path": "database/lumi",
         "manifestDigest": f"sha256:{'b' * 64}",
     }
     value.update(overrides)
@@ -78,7 +78,7 @@ def test_search_ranking_and_filters_are_deterministic() -> None:
             edition="java",
             summary="High performance Java server",
             keywords=["paper", "java"],
-            path="paper",
+            path="database/paper",
         ),
     )
     snapshot = parse_catalog_index(content)
@@ -238,7 +238,7 @@ command = ["./server"]
         edition="bedrock",
         summary="Lumi Minecraft server",
         keywords=("lumi", "bedrock"),
-        path="lumi",
+        path="database/lumi",
         manifest_digest=sha256_digest(manifest_bytes),
         template_digest=tree.digest,
     )
@@ -253,13 +253,13 @@ command = ["./server"]
         requested_paths.append(request.url.path)
         if request.url.host == "raw.githubusercontent.com":
             return httpx.Response(200, content=manifest_bytes)
-        if "/contents/lumi/template" in request.url.path:
+        if "/contents/database/lumi/template" in request.url.path:
             return httpx.Response(
                 200,
                 json=[
                     {
                         "type": "file",
-                        "path": "lumi/template/settings.yml.tmpl",
+                        "path": "database/lumi/template/settings.yml.tmpl",
                         "size": len(template_content),
                         "download_url": "https://objects.example/settings.yml.tmpl",
                     }

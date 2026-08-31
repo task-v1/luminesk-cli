@@ -225,7 +225,7 @@ def test_database_identity_installs_from_active_snapshot(
         revision=REVISION,
         tracking=True,
         entry="fixture",
-        path="fixture",
+        path="database/fixture",
     )
     index_content = (
         json.dumps(
@@ -242,7 +242,7 @@ def test_database_identity_installs_from_active_snapshot(
                         "edition": "java",
                         "summary": "Fixture server",
                         "keywords": ["fixture"],
-                        "path": "fixture",
+                        "path": "database/fixture",
                         "manifestDigest": sha256_digest(manifest_bytes),
                         "templateDigest": tree.digest,
                     }

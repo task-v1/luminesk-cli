@@ -123,8 +123,8 @@ def _parse_entry(value: Any, index: int) -> CatalogEntry:
     )
     name = _identifier(table["name"], f"{path}.name")
     entry_path = safe_relative_path(table["path"], f"{path}.path")
-    if entry_path != name:
-        raise ValidationError(f"{path}.path must equal the root entry name")
+    if entry_path != f"database/{name}":
+        raise ValidationError(f"{path}.path must equal database/<name>")
     recipe_version = require_string(table["recipeVersion"], f"{path}.recipeVersion")
     if SEMVER_RE.fullmatch(recipe_version) is None:
         raise ValidationError(f"{path}.recipeVersion must be semantic versioning")

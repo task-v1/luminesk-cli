@@ -108,7 +108,7 @@ def test_lockfile_round_trips_complete_recipe_origin(kind: str) -> None:
             source="github:task-v1/luminesk-database",
             revision="d" * 40,
             entry="paper",
-            path="paper",
+            path="database/paper",
             tracking=True,
             version="1.0.1",
             manifest_digest=f"sha256:{'e' * 64}",
