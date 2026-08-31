@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import subprocess
 from pathlib import Path
 
@@ -568,6 +569,35 @@ def test_metadata_body_is_bounded_while_streaming() -> None:
 
     with pytest.raises(ResolutionError, match="too large"):
         request_metadata(client, "https://api.example/metadata.json", source)
+
+
+def test_metadata_response_is_not_decoded_twice() -> None:
+    source = SourceSpec(
+        id="metadata",
+        type="http",
+        target="metadata.json",
+        options=HttpOptions(url="https://api.example/metadata.json"),
+        allow_private_network=True,
+    )
+    content = b'{"version":"2.0.0"}'
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                content=gzip.compress(content),
+                headers={"content-encoding": "gzip"},
+            )
+        )
+    )
+
+    response = request_metadata(
+        client,
+        "https://api.example/metadata.json",
+        source,
+    )
+
+    assert response.content == content
+    assert "content-encoding" not in response.headers
 
 
 def test_metadata_http_failures_have_stable_network_error() -> None:

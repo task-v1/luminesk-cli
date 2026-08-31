@@ -92,9 +92,15 @@ def request_metadata(
                             "metadata response is too large", size=len(body)
                         )
 
+                decoded_headers = {
+                    key: value
+                    for key, value in response.headers.items()
+                    if key.lower()
+                    not in {"content-encoding", "content-length", "transfer-encoding"}
+                }
                 return httpx.Response(
                     response.status_code,
-                    headers=response.headers,
+                    headers=decoded_headers,
                     content=bytes(body),
                     request=response.request,
                 )
