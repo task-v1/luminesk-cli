@@ -204,7 +204,7 @@ jobs:
         run: |
           .wheel-venv/bin/nesk --version
           .wheel-venv/bin/nesk --help
-          .wheel-venv/bin/nesk search --json
+          .wheel-venv/bin/nesk catalog status --json
 
       - name: Upload Python artifacts
         uses: actions/upload-artifact@v7
