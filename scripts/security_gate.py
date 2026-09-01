@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 RETIRED_DIRECTORIES = {
@@ -14,6 +15,8 @@ RETIRED_DIRECTORIES = {
     "utils",
 }
 DOMAIN_FORBIDDEN_IMPORTS = {"filelock", "httpx", "platformdirs", "rich"}
+WORKFLOW_USE_RE = re.compile(r"^\s*uses:\s*(?P<action>[^\s#]+)", re.MULTILINE)
+COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
 
 
 def main() -> int:
@@ -56,6 +59,19 @@ def main() -> int:
                     violations.append(
                         f"{path}:{node.lineno}: domain imports {sorted(forbidden)}"
                     )
+
+    for path in Path(".github/workflows").glob("*.yml"):
+        content = path.read_text(encoding="utf-8")
+        for match in WORKFLOW_USE_RE.finditer(content):
+            action = match.group("action")
+            if action.startswith("./"):
+                continue
+            _, separator, revision = action.rpartition("@")
+            if not separator or COMMIT_SHA_RE.fullmatch(revision) is None:
+                line = content.count("\n", 0, match.start()) + 1
+                violations.append(
+                    f"{path}:{line}: external action is not commit-pinned: {action}"
+                )
 
     if violations:
         raise SystemExit("\n".join(violations))
