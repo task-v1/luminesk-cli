@@ -5,10 +5,10 @@
     <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk-CLI">
   </picture>
 
-  <p><strong>A reproducible composer for Minecraft Bedrock server instances</strong></p>
+  <p><strong>A reproducible composer for Minecraft Java and Bedrock server instances</strong></p>
 
   <p>
-    <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=main&label=CI"></a>
+    <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=2.0&label=CI"></a>
     <a href="https://github.com/task-v1/luminesk-cli/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/task-v1/luminesk-cli"></a>
     <a href="https://pypi.org/project/luminesk-cli/"><img alt="PyPI Version" src="https://img.shields.io/pypi/v/luminesk-cli"></a>
     <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/task-v1/luminesk-cli"></a>
@@ -24,8 +24,10 @@ Luminesk 2.0 accepts only its current recipe, lockfile, package, and instance fo
 it does not read or convert earlier installations.
 
 Upgrading from 1.x requires a fresh side-by-side instance. Follow the
-[2.0 migration guide](docs/docs/migrating-to-2.0.md) before moving server data.
-See [2.0.0 release notes](RELEASE_NOTES.md) for the release boundary and
+[2.0 migration guide](https://github.com/task-v1/luminesk-cli/blob/2.0/docs/docs/migrating-to-2.0.md)
+before moving server data. See the
+[2.0.0 release notes](https://github.com/task-v1/luminesk-cli/blob/2.0/RELEASE_NOTES.md)
+for the release boundary and
 verification summary.
 
 The important properties are:
@@ -47,6 +49,7 @@ installs; Luminesk uses the GitHub API and exact commit-pinned recipe snapshots.
 uv tool install luminesk-cli
 nesk --version
 nesk doctor
+nesk catalog update
 ```
 
 Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
@@ -59,9 +62,9 @@ Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 nesk search
 nesk info lumi
 
-# Preview, confirm, and install a GitHub recipe without a local Git executable.
-nesk install OWNER/RECIPE --dir ./servers/example --dry-run
-nesk install OWNER/RECIPE --dir ./servers/example --yes
+# Preview, confirm, and install the inspected official recipe.
+nesk install lumi --dir ./servers/example --dry-run
+nesk install lumi --dir ./servers/example --yes
 
 # Operate and update the instance.
 nesk start --dir ./servers/example
@@ -93,9 +96,12 @@ uv run mypy .
 uv run pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Recipe trust, tested backups, and
+See
+[CONTRIBUTING.md](https://github.com/task-v1/luminesk-cli/blob/2.0/CONTRIBUTING.md).
+Recipe trust, tested backups, and
 workload-specific validation remain the operator's responsibility.
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+GPL-3.0-or-later. See
+[LICENSE](https://github.com/task-v1/luminesk-cli/blob/2.0/LICENSE).

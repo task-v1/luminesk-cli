@@ -8,6 +8,7 @@ sidebar_position: 4
 
 ```bash
 nesk doctor
+nesk catalog update
 nesk search
 nesk search lumi --type core
 nesk info lumi
@@ -20,13 +21,14 @@ Dockerfile.
 ## Preview and install
 
 ```bash
-nesk install OWNER/RECIPE --dir ./servers/example --dry-run
-nesk install OWNER/RECIPE --dir ./servers/example --yes
+nesk install lumi --dir ./servers/example --dry-run
+nesk install lumi --dir ./servers/example --yes
 ```
 
-Use `OWNER/RECIPE@REF` or `--ref REF` to select a branch, tag, or commit. The
-installed lockfile records the exact commit. The target must be empty for a
-remote or external local recipe.
+An official catalog name installs the exact recipe inspected by `nesk info`.
+For a direct GitHub recipe, use `OWNER/RECIPE@REF` or `--ref REF` to select a
+branch, tag, or commit. The installed lockfile records the exact commit. The
+target must be empty for a remote or external local recipe.
 
 ## Run the instance
 

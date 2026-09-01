@@ -36,6 +36,7 @@ that matches the old server implementation:
 ```bash
 uv tool install --force luminesk-cli==2.0.0
 nesk doctor
+nesk catalog update
 nesk search
 nesk info RECIPE
 nesk install RECIPE --dir /srv/minecraft/new-instance --dry-run

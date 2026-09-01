@@ -10,9 +10,9 @@ sidebar_position: 2
 - Docker Engine or Docker Desktop for builds and runtime;
 - outbound HTTPS access for remote recipes and artifacts.
 
-Git is optional. A normal `nesk install OWNER/REPO` resolves the requested ref
-through the GitHub API and downloads a bounded archive for the exact commit.
-Only `--keep-git` asks for a local Git executable and retains `.git` metadata.
+Git is not required for installation or operation. A normal
+`nesk install OWNER/REPO` resolves the requested ref through the GitHub API and
+downloads only the bounded, declared content for the exact commit.
 
 Run the environment check after installation:
 
@@ -20,8 +20,7 @@ Run the environment check after installation:
 nesk doctor
 ```
 
-Docker is reported as required for runtime and mutable image resolution. Git is
-reported as optional.
+Docker is reported as required for runtime and mutable image resolution.
 
 ## What an instance contains
 
