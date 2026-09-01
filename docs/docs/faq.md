@@ -7,7 +7,8 @@ sidebar_position: 11
 ## Do end users need Git?
 
 No. Normal GitHub installs use API metadata and a bounded commit-pinned archive.
-Git is required only for the opt-in `--keep-git` path.
+Recipe development may use Git as a source-control tool, but the CLI never
+executes it during installation or operation.
 
 ## Do I need Docker?
 

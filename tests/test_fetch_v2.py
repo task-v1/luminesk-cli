@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 from pathlib import Path
 
 import httpx
@@ -28,6 +29,36 @@ def test_fetch_streams_into_content_cache(tmp_path: Path) -> None:
 
     assert blob.path.read_bytes() == content
     assert blob.digest.startswith("sha256:")
+
+
+def test_fetch_compares_expected_size_after_content_decoding(tmp_path: Path) -> None:
+    content = b"general:\n  motd: fixture server\n"
+    encoded = gzip.compress(content)
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                content=encoded,
+                headers={
+                    "content-encoding": "gzip",
+                    "content-length": str(len(encoded)),
+                },
+            )
+        )
+    )
+    fetcher = SecureFetcher(ContentCache(tmp_path / "cache"), client=client)
+
+    blob = fetcher.fetch(
+        "https://fixtures.invalid/artifact",
+        max_size=len(content),
+        expected_size=len(content),
+        allow_private_network=True,
+    )
+
+    assert len(encoded) != len(content)
+    assert blob.size == len(content)
+    assert blob.path.read_bytes() == content
 
 
 def test_fetch_rejects_oversize_body(tmp_path: Path) -> None:

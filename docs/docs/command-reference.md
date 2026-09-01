@@ -14,7 +14,7 @@ than reads from stdin.
 | `validate` | Validate static, resolve, build, instance, or readiness contracts. |
 | `lock` | Resolve sources and write canonical `luminesk.lock`. |
 | `plan` | Build and show changes without applying them. |
-| `install` / `i` | Install a local or GitHub recipe transactionally. |
+| `install` / `i` | Install an official, local, or GitHub recipe transactionally. |
 | `outdated` | Compare the applied lock with currently resolvable inputs. |
 | `diff` | Show managed-file drift and tracked recipe changes. |
 | `update` | Apply recipe, source, or runtime updates transactionally. |
@@ -22,9 +22,13 @@ than reads from stdin.
 | `cache verify` | Hash and verify every content-addressed cache blob. |
 | `cache prune` | Remove cache entries older than `--max-age DAYS`. |
 | `import` | Import one instance or rebuild the index with `--scan`. |
-| `search` | Search the bundled or an alternate catalog. |
+| `search` | Search the active verified official catalog. |
 | `info` | Show one catalog entry. |
-| `doctor` | Report Docker and optional Git availability. |
+| `catalog update` | Fetch and verify the current official catalog. |
+| `catalog status` | Show the active catalog revision. |
+| `catalog verify` | Reverify the active cached catalog. |
+| `catalog use` | Activate an already cached catalog revision. |
+| `doctor` | Report Docker availability. |
 | `start` | Start Docker and wait for recipe readiness checks. |
 | `stop` | Stop the instance container with the declared timeout. |
 | `restart` | Stop, start, and check readiness. |
@@ -48,13 +52,15 @@ when readiness is declared.
 
 ## Install controls
 
-- `SOURCE` accepts a local directory, `OWNER/REPO`, `github:OWNER/REPO`, or an
-  HTTPS GitHub URL.
+- `SOURCE` accepts an official catalog name (optionally prefixed with `db:`), a
+  local directory, `OWNER/REPO`, `github:OWNER/REPO`, or an HTTPS GitHub URL.
 - `--ref REF` selects the recipe ref.
-- `--set KEY=VALUE` supplies declared recipe inputs and may be repeated.
+- `--set KEY=VALUE` supplies non-secret declared recipe inputs and may be repeated.
+- `--set-file KEY=PATH` reads an input from a bounded UTF-8 file. It is required
+  for inputs declared with `secret = true`, keeping their values out of shell
+  history and process arguments.
 - `--dry-run` returns the install plan without writes.
 - `--frozen` uses only the existing lock and content cache for local installs.
-- `--keep-git` explicitly switches GitHub checkout to the local Git executable.
 - `--yes` accepts the printed trust summary.
 
 ## Update controls
@@ -67,7 +73,7 @@ before an unattended update.
 
 ```bash
 nesk validate --dir ./recipe --static --json --non-interactive
-nesk install OWNER/RECIPE --dir ./instance --dry-run --yes --json --non-interactive
+nesk install lumi --dir ./instance --dry-run --yes --json --non-interactive
 nesk status --dir ./instance --json --non-interactive
 ```
 

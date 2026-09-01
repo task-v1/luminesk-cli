@@ -51,6 +51,7 @@ def _namespace(root: Path, **overrides: Any) -> Namespace:
     values = {
         "dir": str(root),
         "set": ["port=19133"],
+        "set_file": [],
         "no_wait": True,
         "json": False,
         "follow": False,
@@ -76,7 +77,7 @@ def test_runtime_command_handlers_delegate_and_emit(
     monkeypatch.setattr(
         runtime_commands,
         "parse_inputs",
-        lambda loaded_manifest, values: {"port": 19133},
+        lambda loaded_manifest, values, file_values: {"port": 19133},
     )
     monkeypatch.setattr(
         runtime_commands,

@@ -34,6 +34,7 @@ from luminesk_cli.infrastructure.template import (
     apply_ownership_overrides,
     materialize_template,
     read_template_tree,
+    references_secret_input,
 )
 
 MAX_BUILD_CONTEXT_FILES = 20_000
@@ -196,6 +197,7 @@ class DeclarativeBuilder:
             payload = Path(stage_name) / "payload"
             payload.mkdir()
             ownership: dict[str, str] = {}
+            mode_overrides: dict[str, int] = {}
 
             if manifest.build is not None:
                 if lockfile.build is None:
@@ -254,21 +256,29 @@ class DeclarativeBuilder:
                     manifest,
                     values,
                     ownership,
+                    mode_overrides,
                 )
 
             for file_spec in manifest.files:
                 _apply_recipe_file(
                     recipe_root,
                     payload,
+                    manifest,
                     file_spec,
                     values,
                     ownership,
+                    mode_overrides,
                 )
 
             apply_ownership_overrides(payload, manifest, ownership)
 
             _run_file_checks(payload, manifest.checks, phase="post-build")
-            package_files = _package_files(payload, ownership, manifest)
+            package_files = _package_files(
+                payload,
+                ownership,
+                manifest,
+                mode_overrides,
+            )
             metadata = PackageMetadata(
                 name=manifest.package.name,
                 version=manifest.package.version,
@@ -402,9 +412,11 @@ def _render_template(content: bytes, values: Mapping[str, str | int | bool]) -> 
 def _apply_recipe_file(
     recipe_root: Path,
     payload: Path,
+    manifest: Manifest,
     spec: FileSpec,
     values: Mapping[str, str | int | bool],
     ownership: dict[str, str],
+    mode_overrides: dict[str, int],
 ) -> None:
     target = payload / spec.target
 
@@ -442,20 +454,34 @@ def _apply_recipe_file(
 
             destination.parent.mkdir(parents=True, exist_ok=True)
             content = item.read_bytes()
+            contains_secret = spec.template and references_secret_input(
+                content, manifest
+            )
 
             if spec.template:
                 content = _render_template(content, values)
 
+            destination.touch(mode=0o600 if contains_secret else 0o666)
             destination.write_bytes(content)
-            ownership[destination.relative_to(payload).as_posix()] = spec.mode
+            destination_relative = destination.relative_to(payload).as_posix()
+            if contains_secret:
+                destination.chmod(0o600)
+                mode_overrides[destination_relative] = 0o600
+            ownership[destination_relative] = spec.mode
     elif source.is_file():
         target.parent.mkdir(parents=True, exist_ok=True)
         content = source.read_bytes()
+        contains_secret = spec.template and references_secret_input(content, manifest)
 
         if spec.template:
             content = _render_template(content, values)
 
+        target.touch(mode=0o600 if contains_secret else 0o666)
         target.write_bytes(content)
+        if contains_secret:
+            intended_mode = 0o700 if spec.executable else 0o600
+            target.chmod(intended_mode)
+            mode_overrides[spec.target] = intended_mode
         ownership[spec.target] = spec.mode
     else:
         raise SecurityError("recipe source is not a regular file or directory")
@@ -500,6 +526,7 @@ def _package_files(
     payload: Path,
     ownership: Mapping[str, str],
     manifest: Manifest,
+    mode_overrides: Mapping[str, int],
 ) -> tuple[PackageFile, ...]:
     result: list[PackageFile] = []
     total_size = 0
@@ -509,11 +536,15 @@ def _package_files(
             raise SecurityError("package payload contains too many files")
 
         relative = path.relative_to(payload).as_posix()
-        mode = stat.S_IMODE(path.stat().st_mode)
+        if relative in mode_overrides:
+            mode = mode_overrides[relative]
+        elif path.is_dir():
+            mode = 0o755
+        elif _is_declared_executable(relative, manifest):
+            mode = 0o755
+        else:
+            mode = 0o644
         owner = ownership.get(relative, "managed")
-
-        if _is_declared_executable(relative, manifest):
-            mode |= stat.S_IXUSR
 
         if owner not in {"managed", "preserve", "generated", "data"}:
             raise ValidationError(f"invalid ownership mode for {relative}")

@@ -10,11 +10,6 @@ Run `nesk doctor` and `docker version`. Luminesk needs a reachable Docker daemon
 mutable image resolution, builds, and runtime operations. On Linux, confirm the
 current user can access the daemon; on macOS and Windows, start Docker Desktop.
 
-## Git is reported missing
-
-This is informational for normal use. Luminesk uses the GitHub API and does not
-need a local Git executable for normal recipe installation.
-
 ## A remote install asks for confirmation
 
 Luminesk prints the source, resolved revision, build-code status, write target, and

@@ -10,12 +10,6 @@ from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
 from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.domain.plan import Plan
-from luminesk_cli.infrastructure import recipe as recipe_module
-from luminesk_cli.infrastructure.recipe import (
-    GitRecipeSource,
-    RecipeCheckout,
-    checkout_recipe,
-)
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 
 
@@ -36,6 +30,14 @@ def test_version_cold_path_does_not_import_heavy_dependencies() -> None:
 
     assert result.returncode == 0
     assert result.stdout == "Luminesk 2.0.0\n\n"
+
+
+def test_doctor_reports_only_runtime_dependency(capsys) -> None:
+    assert main(["doctor", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert [item["component"] for item in payload["checks"]] == ["docker"]
 
 
 def test_local_cli_install_emits_json_and_writes_instance(
@@ -104,59 +106,6 @@ command = ["java", "-jar", "server.jar"]
     assert main(["start", "--dir", str(root), "--json"]) != 0
     error = json.loads(capsys.readouterr().out)
     assert "differs from the locked recipe snapshot" in error["error"]["message"]
-
-
-def test_keep_git_reports_missing_optional_executable(
-    tmp_path: Path, monkeypatch
-) -> None:
-    source = GitRecipeSource(
-        canonical="github:owner/repo",
-        clone_url="https://github.com/owner/repo.git",
-        owner="owner",
-        repository="repo",
-        requested_ref=None,
-    )
-    monkeypatch.setattr(recipe_module.shutil, "which", lambda name: None)
-
-    from luminesk_cli.domain.errors import ResolutionError
-
-    try:
-        checkout_recipe(source, tmp_path / "recipe", require_git=True)
-    except ResolutionError as exc:
-        assert "requires the git executable" in str(exc)
-    else:
-        raise AssertionError("missing Git was not reported")
-
-
-def test_normal_checkout_uses_api_path_without_git(tmp_path: Path, monkeypatch) -> None:
-    source = GitRecipeSource(
-        canonical="github:owner/repo",
-        clone_url="https://github.com/owner/repo.git",
-        owner="owner",
-        repository="repo",
-        requested_ref=None,
-    )
-    expected = RecipeCheckout(
-        root=tmp_path / "recipe",
-        source=source,
-        revision="a" * 40,
-        tracking_ref="main",
-        tracked_files=("luminesk.toml",),
-    )
-    monkeypatch.setattr(
-        recipe_module,
-        "_checkout_github_archive",
-        lambda source, destination: expected,
-    )
-    monkeypatch.setattr(
-        recipe_module,
-        "_checkout_with_git",
-        lambda source, destination: (_ for _ in ()).throw(
-            AssertionError("Git path must not be used")
-        ),
-    )
-
-    assert checkout_recipe(source, tmp_path / "recipe") == expected
 
 
 def test_remote_recipe_is_built_and_planned_before_confirmation(
@@ -242,6 +191,7 @@ command = ["server"]
     namespace = SimpleNamespace(
         frozen=False,
         set=[],
+        set_file=[],
         dry_run=True,
         json=False,
         yes=True,

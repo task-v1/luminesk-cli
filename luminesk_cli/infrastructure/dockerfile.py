@@ -15,6 +15,8 @@ FROM_RE = re.compile(
     r"(?P<suffix>\s+(?:AS\s+\S+)\s*|\s*)$",
     re.IGNORECASE,
 )
+SYNTAX_RE = re.compile(r"^\s*#\s*syntax\s*=\s*(?P<image>\S+)\s*$", re.IGNORECASE)
+PINNED_SYNTAX_RE = re.compile(r"^[^@\s]+@sha256:[0-9a-f]{64}$")
 
 
 def dockerfile_base_images(path: Path) -> tuple[str, ...]:
@@ -25,6 +27,8 @@ def dockerfile_base_images(path: Path) -> tuple[str, ...]:
 
     images = []
     aliases = set()
+
+    _validate_syntax_frontend(lines)
 
     for line in lines:
         match = FROM_RE.fullmatch(line)
@@ -70,6 +74,8 @@ def resolve_build_images(
 
 
 def rewrite_dockerfile(content: str, images: dict[str, str]) -> str:
+    source_lines = content.splitlines()
+    _validate_syntax_frontend(source_lines)
     lines = []
     used = set()
 
@@ -93,3 +99,20 @@ def rewrite_dockerfile(content: str, images: dict[str, str]) -> str:
         )
 
     return "\n".join(lines) + "\n"
+
+
+def _validate_syntax_frontend(lines: list[str]) -> None:
+    directives = []
+    for line in lines:
+        match = SYNTAX_RE.fullmatch(line)
+        if match is not None:
+            directives.append(match.group("image"))
+        elif line.lstrip().lower().startswith("# syntax="):
+            raise ValidationError("unsupported Dockerfile syntax directive")
+
+    if len(directives) > 1:
+        raise ValidationError("Dockerfile declares multiple syntax frontends")
+    if directives and PINNED_SYNTAX_RE.fullmatch(directives[0]) is None:
+        raise SecurityError(
+            "Dockerfile syntax frontend must be pinned by sha256 digest"
+        )

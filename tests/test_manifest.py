@@ -120,6 +120,28 @@ def test_manifest_rejects_retired_runtime_driver() -> None:
         parse_manifest(content)
 
 
+def test_manifest_rejects_secret_defaults_and_runtime_interpolation() -> None:
+    secret_input = b"""
+[inputs.token]
+type = "string"
+secret = true
+"""
+    content = VALID_MANIFEST.replace(b"[[sources]]", secret_input + b"\n[[sources]]")
+
+    with pytest.raises(ValidationError, match="may not declare a default"):
+        parse_manifest(
+            content.replace(b"secret = true", b'secret = true\ndefault = "leak"')
+        )
+
+    with pytest.raises(ValidationError, match="only be used in rendered files"):
+        parse_manifest(
+            content.replace(
+                b'command = ["java", "-jar", "server.jar"]',
+                b'command = ["java", "${input.token}"]',
+            )
+        )
+
+
 def test_manifest_rejects_unknown_source_option() -> None:
     content = VALID_MANIFEST.replace(
         b'asset = "powernukkitx.jar"',

@@ -18,6 +18,7 @@ MAX_TEMPLATE_FILES = 4_096
 MAX_TEMPLATE_FILE_SIZE = 16 * 1024 * 1024
 MAX_TEMPLATE_SIZE = 64 * 1024 * 1024
 INPUT_PATTERN = re.compile(r"\$\{input\.([A-Za-z0-9_-]+)}")
+INPUT_BYTES_PATTERN = re.compile(rb"\$\{input\.([A-Za-z0-9_-]+)}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -146,6 +147,7 @@ def materialize_template(
     manifest: Manifest,
     inputs: Mapping[str, str | int | bool],
     ownership: dict[str, str],
+    mode_overrides: dict[str, int],
 ) -> None:
     for entry in tree.entries:
         target = payload / entry.target
@@ -159,12 +161,27 @@ def materialize_template(
 
         target.parent.mkdir(parents=True, exist_ok=True)
         content = entry.source_path.read_bytes()
+        contains_secret = entry.render and references_secret_input(content, manifest)
         if entry.render:
             content = render_template(content, inputs, path=entry.source_relative)
+        target.touch(mode=0o600 if contains_secret else 0o666)
         target.write_bytes(content)
-        if _path_matches(entry.target, manifest.ownership.executable):
+        executable = _path_matches(entry.target, manifest.ownership.executable)
+        if contains_secret:
+            intended_mode = 0o700 if executable else 0o600
+            target.chmod(intended_mode)
+            mode_overrides[entry.target] = intended_mode
+        elif executable:
             target.chmod(target.stat().st_mode | stat.S_IXUSR)
         ownership[entry.target] = mode
+
+
+def references_secret_input(content: bytes, manifest: Manifest) -> bool:
+    secret_names = {spec.name for spec in manifest.inputs if spec.secret}
+    return any(
+        match.group(1).decode("ascii") in secret_names
+        for match in INPUT_BYTES_PATTERN.finditer(content)
+    )
 
 
 def apply_ownership_overrides(

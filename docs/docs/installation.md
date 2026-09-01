@@ -12,6 +12,7 @@ With Python 3.13+ and uv installed:
 uv tool install luminesk-cli
 nesk --version
 nesk doctor
+nesk catalog update
 ```
 
 Upgrade the tool with:
@@ -44,5 +45,5 @@ nesk --help
 nesk doctor
 ```
 
-The CLI itself does not require Git. If `doctor` reports Git as missing, normal
-GitHub installs still work.
+The CLI does not require Git. `doctor` reports the Docker dependency used for
+runtime and mutable image resolution.
