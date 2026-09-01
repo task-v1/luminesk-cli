@@ -191,6 +191,7 @@ command = ["server"]
     namespace = SimpleNamespace(
         frozen=False,
         set=[],
+        set_file=[],
         dry_run=True,
         json=False,
         yes=True,

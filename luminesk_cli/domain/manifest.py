@@ -50,6 +50,7 @@ CHECK_PHASES = frozenset({"post-build", "post-install", "readiness"})
 CHECK_KINDS = frozenset({"file", "process-alive", "log-regex", "tcp", "command"})
 PACKAGE_KINDS = frozenset({"core", "template"})
 MINECRAFT_EDITIONS = frozenset({"java", "bedrock", "cross-platform"})
+INPUT_REFERENCE_RE = re.compile(r"\$\{input\.([A-Za-z0-9_-]+)}")
 
 
 @dataclass(slots=True, frozen=True)
@@ -423,6 +424,10 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
             if maximum is not None and default > maximum:
                 fail(f"{path}.default", "is above max")
 
+        secret = require_bool(spec.get("secret", False), f"{path}.secret")
+        if secret and default is not None:
+            fail(f"{path}.default", "secret inputs may not declare a default")
+
         result.append(
             InputSpec(
                 name=name,
@@ -433,7 +438,7 @@ def _parse_inputs(value: Any) -> tuple[InputSpec, ...]:
                 maximum=maximum,
                 pattern=pattern,
                 required=require_bool(spec.get("required", False), f"{path}.required"),
-                secret=require_bool(spec.get("secret", False), f"{path}.secret"),
+                secret=secret,
             )
         )
 
@@ -1032,7 +1037,65 @@ def parse_manifest(content: bytes, *, source: str = MANIFEST_NAME) -> Manifest:
         and not manifest.files
     ):
         fail("manifest", "must declare sources, build, template, or files")
+    _validate_secret_input_usage(manifest)
     return manifest
+
+
+def _validate_secret_input_usage(manifest: Manifest) -> None:
+    secret_names = {spec.name for spec in manifest.inputs if spec.secret}
+    if not secret_names:
+        return
+
+    values: list[tuple[str, str]] = [
+        ("runtime.image", manifest.runtime.image),
+        ("runtime.workdir", manifest.runtime.workdir),
+        ("runtime.stop_signal", manifest.runtime.stop_signal),
+        ("runtime.restart", manifest.runtime.restart),
+    ]
+    if manifest.runtime.memory is not None:
+        values.append(("runtime.memory", manifest.runtime.memory))
+    if manifest.runtime.run_as is not None:
+        values.append(("runtime.run_as", manifest.runtime.run_as))
+    values.extend(
+        (f"runtime.command[{index}]", value)
+        for index, value in enumerate(manifest.runtime.command)
+    )
+    for index, mount in enumerate(manifest.runtime.mounts):
+        values.extend(
+            (
+                (f"runtime.mounts[{index}].source", mount.source),
+                (f"runtime.mounts[{index}].target", mount.target),
+            )
+        )
+    for index, port in enumerate(manifest.runtime.ports):
+        values.extend(
+            (
+                (f"runtime.ports[{index}].host", str(port.host)),
+                (f"runtime.ports[{index}].container", str(port.container)),
+            )
+        )
+    for check_index, check in enumerate(manifest.checks):
+        for field_name, value in (
+            ("path", check.path),
+            ("pattern", check.pattern),
+            ("host", check.host),
+            ("port", check.port),
+        ):
+            if value is not None:
+                values.append((f"checks[{check_index}].{field_name}", str(value)))
+        values.extend(
+            (f"checks[{check_index}].command[{argument_index}]", argument)
+            for argument_index, argument in enumerate(check.command)
+        )
+
+    for path, value in values:
+        referenced = set(INPUT_REFERENCE_RE.findall(value))
+        leaked = sorted(referenced & secret_names)
+        if leaked:
+            fail(
+                path,
+                f"secret input {leaked[0]} may only be used in rendered files",
+            )
 
 
 def load_manifest(path: Path) -> Manifest:

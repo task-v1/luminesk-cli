@@ -34,6 +34,7 @@ from luminesk_cli.infrastructure.template import (
     apply_ownership_overrides,
     materialize_template,
     read_template_tree,
+    references_secret_input,
 )
 
 MAX_BUILD_CONTEXT_FILES = 20_000
@@ -260,6 +261,7 @@ class DeclarativeBuilder:
                 _apply_recipe_file(
                     recipe_root,
                     payload,
+                    manifest,
                     file_spec,
                     values,
                     ownership,
@@ -402,6 +404,7 @@ def _render_template(content: bytes, values: Mapping[str, str | int | bool]) -> 
 def _apply_recipe_file(
     recipe_root: Path,
     payload: Path,
+    manifest: Manifest,
     spec: FileSpec,
     values: Mapping[str, str | int | bool],
     ownership: dict[str, str],
@@ -442,19 +445,25 @@ def _apply_recipe_file(
 
             destination.parent.mkdir(parents=True, exist_ok=True)
             content = item.read_bytes()
+            contains_secret = spec.template and references_secret_input(
+                content, manifest
+            )
 
             if spec.template:
                 content = _render_template(content, values)
 
+            destination.touch(mode=0o600 if contains_secret else 0o666)
             destination.write_bytes(content)
             ownership[destination.relative_to(payload).as_posix()] = spec.mode
     elif source.is_file():
         target.parent.mkdir(parents=True, exist_ok=True)
         content = source.read_bytes()
+        contains_secret = spec.template and references_secret_input(content, manifest)
 
         if spec.template:
             content = _render_template(content, values)
 
+        target.touch(mode=0o600 if contains_secret else 0o666)
         target.write_bytes(content)
         ownership[spec.target] = spec.mode
     else:

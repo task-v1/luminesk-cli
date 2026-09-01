@@ -55,7 +55,10 @@ when readiness is declared.
 - `SOURCE` accepts an official catalog name (optionally prefixed with `db:`), a
   local directory, `OWNER/REPO`, `github:OWNER/REPO`, or an HTTPS GitHub URL.
 - `--ref REF` selects the recipe ref.
-- `--set KEY=VALUE` supplies declared recipe inputs and may be repeated.
+- `--set KEY=VALUE` supplies non-secret declared recipe inputs and may be repeated.
+- `--set-file KEY=PATH` reads an input from a bounded UTF-8 file. It is required
+  for inputs declared with `secret = true`, keeping their values out of shell
+  history and process arguments.
 - `--dry-run` returns the install plan without writes.
 - `--frozen` uses only the existing lock and content cache for local installs.
 - `--yes` accepts the printed trust summary.

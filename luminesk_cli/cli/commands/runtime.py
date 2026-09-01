@@ -12,7 +12,7 @@ from luminesk_cli.domain.manifest import MANIFEST_NAME
 def start(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     _, manifest = recipe(root)
-    values = parse_inputs(manifest, namespace.set)
+    values = parse_inputs(manifest, namespace.set, namespace.set_file)
     state = DockerRuntime().start(
         root,
         input_overrides=values,
@@ -40,7 +40,7 @@ def stop(namespace: Any) -> int:
 def restart(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     _, manifest = recipe(root)
-    values = parse_inputs(manifest, namespace.set)
+    values = parse_inputs(manifest, namespace.set, namespace.set_file)
     runtime = DockerRuntime()
     runtime.stop(root)
     state = runtime.start(

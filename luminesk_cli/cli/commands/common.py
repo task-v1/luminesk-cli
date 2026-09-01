@@ -23,6 +23,7 @@ from luminesk_cli.infrastructure.platform import current_platform
 from luminesk_cli.infrastructure.recipe_cache import RecipeCache
 
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+MAX_INPUT_FILE_SIZE = 64 * 1024
 
 
 def cache() -> ContentCache:
@@ -156,38 +157,80 @@ def build_package(
 def parse_inputs(
     manifest: Manifest,
     arguments: list[str],
+    file_arguments: list[str] | None = None,
 ) -> dict[str, str | int | bool]:
     specs = {item.name: item for item in manifest.inputs}
     values: dict[str, str | int | bool] = {}
 
     for argument in arguments:
-        if "=" not in argument:
-            raise ValidationError(f"input override must be KEY=VALUE: {argument}")
-
-        name, raw_value = argument.split("=", 1)
+        name, raw_value = _input_assignment(argument, "input override")
         spec = specs.get(name)
-
         if spec is None:
             raise ValidationError(f"unknown input: {name}")
+        if spec.secret:
+            raise ValidationError(
+                f"secret input {name} must be supplied with --set-file"
+            )
+        if name in values:
+            raise ValidationError(f"input {name} is supplied more than once")
+        values[name] = _coerce_input(name, raw_value, spec.type)
 
-        if spec.type == "integer":
-            try:
-                value: str | int | bool = int(raw_value)
-            except ValueError as exc:
-                raise ValidationError(f"input {name} must be an integer") from exc
-        elif spec.type == "boolean":
-            normalized = raw_value.lower()
-
-            if normalized not in {"true", "false"}:
-                raise ValidationError(f"input {name} must be true or false")
-
-            value = normalized == "true"
-        else:
-            value = raw_value
-
-        values[name] = value
+    for argument in file_arguments or []:
+        name, raw_path = _input_assignment(argument, "file input override")
+        spec = specs.get(name)
+        if spec is None:
+            raise ValidationError(f"unknown input: {name}")
+        if name in values:
+            raise ValidationError(f"input {name} is supplied more than once")
+        values[name] = _coerce_input(
+            name,
+            _read_input_file(name, Path(raw_path).expanduser()),
+            spec.type,
+        )
 
     return values
+
+
+def _input_assignment(argument: str, label: str) -> tuple[str, str]:
+    if "=" not in argument:
+        raise ValidationError(f"{label} must be KEY=VALUE: {argument}")
+    name, value = argument.split("=", 1)
+    if not name or not value:
+        raise ValidationError(f"{label} must be KEY=VALUE: {argument}")
+    return name, value
+
+
+def _read_input_file(name: str, path: Path) -> str:
+    try:
+        with path.open("rb") as handle:
+            content = handle.read(MAX_INPUT_FILE_SIZE + 1)
+    except OSError as exc:
+        raise ValidationError(f"cannot read input file for {name}: {path}") from exc
+    if len(content) > MAX_INPUT_FILE_SIZE:
+        raise ValidationError(f"input file for {name} exceeds 64 KiB")
+    try:
+        value = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValidationError(f"input file for {name} must be UTF-8") from exc
+    if value.endswith("\r\n"):
+        return value[:-2]
+    if value.endswith("\n"):
+        return value[:-1]
+    return value
+
+
+def _coerce_input(name: str, raw_value: str, input_type: str) -> str | int | bool:
+    if input_type == "integer":
+        try:
+            return int(raw_value)
+        except ValueError as exc:
+            raise ValidationError(f"input {name} must be an integer") from exc
+    if input_type == "boolean":
+        normalized = raw_value.lower()
+        if normalized not in {"true", "false"}:
+            raise ValidationError(f"input {name} must be true or false")
+        return normalized == "true"
+    return raw_value
 
 
 def sanitize(value: str) -> str:

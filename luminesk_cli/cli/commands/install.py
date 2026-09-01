@@ -176,7 +176,7 @@ def _install_snapshot(
             recipe_origin=origin,
         )
     )
-    values = parse_inputs(manifest, namespace.set)
+    values = parse_inputs(manifest, namespace.set, namespace.set_file)
     temporary, package = build_package(root, manifest, lockfile, values)
 
     try:

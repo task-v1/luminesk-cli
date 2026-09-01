@@ -31,6 +31,23 @@ def _validation_levels(parser: argparse.ArgumentParser) -> None:
     levels.add_argument("--all", action="store_true")
 
 
+def _input_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Set a non-secret recipe input.",
+    )
+    parser.add_argument(
+        "--set-file",
+        action="append",
+        default=[],
+        metavar="KEY=PATH",
+        help="Read a recipe input from a UTF-8 file; required for secret inputs.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nesk",
@@ -64,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument(
         "--frozen", action="store_true", help="Use the existing lock offline."
     )
-    plan.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    _input_options(plan)
     _automation_options(plan)
     plan.set_defaults(handler="luminesk_cli.cli.commands.plan:run")
 
@@ -80,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     install.add_argument("--dir", default=None, help="Target instance directory.")
     install.add_argument("--ref", default=None, help="Git branch, tag, or commit.")
-    install.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    _input_options(install)
     install.add_argument("--dry-run", action="store_true")
     install.add_argument(
         "--frozen", action="store_true", help="Use lock and cache only."
@@ -97,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     update.add_argument("component", nargs="?", help="Optional source id to update.")
     update.add_argument("--dir", default=None, help="Instance directory.")
-    update.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    _input_options(update)
     update.add_argument("--dry-run", action="store_true")
     update.add_argument(
         "--frozen", action="store_true", help="Use lock and cache only."
@@ -201,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     start = commands.add_parser("start", help="Start the current recipe instance.")
     start.add_argument("--dir", default=None, help="Instance directory.")
-    start.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    _input_options(start)
     start.add_argument("--no-wait", action="store_true", help="Skip readiness checks.")
     _automation_options(start)
     start.set_defaults(handler="luminesk_cli.cli.commands.runtime:start")
@@ -215,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
         "restart", help="Restart the current recipe instance."
     )
     restart.add_argument("--dir", default=None, help="Instance directory.")
-    restart.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
+    _input_options(restart)
     restart.add_argument("--no-wait", action="store_true")
     _automation_options(restart)
     restart.set_defaults(handler="luminesk_cli.cli.commands.runtime:restart")

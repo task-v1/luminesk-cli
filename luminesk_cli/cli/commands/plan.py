@@ -43,7 +43,7 @@ def run(namespace: Any) -> int:
         )
     else:
         lockfile = resolve_lock(recipe_root, manifest, frozen=namespace.frozen)
-    values = parse_inputs(manifest, namespace.set)
+    values = parse_inputs(manifest, namespace.set, namespace.set_file)
     temporary, package = build_package(recipe_root, manifest, lockfile, values)
 
     try:

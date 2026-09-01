@@ -13,7 +13,7 @@ Luminesk 2.0; it is not a product-version marker.
 | Section | Declares |
 | --- | --- |
 | `[package]` | Recipe name, version, description, and target platforms. |
-| `[inputs.*]` | Typed string, integer, or boolean build/runtime inputs. |
+| `[inputs.*]` | Typed string, integer, or boolean rendering inputs. |
 | `[[sources]]` | Provider, version policy, target, size limit, and network policy. |
 | `[[files]]` | Recipe files, destination, ownership, template, and executable bit. |
 | `[build]` | Optional bounded Dockerfile build and its output directory. |
@@ -28,6 +28,11 @@ Paths must be canonical relative POSIX paths and portable across supported
 platforms. Runtime container paths must be absolute. Commands are TOML arrays,
 for example `command = ["java", "-jar", "server.jar"]`; shell strings are not
 accepted.
+
+Inputs marked `secret = true` may not declare defaults or appear in runtime or
+readiness fields. Supply them with `--set-file KEY=PATH`; Luminesk does not
+persist their values in instance state and writes rendered secret-bearing files
+with owner-only permissions.
 
 ## Lockfile rules
 

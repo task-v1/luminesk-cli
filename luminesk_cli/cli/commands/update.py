@@ -84,7 +84,7 @@ def run(namespace: Any) -> int:
             )
         )
         new_lock = _select_component(namespace.component, old_lock, new_lock)
-        values = _update_inputs(root, manifest, namespace.set)
+        values = _update_inputs(root, manifest, namespace.set, namespace.set_file)
         temporary_package, package = build_package(
             candidate.root,
             manifest,
@@ -687,6 +687,7 @@ def _update_inputs(
     root: Path,
     manifest: Manifest,
     arguments: list[str],
+    file_arguments: list[str],
 ) -> dict[str, str | int | bool]:
     state = load_state(root)
     known = {spec.name for spec in manifest.inputs}
@@ -695,7 +696,8 @@ def _update_inputs(
         if state is not None
         else {}
     )
-    values.update(parse_inputs(manifest, arguments))
+    overrides = parse_inputs(manifest, arguments, file_arguments)
+    values.update(overrides)
     return values
 
 
