@@ -9,7 +9,7 @@ from luminesk_cli.cli.commands.common import MAX_INPUT_FILE_SIZE, parse_inputs
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.lockfile import Lockfile, RuntimeLock
 from luminesk_cli.domain.manifest import parse_manifest
-from luminesk_cli.infrastructure.build import DeclarativeBuilder
+from luminesk_cli.infrastructure.build import DeclarativeBuilder, _package_files
 from luminesk_cli.infrastructure.cache import ContentCache
 
 MANIFEST = b"""\
@@ -82,3 +82,22 @@ def test_secret_rendered_template_is_owner_only(tmp_path: Path) -> None:
 
     assert stat.S_IMODE(modes["credentials.txt"]) == 0o600
     assert stat.S_IMODE(modes["public.txt"]) == 0o644
+
+
+def test_secret_mode_override_is_independent_of_host_permissions(
+    tmp_path: Path,
+) -> None:
+    payload = tmp_path / "payload"
+    payload.mkdir()
+    secret = payload / "credentials.txt"
+    secret.write_text("sensitive value", encoding="utf-8")
+    secret.chmod(0o666)
+
+    files = _package_files(
+        payload,
+        {"credentials.txt": "generated"},
+        parse_manifest(MANIFEST),
+        {"credentials.txt": 0o600},
+    )
+
+    assert files[0].mode == 0o600

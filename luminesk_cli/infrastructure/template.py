@@ -147,6 +147,7 @@ def materialize_template(
     manifest: Manifest,
     inputs: Mapping[str, str | int | bool],
     ownership: dict[str, str],
+    mode_overrides: dict[str, int],
 ) -> None:
     for entry in tree.entries:
         target = payload / entry.target
@@ -165,7 +166,12 @@ def materialize_template(
             content = render_template(content, inputs, path=entry.source_relative)
         target.touch(mode=0o600 if contains_secret else 0o666)
         target.write_bytes(content)
-        if _path_matches(entry.target, manifest.ownership.executable):
+        executable = _path_matches(entry.target, manifest.ownership.executable)
+        if contains_secret:
+            intended_mode = 0o700 if executable else 0o600
+            target.chmod(intended_mode)
+            mode_overrides[entry.target] = intended_mode
+        elif executable:
             target.chmod(target.stat().st_mode | stat.S_IXUSR)
         ownership[entry.target] = mode
 

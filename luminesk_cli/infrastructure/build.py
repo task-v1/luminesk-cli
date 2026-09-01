@@ -197,6 +197,7 @@ class DeclarativeBuilder:
             payload = Path(stage_name) / "payload"
             payload.mkdir()
             ownership: dict[str, str] = {}
+            mode_overrides: dict[str, int] = {}
 
             if manifest.build is not None:
                 if lockfile.build is None:
@@ -255,6 +256,7 @@ class DeclarativeBuilder:
                     manifest,
                     values,
                     ownership,
+                    mode_overrides,
                 )
 
             for file_spec in manifest.files:
@@ -265,12 +267,18 @@ class DeclarativeBuilder:
                     file_spec,
                     values,
                     ownership,
+                    mode_overrides,
                 )
 
             apply_ownership_overrides(payload, manifest, ownership)
 
             _run_file_checks(payload, manifest.checks, phase="post-build")
-            package_files = _package_files(payload, ownership, manifest)
+            package_files = _package_files(
+                payload,
+                ownership,
+                manifest,
+                mode_overrides,
+            )
             metadata = PackageMetadata(
                 name=manifest.package.name,
                 version=manifest.package.version,
@@ -408,6 +416,7 @@ def _apply_recipe_file(
     spec: FileSpec,
     values: Mapping[str, str | int | bool],
     ownership: dict[str, str],
+    mode_overrides: dict[str, int],
 ) -> None:
     target = payload / spec.target
 
@@ -454,7 +463,11 @@ def _apply_recipe_file(
 
             destination.touch(mode=0o600 if contains_secret else 0o666)
             destination.write_bytes(content)
-            ownership[destination.relative_to(payload).as_posix()] = spec.mode
+            destination_relative = destination.relative_to(payload).as_posix()
+            if contains_secret:
+                destination.chmod(0o600)
+                mode_overrides[destination_relative] = 0o600
+            ownership[destination_relative] = spec.mode
     elif source.is_file():
         target.parent.mkdir(parents=True, exist_ok=True)
         content = source.read_bytes()
@@ -465,6 +478,10 @@ def _apply_recipe_file(
 
         target.touch(mode=0o600 if contains_secret else 0o666)
         target.write_bytes(content)
+        if contains_secret:
+            intended_mode = 0o700 if spec.executable else 0o600
+            target.chmod(intended_mode)
+            mode_overrides[spec.target] = intended_mode
         ownership[spec.target] = spec.mode
     else:
         raise SecurityError("recipe source is not a regular file or directory")
@@ -509,6 +526,7 @@ def _package_files(
     payload: Path,
     ownership: Mapping[str, str],
     manifest: Manifest,
+    mode_overrides: Mapping[str, int],
 ) -> tuple[PackageFile, ...]:
     result: list[PackageFile] = []
     total_size = 0
@@ -518,7 +536,7 @@ def _package_files(
             raise SecurityError("package payload contains too many files")
 
         relative = path.relative_to(payload).as_posix()
-        mode = stat.S_IMODE(path.stat().st_mode)
+        mode = mode_overrides.get(relative, stat.S_IMODE(path.stat().st_mode))
         owner = ownership.get(relative, "managed")
 
         if _is_declared_executable(relative, manifest):
