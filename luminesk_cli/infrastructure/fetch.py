@@ -227,6 +227,15 @@ class SecureFetcher:
 
 
 def _content_length(response: httpx.Response) -> int | None:
+    # ``httpx.Response.iter_bytes()`` transparently decodes content encodings.
+    # In that case Content-Length describes the encoded wire representation,
+    # while the lockfile and provider metadata describe the decoded artifact.
+    # The decoded body is still bounded and verified below while streaming.
+    content_encoding = response.headers.get("content-encoding", "identity")
+
+    if content_encoding.strip().casefold() not in {"", "identity"}:
+        return None
+
     raw_value = response.headers.get("content-length")
 
     if raw_value is None:

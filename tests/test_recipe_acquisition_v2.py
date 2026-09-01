@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import tarfile
@@ -115,6 +116,55 @@ def test_github_acquisition_fetches_only_declared_assets(tmp_path: Path) -> None
     )
     assert not any(
         "tarball" in path or "/src" in path or "/tests" in path for path in requested
+    )
+
+
+def test_github_acquisition_accepts_encoded_declared_assets(tmp_path: Path) -> None:
+    manifest_bytes = _manifest()
+    template_bytes = b"motd=compressed fixture\n"
+    encoded_template = gzip.compress(template_bytes)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/repos/owner/repo":
+            return httpx.Response(200, json={"default_branch": "main"})
+        if request.url.path.endswith("/commits/main"):
+            return httpx.Response(200, json={"sha": REVISION})
+        if request.url.host == "raw.githubusercontent.com":
+            return httpx.Response(200, content=manifest_bytes)
+        if request.url.path.endswith("/contents/template"):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "type": "file",
+                        "path": "template/server.properties.tmpl",
+                        "size": len(template_bytes),
+                        "download_url": "https://objects.example/template",
+                    }
+                ],
+            )
+        if request.url.host == "objects.example":
+            return httpx.Response(
+                200,
+                content=encoded_template,
+                headers={
+                    "content-encoding": "gzip",
+                    "content-length": str(len(encoded_template)),
+                },
+            )
+        raise AssertionError(f"unexpected request: {request.url}")
+
+    snapshot = acquire_github_recipe(
+        normalize_git_source("owner/repo"),
+        tmp_path / "recipe",
+        ContentCache(tmp_path / "cache"),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        allow_private_network=True,
+    )
+
+    assert len(encoded_template) != len(template_bytes)
+    assert (snapshot.root / "template/server.properties.tmpl").read_bytes() == (
+        template_bytes
     )
 
 
