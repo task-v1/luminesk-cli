@@ -8,17 +8,11 @@ from luminesk_cli.cli.commands.common import emit
 
 def run(namespace: Any) -> int:
     docker = shutil.which("docker")
-    git = shutil.which("git")
     checks = [
         {
             "component": "docker",
             "available": docker is not None,
             "requiredFor": "runtime and mutable image resolution",
-        },
-        {
-            "component": "git",
-            "available": git is not None,
-            "requiredFor": "--keep-git only; normal GitHub installs use the API",
         },
     ]
     lines = [

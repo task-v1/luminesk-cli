@@ -71,10 +71,12 @@ def build_parser() -> argparse.ArgumentParser:
     install = commands.add_parser(
         "install",
         aliases=["i"],
-        help="Install a local or Git recipe transactionally.",
+        help="Install an official, local, or GitHub recipe transactionally.",
     )
     install.add_argument(
-        "source", nargs="?", help="OWNER/REPO, Git URL, or local recipe."
+        "source",
+        nargs="?",
+        help="Official NAME, OWNER/REPO, HTTPS GitHub URL, or local recipe.",
     )
     install.add_argument("--dir", default=None, help="Target instance directory.")
     install.add_argument("--ref", default=None, help="Git branch, tag, or commit.")
