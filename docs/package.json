@@ -14,7 +14,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "check:images": "node scripts/check-images.mjs",
+    "check:images": "node --test scripts/check-images.test.mjs && node scripts/check-images.mjs",
     "audit:security": "pnpm audit --audit-level moderate"
   },
   "dependencies": {
