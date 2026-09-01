@@ -52,3 +52,22 @@ def test_dockerfile_rewrite_rejects_stale_build_lock() -> None:
             "FROM alpine:3.23\n",
             {"debian:13": f"debian@sha256:{'a' * 64}"},
         )
+
+
+def test_dockerfile_syntax_frontend_requires_digest_pin(tmp_path: Path) -> None:
+    path = tmp_path / "Dockerfile"
+    path.write_text(
+        "# syntax=docker/dockerfile:1\nFROM alpine:3.23\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SecurityError, match="pinned by sha256"):
+        dockerfile_base_images(path)
+    with pytest.raises(SecurityError, match="pinned by sha256"):
+        rewrite_dockerfile(path.read_text(encoding="utf-8"), {})
+
+    path.write_text(
+        f"# syntax=docker/dockerfile:1@sha256:{'c' * 64}\nFROM alpine:3.23\n",
+        encoding="utf-8",
+    )
+    assert dockerfile_base_images(path) == ("alpine:3.23",)
