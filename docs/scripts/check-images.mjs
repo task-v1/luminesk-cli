@@ -2,13 +2,25 @@ import { open, readdir } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 const roots = ["blog", "docs", "src", "static"];
-const blockedExtensions = new Set([".heic", ".heif", ".icns", ".jxl"]);
+const blockedExtensions = new Set([".avif", ".heic", ".heif", ".icns", ".jxl"]);
+const blockedBrands = new Set([
+  "avif",
+  "avis",
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "heim",
+  "heis",
+  "mif1",
+  "msf1",
+]);
 const blockedFiles = [];
 
 async function blockedSignature(path) {
   const handle = await open(path, "r");
   try {
-    const header = Buffer.alloc(32);
+    const header = Buffer.alloc(4096);
     const { bytesRead } = await handle.read(header, 0, header.length, 0);
     const bytes = header.subarray(0, bytesRead);
 
@@ -21,14 +33,19 @@ async function blockedSignature(path) {
     ) {
       return "JPEG XL";
     }
-    if (bytes.length >= 12 && bytes.subarray(4, 8).toString("ascii") === "ftyp") {
-      const brand = bytes.subarray(8, 12).toString("ascii");
-      if (
-        new Set(["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"]).has(
-          brand,
-        )
-      ) {
-        return "HEIF";
+    const ftyp = bytes.indexOf(Buffer.from("ftyp"));
+    if (ftyp >= 4) {
+      const boxStart = ftyp - 4;
+      const boxSize = bytes.readUInt32BE(boxStart);
+      const boxEnd = Math.min(bytes.length, boxStart + boxSize);
+      const brands = [];
+      for (let offset = ftyp + 4; offset + 4 <= boxEnd; offset += 4) {
+        if (offset !== ftyp + 8) {
+          brands.push(bytes.subarray(offset, offset + 4).toString("ascii"));
+        }
+      }
+      if (brands.some((brand) => blockedBrands.has(brand))) {
+        return "HEIF/AVIF";
       }
     }
     return null;

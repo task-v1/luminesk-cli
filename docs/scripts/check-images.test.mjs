@@ -40,7 +40,10 @@ test("rejects blocked extensions and disguised signatures", async () => {
     "static/extension.heic": Buffer.from("safe"),
     "static/disguised-icns.png": Buffer.from("icnspayload"),
     "static/disguised-jxl.png": Buffer.from([0xff, 0x0a, 0x00]),
-    "static/disguised-heif.png": Buffer.from("000000186674797068656963", "hex"),
+    "static/disguised-heif.png": Buffer.from(
+      "000000186674797069736f6d0000000068656963",
+      "hex",
+    ),
   });
   try {
     const result = run(root);
@@ -48,7 +51,7 @@ test("rejects blocked extensions and disguised signatures", async () => {
     assert.match(result.stderr, /extension\.heic/);
     assert.match(result.stderr, /disguised-icns\.png \(ICNS\)/);
     assert.match(result.stderr, /disguised-jxl\.png \(JPEG XL\)/);
-    assert.match(result.stderr, /disguised-heif\.png \(HEIF\)/);
+    assert.match(result.stderr, /disguised-heif\.png \(HEIF\/AVIF\)/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
