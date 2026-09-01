@@ -536,11 +536,15 @@ def _package_files(
             raise SecurityError("package payload contains too many files")
 
         relative = path.relative_to(payload).as_posix()
-        mode = mode_overrides.get(relative, stat.S_IMODE(path.stat().st_mode))
+        if relative in mode_overrides:
+            mode = mode_overrides[relative]
+        elif path.is_dir():
+            mode = 0o755
+        elif _is_declared_executable(relative, manifest):
+            mode = 0o755
+        else:
+            mode = 0o644
         owner = ownership.get(relative, "managed")
-
-        if _is_declared_executable(relative, manifest):
-            mode |= stat.S_IXUSR
 
         if owner not in {"managed", "preserve", "generated", "data"}:
             raise ValidationError(f"invalid ownership mode for {relative}")

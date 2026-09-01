@@ -101,3 +101,23 @@ def test_secret_mode_override_is_independent_of_host_permissions(
     )
 
     assert files[0].mode == 0o600
+
+
+def test_package_modes_are_independent_of_host_permissions(tmp_path: Path) -> None:
+    payload = tmp_path / "payload"
+    directory = payload / "data"
+    directory.mkdir(parents=True)
+    public = directory / "public.txt"
+    public.write_text("public value", encoding="utf-8")
+    public.chmod(0o666)
+    directory.chmod(0o777)
+
+    files = _package_files(
+        payload,
+        {"data": "data", "data/public.txt": "data"},
+        parse_manifest(MANIFEST),
+        {},
+    )
+    modes = {item.path: item.mode for item in files}
+
+    assert modes == {"data": 0o755, "data/public.txt": 0o644}
