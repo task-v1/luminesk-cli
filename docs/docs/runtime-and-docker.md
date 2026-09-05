@@ -4,7 +4,7 @@ sidebar_position: 9
 
 # Runtime and Docker
 
-Docker is the only runtime driver in Luminesk 2.0. The lockfile must contain a full
+Docker is the only runtime driver in Luminesk. The lockfile must contain a full
 `repository@sha256:...` image reference; a tag alone is never accepted at apply
 or start time.
 

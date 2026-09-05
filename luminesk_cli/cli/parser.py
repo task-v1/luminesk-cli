@@ -51,7 +51,7 @@ def _input_options(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nesk",
-        description="Luminesk 2.0 server and server-template composer.",
+        description="Luminesk server and server-template composer.",
     )
     parser.add_argument("--version", "-v", action="store_true", help="Show version.")
     commands = parser.add_subparsers(dest="command", required=False)
