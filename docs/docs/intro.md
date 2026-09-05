@@ -3,21 +3,35 @@ sidebar_position: 1
 slug: /
 ---
 
-# Luminesk-CLI 2.0
+# Introduction
 
-Luminesk composes Minecraft server instances from declarative recipes. A
-recipe declares sources, generated and preserved files, a Docker runtime,
-readiness checks, and update policy. Luminesk resolves mutable inputs into an
-immutable lockfile, builds a verified package, and applies changes through a
-transaction.
+Luminesk-CLI is a reproducible composer and lifecycle manager for Minecraft
+Java and Bedrock servers. Its command is `nesk`. Instead of an opaque install
+script, Luminesk starts from a declarative recipe, resolves its mutable inputs,
+builds a verified package, installs it transactionally, and runs the resulting
+server in Docker.
 
-Luminesk 2.0 is a clean format boundary. It accepts only the current
-`luminesk.toml`, `luminesk.lock`, `.lumineskpkg`, and instance-state contracts and
-does not convert earlier installations.
+The main concepts are:
 
-Operators coming from 1.x must use the documented
-[side-by-side migration](/docs/migrating-to-2.0); do not point 2.0 at an old
-instance directory.
+- **Recipe** — a directory whose `luminesk.toml` describes package metadata,
+  artifact sources, files and templates, inputs, ownership, Docker runtime,
+  health checks, and update policy. A core recipe installs a runnable server;
+  a template recipe is the same public package kind for reusable compositions.
+- **Instance** — one installed server directory. It contains the files used by
+  the server plus the manifest, lockfile, and `.luminesk_cli/` state needed to
+  operate and update it safely.
+- **Package** — a deterministic `.lumineskpkg` archive built from one recipe and
+  one lock. It is the verified transaction boundary applied to an instance.
+- **Lockfile** — `luminesk.lock`, canonical JSON that binds the manifest to a
+  platform, exact source hashes and URLs, an OCI image digest, and the exact
+  recipe revision when applicable.
+- **Docker runtime** — the locked image, explicit argv command, mounts, ports,
+  resource policy, and readiness checks used by `nesk start`.
+
+This separation makes installation and update reproducible: mutable provider
+metadata is resolved while creating a lock, artifacts are cached and verified
+by SHA-256, and later application is tied to the same manifest, lock, package,
+and target platform.
 
 ## Design guarantees
 
@@ -26,12 +40,14 @@ instance directory.
 - ZIP, TAR, package, and recipe paths are checked before extraction or writes.
 - Install and update plans distinguish managed, generated, preserved, and data
   files.
-- Failed readiness checks restore the previous known-good instance.
+- Failed readiness checks during an update trigger restoration and restart of
+  the previous instance; rollback failures are reported separately.
 - Runtime commands are argument arrays; recipe-controlled shell evaluation is
   not supported.
 - Automation receives stable JSON and exit codes.
 
 Start with [Installation](/docs/installation), then follow the
-[Quick Start](/docs/quick-start). Recipe authors should read
-[Manifest and Lockfile](/docs/manifest-and-lockfile) and
-[Recipes and Updates](/docs/recipes-and-updates).
+[Quick Start](/docs/quick-start). Recipe authors can continue with
+[Manifest and Lockfile](/docs/manifest-and-lockfile). Operators upgrading an
+old installation should use the separate
+[migration guide from Luminesk 1.x](/docs/migrating-to-2.0).

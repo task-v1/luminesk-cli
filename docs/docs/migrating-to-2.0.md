@@ -2,91 +2,162 @@
 sidebar_position: 3
 ---
 
-# Migrating from 1.x to 2.0
+# Migrating from Luminesk 1.x
 
-Luminesk 2.0 is a clean format boundary. It does not read or convert the 1.x
-configuration, registry, server metadata, or instance layout. Migration is a
-side-by-side reinstall followed by an explicit copy of user-owned server data.
-There is no supported in-place upgrade.
+Luminesk 2.0 introduced a clean compatibility boundary for recipes, locks,
+instance state, ownership, and transactions. The current CLI therefore does not
+read or convert a 1.x configuration, registry, server metadata, or instance
+layout. Migration is a side-by-side install followed by an explicit copy of
+user-owned server data. There is no supported in-place upgrade.
 
-## Before you begin
+## Plan the cutover
 
-Keep the 1.x executable or environment until the migration is verified. Record
-the old instance path, server ports, core/version, runtime settings, and any
-plugins or extensions. Make sure you know which paths contain worlds, player
-data, allowlists, permissions, plugin data, and operator-edited configuration.
+Keep the 1.x executable or environment and the untouched old instance until the
+new deployment is accepted. Record:
 
-Stop the old server with the 1.x client and take a complete offline backup. For
-example on Linux or macOS:
+- old instance path and the command used to manage it;
+- server implementation and exact version;
+- ports, memory, container or Java settings;
+- worlds, player data, allowlists, permissions, plugins, and plugin data;
+- operator-edited configuration and secrets;
+- file ownership and the backup/restore procedure.
+
+Check the server implementation's own upgrade notes. World, plugin, or
+configuration formats may require intermediate server versions; Luminesk cannot
+make incompatible application data compatible.
+
+## Stop and back up 1.x
+
+Stop the server with the 1.x client or its existing service workflow. If your
+old tag and command support this syntax, for example:
 
 ```bash
 nesk stop OLD_TAG
+```
+
+Take a complete **offline** snapshot of the old instance. On Linux or macOS an
+operator might use:
+
+```bash
 cp -a /srv/minecraft/old-instance /srv/backups/old-instance-1.x
 ```
 
-Use your platform's equivalent copy or snapshot mechanism. Verify that the
-backup can be read before continuing. Do not delete or modify the original 1.x
-instance during migration.
+Use the equivalent snapshot or backup system for your platform. Verify that the
+backup can be listed and restored. Do not delete or modify the original 1.x
+instance during the migration.
 
-## Install a fresh 2.0 instance
+## Install the current CLI
 
-Install Luminesk 2.0, check the environment, and select a reviewed 2.0 recipe
-that matches the old server implementation:
+Retain a callable copy of the 1.x environment for rollback, then follow the
+normal [Installation](./installation.md) instructions. If uv already manages the
+old package in the same tool slot, replace it without pinning an obsolete
+release:
 
 ```bash
-uv tool install --force luminesk-cli==2.0.0
+uv tool install --force luminesk-cli
+nesk --version
 nesk doctor
+docker version
+```
+
+Normal installation always selects the current stable release. Do not add an
+artificial `==2.0.0` pin: it would freeze the migration environment on the first
+release of the format boundary rather than the supported current CLI.
+
+## Select and review a current recipe
+
+Find a recipe that matches the old server implementation and intended version:
+
+```bash
 nesk catalog update
-nesk search
+nesk search QUERY
 nesk info RECIPE
-nesk install RECIPE --dir /srv/minecraft/new-instance --dry-run
+```
+
+Review its sources, image, build code, inputs, mounts, ports, ownership rules,
+checks, and update backups. If no suitable recipe exists, create and test one;
+do not approximate a different server implementation just to complete the
+migration.
+
+## Install beside the old instance
+
+Use a new empty destination, supply required inputs, and inspect the plan before
+approval:
+
+```bash
+nesk install RECIPE --dir /srv/minecraft/new-instance --dry-run --yes
 nesk install RECIPE --dir /srv/minecraft/new-instance --yes
 ```
 
-The new target must be empty. Never use the old instance directory as the
-installation target, and do not copy 1.x Luminesk metadata into the new
-instance.
+`--yes` is needed here because even a dry-run of a remote recipe crosses the
+recipe trust boundary. Never choose the old 1.x directory as the target. Do not
+copy 1.x control metadata into the new directory.
 
-## Move only user-owned data
+## Copy only user-owned server data
 
-Read the selected recipe's ownership and `[update].backup` declarations. Copy
-only paths classified as `data` or `preserve`, such as worlds and explicitly
-supported plugin or configuration directories. Do not copy these 1.x control
-files into the new instance:
+Keep both servers stopped. Read the new recipe's ownership declarations and
+`[update].backup` globs. Copy only paths classified as `data` or `preserve`, and
+only when the server implementation documents them as portable. Typical
+candidates are worlds, player data, allowlists, operator lists, supported plugin
+directories, and explicitly operator-owned configuration.
 
-- Luminesk configuration, registry, state, lock, cache, or transaction files;
-- generated launch scripts or runtime metadata;
-- managed core binaries that the 2.0 recipe resolves itself;
-- an entire old instance over the fresh 2.0 directory.
+Do **not** copy:
 
-If the server implementation has its own version-specific world or plugin
-migration procedure, follow that procedure before starting it under 2.0. A
-Luminesk backup cannot make incompatible server data formats compatible.
+- the 1.x registry, configuration, state, lock, cache, or transaction files;
+- the old generated launch scripts or runtime metadata;
+- managed server binaries that the current recipe resolves itself;
+- an entire old instance over the fresh current instance;
+- plugins or configuration known to be incompatible with the selected server
+  version.
 
-## Validate and cut over
+Preserve numeric ownership and permissions deliberately when the container uses
+`runtime.run_as`. After copying, confirm the container user can read and write
+the declared data mounts without making them broadly world-writable.
 
-Validate the local contract before starting, then check readiness and logs:
+## Validate before cutover
+
+First validate the installed contract while stopped:
 
 ```bash
 nesk validate --dir /srv/minecraft/new-instance --instance
+nesk diff --dir /srv/minecraft/new-instance
+```
+
+Then start and evaluate readiness:
+
+```bash
 nesk start --dir /srv/minecraft/new-instance
 nesk status --dir /srv/minecraft/new-instance
 nesk validate --dir /srv/minecraft/new-instance --readiness
 nesk logs --dir /srv/minecraft/new-instance
 ```
 
-Confirm that worlds, permissions, plugins, ports, mounts, and backups behave as
-expected. Keep the old server stopped while the new instance uses the same
-ports. After acceptance, retain the offline 1.x backup according to your normal
-retention policy.
+Keep the old server stopped when both deployments use the same host ports.
+Verify worlds, player access, permissions, plugins, network exposure, saves,
+stop/start behavior, and a real backup/restore drill. Acceptance should include
+application-level checks, not just a running container.
 
-## Roll back
+## Cut over and observe
 
-If validation fails, stop the 2.0 instance and use the retained 1.x executable
-to restart the untouched old instance or its verified backup. Do not try to
-open a partially migrated 2.0 directory with the 1.x client. Investigate the
-data copy or recipe mismatch, recreate a fresh 2.0 target, and repeat the
-migration.
+Switch clients, DNS, proxying, or firewall rules only after acceptance. Retain
+the offline 1.x backup and old management environment according to a defined
+rollback window. Monitor runtime logs, storage growth, memory use, save behavior,
+and backup jobs through the first normal workload cycle.
 
-`nesk import` is only for rebuilding the 2.0 global index from valid 2.0 local
-state. It is not a 1.x conversion command.
+## Roll back safely
+
+If acceptance fails:
+
+1. Stop the new instance.
+2. Reverse any external routing change.
+3. Restart the untouched old instance with the retained 1.x environment, or
+   restore its verified offline backup.
+4. Diagnose recipe, version, permission, or data-copy incompatibility.
+5. Recreate a fresh current target and repeat the migration.
+
+Do not open a partially migrated current directory with the 1.x client, and do
+not copy data written by a newer incompatible server back into the old instance
+without the server implementation's documented downgrade procedure.
+
+`nesk import` is not a migration command. It only rebuilds the global index from
+directories that already contain valid current Luminesk local state.

@@ -8,7 +8,7 @@
   <p><strong>A reproducible composer for Minecraft Java and Bedrock server instances</strong></p>
 
   <p>
-    <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=2.0&label=CI"></a>
+    <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=main&label=CI"></a>
     <a href="https://github.com/task-v1/luminesk-cli/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/task-v1/luminesk-cli"></a>
     <a href="https://pypi.org/project/luminesk-cli/"><img alt="PyPI Version" src="https://img.shields.io/pypi/v/luminesk-cli"></a>
     <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/task-v1/luminesk-cli"></a>
@@ -16,19 +16,14 @@
   </p>
 </div>
 
-## Luminesk 2.0
+## Luminesk-CLI
 
 Luminesk-CLI (`nesk`) turns a declarative `luminesk.toml` recipe into a locked,
 verified `.lumineskpkg`, applies it transactionally, and runs the instance in Docker.
-Luminesk 2.0 accepts only its current recipe, lockfile, package, and instance formats;
-it does not read or convert earlier installations.
-
-Upgrading from 1.x requires a fresh side-by-side instance. Follow the
-[2.0 migration guide](https://github.com/task-v1/luminesk-cli/blob/2.0/docs/docs/migrating-to-2.0.md)
-before moving server data. See the
-[2.0.0 release notes](https://github.com/task-v1/luminesk-cli/blob/2.0/RELEASE_NOTES.md)
-for the release boundary and
-verification summary.
+Recipes can describe Java or Bedrock server cores, configuration templates,
+download sources, ownership rules, checks, and a Docker runtime. An installed
+instance keeps the reviewed recipe, its exact lock, user data, and Luminesk's
+transaction state together.
 
 The important properties are:
 
@@ -52,6 +47,9 @@ nesk doctor
 nesk catalog update
 ```
 
+With pipx, use `pipx install luminesk-cli`. Upgrade through the same tool manager
+that installed the CLI.
+
 Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
 
@@ -60,17 +58,19 @@ Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 ```bash
 # Inspect recipes before trusting one.
 nesk search
-nesk info lumi
+nesk info paper
 
-# Preview, confirm, and install the inspected official recipe.
-nesk install lumi --dir ./servers/example --dry-run
-nesk install lumi --dir ./servers/example --yes
+# Preview, confirm, and install the inspected PaperMC recipe.
+nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
+nesk install paper --dir ./servers/example --set eula=true --yes
 
 # Operate and update the instance.
 nesk start --dir ./servers/example
 nesk status --dir ./servers/example
 nesk logs --dir ./servers/example
+nesk stop --dir ./servers/example
 nesk outdated --dir ./servers/example
+nesk diff --dir ./servers/example
 nesk update --dir ./servers/example --dry-run
 ```
 
@@ -86,6 +86,11 @@ nesk plan --dir ./recipe
 See the [documentation](https://luminesk.taskov1ch.xyz), especially the
 [command reference](https://luminesk.taskov1ch.xyz/docs/command-reference) and
 [trust model](https://luminesk.taskov1ch.xyz/docs/recipes-and-updates).
+Users of Luminesk 1.x should follow the
+[side-by-side migration guide](https://luminesk.taskov1ch.xyz/docs/migrating-to-2.0);
+the old and current instance formats are not interchangeable. Release-specific
+changes remain in the
+[release notes](https://github.com/task-v1/luminesk-cli/blob/main/RELEASE_NOTES.md).
 
 ## Development
 
@@ -97,11 +102,11 @@ uv run pytest
 ```
 
 See
-[CONTRIBUTING.md](https://github.com/task-v1/luminesk-cli/blob/2.0/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/task-v1/luminesk-cli/blob/main/CONTRIBUTING.md).
 Recipe trust, tested backups, and
 workload-specific validation remain the operator's responsibility.
 
 ## License
 
 GPL-3.0-or-later. See
-[LICENSE](https://github.com/task-v1/luminesk-cli/blob/2.0/LICENSE).
+[LICENSE](https://github.com/task-v1/luminesk-cli/blob/main/LICENSE).

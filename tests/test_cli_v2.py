@@ -6,10 +6,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
 from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.domain.plan import Plan
+from luminesk_cli.domain.preview import Preview
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 
 
@@ -32,12 +35,54 @@ def test_version_cold_path_does_not_import_heavy_dependencies() -> None:
     assert result.stdout == "Luminesk 2.0.0\n\n"
 
 
-def test_doctor_reports_only_runtime_dependency(capsys) -> None:
+def test_doctor_reports_healthy_cli_and_daemon(monkeypatch, capsys) -> None:
+    from luminesk_cli.cli.commands import doctor
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: "/usr/bin/docker")
+    monkeypatch.setattr(
+        doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, '{"Client":{"Version":"28.0"}}\n', ""
+        ),
+    )
     assert main(["doctor", "--json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
 
     assert [item["component"] for item in payload["checks"]] == ["docker"]
+    assert payload["checks"][0]["daemonReachable"] is True
+
+
+def test_doctor_fails_when_docker_is_unavailable(monkeypatch, capsys) -> None:
+    from luminesk_cli.cli.commands import doctor
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: None)
+
+    assert main(["doctor", "--json"]) == 8
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "runtime"
+    assert payload["error"]["details"]["checks"][0]["available"] is False
+
+
+def test_human_errors_are_written_to_stderr(tmp_path: Path, capsys) -> None:
+    assert main(["validate", "--dir", str(tmp_path)]) == 3
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "error [validation]" in captured.err
+
+
+def test_parser_usage_errors_honor_json(capsys) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["search", "--unknown-option", "--json"])
+
+    assert raised.value.code == 2
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert captured.err == ""
+    assert payload["error"]["code"] == "usage"
+    assert "usage:" in payload["error"]["details"]["usage"]
 
 
 def test_local_cli_install_emits_json_and_writes_instance(
@@ -76,6 +121,11 @@ command = ["java", "-jar", "server.jar"]
     assert exit_code == 0
     assert payload["ok"] is True
     assert payload["dryRun"] is False
+    assert payload["preview"]["trust"]["classification"] == "local"
+    assert payload["preview"]["capabilities"]["runtime"]["image"].startswith(
+        "fixture/server@sha256:"
+    )
+    assert payload["preview"]["plan"]["changes"] == payload["changes"]
     assert (root / "server.jar").read_bytes() == b"server"
     assert (root / ".luminesk_cli/state.json").is_file()
     lock = json.loads((root / "luminesk.lock").read_text(encoding="utf-8"))
@@ -160,6 +210,20 @@ command = ["server"]
         ref="main",
         tracking=True,
     )
+    preview = Preview.for_install(snapshot, lockfile, Plan("install", "target", ()))
+    rendered_preview = preview.to_text()
+    for section in (
+        "Trust:",
+        "Manifest digest:",
+        "Resolved artifacts:",
+        "Runtime command:",
+        "Mounts:",
+        "Ports:",
+        "Ownership preserve:",
+        "Checks:",
+        "Changes (0):",
+    ):
+        assert section in rendered_preview
     events: list[str] = []
     monkeypatch.setattr(
         install_command,

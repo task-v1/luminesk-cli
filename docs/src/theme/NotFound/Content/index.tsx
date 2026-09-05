@@ -7,10 +7,10 @@ import type { Props } from '@theme/NotFound/Content';
 import styles from './styles.module.css';
 
 const LOG_DATA = [
-  '[Luminesk-CLI] Luminesk 2.0 runtime starting...',
+  '[Luminesk-CLI] Luminesk runtime starting...',
   '[Luminesk-CLI] Loading configuration: /etc/luminesk/daemon.json',
   '[Luminesk-CLI] MCBE Server bridge listening on 0.0.0.0:19132',
-  '[Luminesk-CLI] Connection established with Nukkit runtime',
+  '[Luminesk-CLI] Connection established with server runtime',
   '[Luminesk-CLI] INFO: Thread pool size dynamically calibrated to 16 threads',
   '[Luminesk-CLI] WARNING: High packet latency detected on route PEER_0',
   '[Luminesk-CLI] CRITICAL: NullPointerException in com.luminesk_cli.bridge.RouteManager.route()',

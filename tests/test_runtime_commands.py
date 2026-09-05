@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from luminesk_cli.cli.commands import runtime as runtime_commands
-from luminesk_cli.domain.errors import ValidationError
+from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 
 
 class FakeRuntime:
@@ -91,10 +91,12 @@ def test_runtime_command_handlers_delegate_and_emit(
     assert runtime_commands.restart(namespace) == 0
     assert runtime_commands.status(namespace) == 0
     assert runtime_commands.logs(namespace) == 0
-    assert runtime_commands.attach(namespace) == 9
+    with pytest.raises(RuntimeOperationError, match="attach"):
+        runtime_commands.attach(namespace)
 
     fake.logs_result = 7
-    assert runtime_commands.logs(namespace) == 7
+    with pytest.raises(RuntimeOperationError, match="stream"):
+        runtime_commands.logs(namespace)
     assert fake.calls[0] == (
         "start",
         (

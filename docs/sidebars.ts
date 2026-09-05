@@ -4,7 +4,6 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'getting-started',
-    'migrating-to-2.0',
     'installation',
     'quick-start',
     {
@@ -15,17 +14,34 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Operations',
-      items: ['recipes-and-updates', 'server-lifecycle', 'runtime-and-docker'],
+      items: [
+        'server-lifecycle',
+        'updating-instances',
+        'runtime-and-docker',
+      ],
     },
     {
       type: 'category',
-      label: 'Contracts',
-      items: ['manifest-and-lockfile'],
+      label: 'Recipes',
+      items: [
+        'creating-a-recipe',
+        'manifest-reference',
+        'sources',
+        'templates-and-inputs',
+        'ownership',
+        'checks',
+        'manifest-and-lockfile',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Reproducibility',
+      items: ['lockfile-and-packages', 'recipes-and-updates'],
     },
     {
       type: 'category',
       label: 'Support',
-      items: ['troubleshooting', 'faq'],
+      items: ['troubleshooting', 'faq', 'migrating-to-2.0'],
     },
     {
       type: 'category',

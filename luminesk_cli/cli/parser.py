@@ -3,13 +3,44 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from dataclasses import dataclass
+from typing import NoReturn
 
 
 @dataclass(slots=True, frozen=True)
 class ParsedCommand:
     handler: str
     namespace: argparse.Namespace
+
+
+class LumineskArgumentParser(argparse.ArgumentParser):
+    """Argument parser with the same stable JSON error envelope as commands."""
+
+    json_errors = False
+
+    def error(self, message: str) -> NoReturn:
+        usage = self.format_usage().strip()
+        if self.json_errors:
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": {
+                            "code": "usage",
+                            "message": message,
+                            "details": {"usage": usage},
+                        },
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+        else:
+            self.print_usage(sys.stderr)
+            print(f"{self.prog}: error: {message}", file=sys.stderr)
+        self.exit(2)
 
 
 def _automation_options(parser: argparse.ArgumentParser) -> None:
@@ -49,9 +80,9 @@ def _input_options(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = LumineskArgumentParser(
         prog="nesk",
-        description="Luminesk 2.0 server and server-template composer.",
+        description="Luminesk server and server-template composer.",
     )
     parser.add_argument("--version", "-v", action="store_true", help="Show version.")
     commands = parser.add_subparsers(dest="command", required=False)
@@ -173,7 +204,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     search.add_argument("query", nargs="?")
     search.add_argument("--type", choices=["core", "template"], default=None)
-    search.add_argument("--edition", choices=["java", "bedrock"], default=None)
+    search.add_argument(
+        "--edition", choices=["java", "bedrock", "cross-platform"], default=None
+    )
+    search.add_argument(
+        "--limit", type=int, default=50, help="Maximum results to return (default: 50)."
+    )
+    search.add_argument("--all", action="store_true", help="Return every match.")
     _automation_options(search)
     search.set_defaults(handler="luminesk_cli.cli.commands.catalog:search")
 
@@ -260,6 +297,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def parse_command(argv: list[str]) -> ParsedCommand:
     parser = build_parser()
+    _set_json_errors(parser, "--json" in argv)
     namespace = parser.parse_args(argv)
 
     if namespace.version:
@@ -274,3 +312,12 @@ def parse_command(argv: list[str]) -> ParsedCommand:
         return ParsedCommand("luminesk_cli.cli.commands.noop:run", namespace)
 
     return ParsedCommand(handler=handler, namespace=namespace)
+
+
+def _set_json_errors(parser: argparse.ArgumentParser, enabled: bool) -> None:
+    if isinstance(parser, LumineskArgumentParser):
+        parser.json_errors = enabled
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for child in set(action.choices.values()):
+                _set_json_errors(child, enabled)

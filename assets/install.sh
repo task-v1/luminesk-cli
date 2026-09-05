@@ -83,7 +83,6 @@ case "$ARCH" in
 esac
 
 BINARY_NAME="luminesk_cli-$OS-$ARCH"
-DOWNLOAD_URL="https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 INSTALL_DIR="/usr/local/bin"
 USE_SUDO=""
@@ -197,24 +196,41 @@ if [ -n "$EXISTING_BIN" ]; then
 fi
 
 REMOTE_VER=""
+REMOTE_TAG=""
 RELEASE_JSON=""
 
 if command -v curl >/dev/null 2>&1; then
-    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest")
+    if ! RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest"); then
+        echo "${COLOR_PRIMARY}Error: Could not fetch signed release metadata.${COLOR_RESET}" >&2
+        exit 1
+    fi
 elif command -v wget >/dev/null 2>&1; then
-    RELEASE_JSON=$(wget -qO- "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest")
+    if ! RELEASE_JSON=$(wget -qO- "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest"); then
+        echo "${COLOR_PRIMARY}Error: Could not fetch signed release metadata.${COLOR_RESET}" >&2
+        exit 1
+    fi
+else
+    echo "${COLOR_PRIMARY}Error: curl or wget is required.${COLOR_RESET}" >&2
+    exit 1
 fi
 
 if [ -n "$RELEASE_JSON" ]; then
-    REMOTE_VER=$(echo "$RELEASE_JSON" | grep '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/' | head -n1)
+    REMOTE_TAG=$(printf '%s\n' "$RELEASE_JSON" | grep '"tag_name"' | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' | head -n1)
 fi
+
+if ! printf '%s\n' "$REMOTE_TAG" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[1-9][0-9]*)?$'; then
+    echo "${COLOR_PRIMARY}Error: Release metadata has no valid version tag.${COLOR_RESET}" >&2
+    exit 1
+fi
+REMOTE_VER=${REMOTE_TAG#v}
+DOWNLOAD_URL="https://github.com/task-v1/luminesk-cli/releases/download/$REMOTE_TAG/$BINARY_NAME"
 
 EXPECTED_SHA=""
 if [ -n "$RELEASE_JSON" ]; then
     EXPECTED_SHA=$(echo "$RELEASE_JSON" | awk -v binary="$BINARY_NAME" '
         BEGIN { found=0 }
         {
-            if ($0 ~ "\"name\"" && $0 ~ binary) {
+            if ($0 ~ "\"name\"[ \\t]*:[ \\t]*\"" binary "\"") {
                 found = 1
             }
             if (found && $0 ~ "\"digest\"") {
@@ -230,6 +246,11 @@ if [ -n "$RELEASE_JSON" ]; then
             }
         }
     ')
+fi
+
+if ! printf '%s\n' "$EXPECTED_SHA" | grep -Eq '^[0-9a-f]{64}$'; then
+    echo "${COLOR_PRIMARY}Error: Release asset has no valid SHA-256 digest.${COLOR_RESET}" >&2
+    exit 1
 fi
 
 NEEDS_UPDATE=false
@@ -322,27 +343,23 @@ if command -v file >/dev/null 2>&1; then
     esac
 fi
 
-if [ -n "$EXPECTED_SHA" ]; then
-    echo "Verifying checksum..."
-    ACTUAL_SHA=""
-    if command -v sha256sum >/dev/null 2>&1; then
-        ACTUAL_SHA=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
-    elif command -v shasum >/dev/null 2>&1; then
-        ACTUAL_SHA=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
-    fi
-
-    if [ -n "$ACTUAL_SHA" ]; then
-        if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
-            echo "${COLOR_PRIMARY}Error: Checksum verification failed.${COLOR_RESET}" >&2
-            echo "Expected: $EXPECTED_SHA" >&2
-            echo "Actual:   $ACTUAL_SHA" >&2
-            exit 1
-        fi
-        echo "${COLOR_SUCCESS}Checksum verified successfully.${COLOR_RESET}"
-    else
-        echo "${COLOR_WARNING}Warning: Could not verify checksum (sha256sum/shasum not found).${COLOR_RESET}"
-    fi
+echo "Verifying checksum..."
+if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_SHA=$(sha256sum "$TEMP_FILE" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+    ACTUAL_SHA=$(shasum -a 256 "$TEMP_FILE" | awk '{print $1}')
+else
+    echo "${COLOR_PRIMARY}Error: sha256sum or shasum is required.${COLOR_RESET}" >&2
+    exit 1
 fi
+
+if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+    echo "${COLOR_PRIMARY}Error: Checksum verification failed.${COLOR_RESET}" >&2
+    echo "Expected: $EXPECTED_SHA" >&2
+    echo "Actual:   $ACTUAL_SHA" >&2
+    exit 1
+fi
+echo "${COLOR_SUCCESS}Checksum verified successfully.${COLOR_RESET}"
 
 echo "Moving binary to target directory..."
 $USE_SUDO mv "$TEMP_FILE" "$TARGET_PATH"
@@ -377,9 +394,8 @@ esac
 if [ "$OS" = "linux" ]; then
     echo ""
     echo "${COLOR_BOLD}💡 Tip on Docker File Permissions:${COLOR_RESET}"
-    echo "Since Luminesk runs servers in Docker containers, files created by the server"
-    echo "inside the container may be owned by root on the host machine. If you encounter"
-    echo "'Permission Denied' errors when modifying server files, you can restore ownership by running:"
-    echo "  ${COLOR_SECONDARY}sudo chown -R \$USER:\$USER /path/to/server/directory${COLOR_RESET}"
+    echo "Official recipes run with configurable runtime_uid/runtime_gid inputs."
+    echo "If your host account is not UID/GID 1000, pass your identity during installation:"
+    echo "  ${COLOR_SECONDARY}nesk i NAME --set runtime_uid=\$(id -u) --set runtime_gid=\$(id -g)${COLOR_RESET}"
     echo ""
 fi

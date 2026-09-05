@@ -50,6 +50,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -59,6 +60,14 @@ jobs:
 
       - name: Match tag, package metadata, and runtime constant
         run: python scripts/check_release_version.py "${RELEASE_TAG}"
+
+      - name: Require candidate to come from the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git fetch origin "${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          python scripts/check_release_source.py --default-branch "${DEFAULT_BRANCH}"
 
   python-artifacts:
     name: Build wheel and source distribution
@@ -213,10 +222,47 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  verify-release-assets:
+    name: Verify complete release asset contract
+    needs: [python-artifacts, bundles]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download every release artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Download runtime SBOM
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: python-runtime-sbom
+          path: release-assets
+
+      - name: Generate and verify release checksums
+        shell: bash
+        run: |
+          (cd release-assets && sha256sum * > SHA256SUMS)
+          python scripts/verify_release_assets.py release-assets
+
+      - name: Upload verified release asset set
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: verified-release-assets
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
   publish-pypi:
     name: Publish to PyPI
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [python-artifacts, bundles]
+    needs: [python-artifacts, bundles, verify-release-assets]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -243,24 +289,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download every release artifact
+      - name: Download verified release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
+          name: verified-release-assets
           path: release-assets
-          pattern: release-*
-          merge-multiple: true
-
-      - name: Download runtime SBOM
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: python-runtime-sbom
-          path: release-assets
-
-      - name: Generate release checksums
-        shell: bash
-        run: |
-          cd release-assets
-          sha256sum * > SHA256SUMS
 
       - name: Publish immutable release assets
         env:

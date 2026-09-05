@@ -161,12 +161,22 @@ class DockerRuntime:
         identifier = state.runtime.container_id or _container_name(state)
 
         if follow:
-            follow_result = subprocess.run(
-                ["docker", "logs", "--follow", identifier],
-                check=False,
-                shell=False,
-            )
-            return follow_result.returncode
+            try:
+                follow_result = self._runner(
+                    ["docker", "logs", "--follow", identifier],
+                    check=False,
+                    shell=False,
+                )
+            except OSError as exc:
+                raise RuntimeOperationError(
+                    f"cannot follow Docker logs: {exc}"
+                ) from exc
+            if follow_result.returncode != 0:
+                raise RuntimeOperationError(
+                    "cannot follow Docker logs",
+                    exitCode=follow_result.returncode,
+                )
+            return 0
 
         result = self._run(["docker", "logs", identifier], check=False)
 
@@ -180,12 +190,20 @@ class DockerRuntime:
     def attach(self, root: Path) -> int:
         state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
-        result = subprocess.run(
-            ["docker", "attach", "--sig-proxy=true", identifier],
-            check=False,
-            shell=False,
-        )
-        return result.returncode
+        try:
+            result = self._runner(
+                ["docker", "attach", "--sig-proxy=true", identifier],
+                check=False,
+                shell=False,
+            )
+        except OSError as exc:
+            raise RuntimeOperationError(f"cannot attach to Docker: {exc}") from exc
+        if result.returncode != 0:
+            raise RuntimeOperationError(
+                "Docker attach failed",
+                exitCode=result.returncode,
+            )
+        return 0
 
     def is_running(self, identifier: str) -> bool:
         result = self._run(
@@ -352,7 +370,7 @@ def build_run_argv(
         command.append("--read-only")
 
     if runtime.run_as is not None:
-        command.extend(("--user", runtime.run_as))
+        command.extend(("--user", _interpolate(runtime.run_as, values)))
 
     restart = runtime.restart
 

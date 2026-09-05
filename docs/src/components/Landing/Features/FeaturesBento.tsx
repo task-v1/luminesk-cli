@@ -35,7 +35,7 @@ const featuresData = [
     spanClass: styles.span2,
     icon: <MultiEngineIcon />,
     title: 'Declarative Recipes',
-    desc: 'Compose Nukkit, PowerNukkitX, Nukkit-MOT, Lumi, and other engines through one strict manifest, lockfile, and automation-friendly CLI.',
+    desc: 'Describe server software through one strict manifest, lockfile, ownership model, and automation-friendly CLI.',
   }
 ];
 

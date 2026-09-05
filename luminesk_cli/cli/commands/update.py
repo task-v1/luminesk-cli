@@ -289,7 +289,7 @@ def _installed_recipe(
 ) -> RecipeSnapshot:
     if lockfile.recipe is None:
         raise ValidationError(
-            "instance lock has no recipe origin; reinstall it with Luminesk 2.0"
+            "instance lock has no recipe origin; reinstall it with current Luminesk"
         )
     origin = _origin(lockfile.recipe)
     canonical = state_directory(root) / RECIPE_DIRECTORY
@@ -618,7 +618,7 @@ def _recipe_drift(
 def _managed_drift(root: Path) -> list[dict[str, str]]:
     changes = []
     for relative, entry in load_ownership(root).files.items():
-        if entry.digest is None:
+        if entry.mode not in {"managed", "generated"} or entry.digest is None:
             continue
         path = root / relative
         if not path.is_file() or path.is_symlink():

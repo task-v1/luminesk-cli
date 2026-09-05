@@ -2,47 +2,67 @@
 sidebar_position: 7
 ---
 
-# Manifest and Lockfile
+# Recipes, Manifests, and Locks
 
-`luminesk.toml` is the only recipe entrypoint. Unknown keys are errors. The
-declaration `manifest_version = 1` is the current file-format revision used by
-Luminesk 2.0; it is not a product-version marker.
+A recipe is a directory with exactly one entry point named `luminesk.toml`.
+That manifest expresses intent: what the package is, how sources resolve, which
+files are generated or protected, and how the instance runs. Recipe-owned
+template files, declared files, local artifacts, and an optional Dockerfile sit
+beside it.
 
-## Main tables
+Luminesk treats the manifest as a strict public contract. Unknown keys are
+errors. Paths are portable relative POSIX paths unless a field explicitly
+describes a container path. Commands are TOML arrays of arguments; shell
+command strings and host-command permissions do not exist in the schema.
 
-| Section | Declares |
-| --- | --- |
-| `[package]` | Recipe name, version, description, and target platforms. |
-| `[inputs.*]` | Typed string, integer, or boolean rendering inputs. |
-| `[[sources]]` | Provider, version policy, target, size limit, and network policy. |
-| `[[files]]` | Recipe files, destination, ownership, template, and executable bit. |
-| `[build]` | Optional bounded Dockerfile build and its output directory. |
-| `[runtime]` | Docker image, argv command, workdir, limits, user, and restart policy. |
-| `[[runtime.mounts]]` | Instance-relative sources and absolute container targets. |
-| `[[runtime.ports]]` | Named TCP or UDP mappings. |
-| `[[checks]]` | Post-build files/commands and runtime readiness checks. |
-| `[update]` | Backup paths, retention, and rollback policy. |
-| `[permissions]` | Explicit build permission; host commands remain forbidden. |
+```toml
+manifest_version = 1
+```
 
-Paths must be canonical relative POSIX paths and portable across supported
-platforms. Runtime container paths must be absolute. Commands are TOML arrays,
-for example `command = ["java", "-jar", "server.jar"]`; shell strings are not
-accepted.
+`manifest_version` is the version of the manifest file format. It is not the
+Luminesk product version and must remain `1` until a new manifest schema is
+introduced.
 
-Inputs marked `secret = true` may not declare defaults or appear in runtime or
-readiness fields. Supply them with `--set-file KEY=PATH`; Luminesk does not
-persist their values in instance state and writes rendered secret-bearing files
-with owner-only permissions.
+## From recipe to instance
 
-## Lockfile rules
+```text
+recipe directory
+  luminesk.toml + declared assets
+          │ nesk lock / install
+          ▼
+  luminesk.lock + verified content cache
+          │ deterministic package build
+          ▼
+       .lumineskpkg
+          │ transactional apply
+          ▼
+installed instance
+  payload + manifest + lock + .luminesk_cli state
+```
 
-`nesk lock` writes `luminesk.lock` crash-safely. It contains:
+- `luminesk.toml` remains human-authored intent.
+- `luminesk.lock` is generated canonical JSON with exact resolution results.
+- `.lumineskpkg` is a deterministic, independently verified ZIP transaction
+  boundary, normally built in a temporary directory by CLI workflows.
+- An installed instance is mutable operational state. Its ownership ledger
+  separates Luminesk-managed content from user data.
 
-- manifest SHA-256 and target platform;
-- provider, resolved version/revision, URL, size, digest, and target for each
-  source;
-- exact runtime image repository digest;
-- exact Dockerfile base image digests when a build exists;
-- exact recipe commit and tracking policy for remote installs.
+Do not hand-edit `luminesk.lock`, package metadata, or `.luminesk_cli/` state.
+Change the recipe, regenerate resolution, inspect the plan, and apply it.
 
-Do not hand-edit the lockfile. Regenerate it and review the diff.
+## Author workflow
+
+```bash
+nesk init --dir ./my-core --name my-core
+nesk validate --dir ./my-core --static
+nesk lock --dir ./my-core
+nesk plan --dir ./my-core
+```
+
+Resolution and build levels can access providers, the content cache, and
+Docker. A plan builds a temporary package but does not install it. Install a
+local recipe into a separate empty directory before publishing it.
+
+Continue with [Creating a Custom Recipe](/docs/creating-a-recipe) for a
+practical core, and use the complete
+[`luminesk.toml` Reference](/docs/manifest-reference) for every public field.

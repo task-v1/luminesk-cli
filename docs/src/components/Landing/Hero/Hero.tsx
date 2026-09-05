@@ -105,7 +105,7 @@ export default function Hero() {
 
         <div className={styles.revealContent}>
           <p className={styles.heroSubtitle}>
-            Reproducible MCBE servers, from recipe to runtime.
+            Reproducible Minecraft Java and Bedrock servers, from recipe to runtime.
           </p>
 
           <div className={styles.buttonGroup}>

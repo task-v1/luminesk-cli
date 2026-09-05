@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from difflib import get_close_matches
 from typing import Any, Literal, cast
 
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.primitives import (
     PACKAGE_NAME_RE,
+    PLATFORM_RE,
     SEMVER_RE,
     reject_unknown,
     require_array,
@@ -20,6 +22,8 @@ from luminesk_cli.domain.primitives import (
     safe_relative_path,
     sha256_digest,
     validate_digest,
+    validate_https_url,
+    validate_pinned_image,
 )
 
 INDEX_VERSION = 1
@@ -42,6 +46,12 @@ class CatalogEntry:
     path: str
     manifest_digest: str
     template_digest: str | None = None
+    license: str | None = None
+    authors: tuple[str, ...] = ()
+    platforms: tuple[str, ...] = ()
+    repository: str | None = None
+    source_types: tuple[str, ...] = ()
+    runtime_image: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -114,11 +124,26 @@ def _parse_entry(value: Any, index: int) -> CatalogEntry:
         "path",
         "manifestDigest",
         "templateDigest",
+        "license",
+        "authors",
+        "platforms",
+        "repository",
+        "sourceTypes",
+        "runtimeImage",
     }
     reject_unknown(table, allowed, path)
     require_keys(
         table,
-        allowed - {"templateDigest"},
+        allowed
+        - {
+            "templateDigest",
+            "license",
+            "authors",
+            "platforms",
+            "repository",
+            "sourceTypes",
+            "runtimeImage",
+        },
         path,
     )
     name = _identifier(table["name"], f"{path}.name")
@@ -147,6 +172,20 @@ def _parse_entry(value: Any, index: int) -> CatalogEntry:
     if template_digest is not None:
         template_digest = validate_digest(template_digest, f"{path}.templateDigest")
 
+    license_name = _optional_nonempty_string(table, "license", path)
+    repository = _optional_nonempty_string(table, "repository", path)
+    if repository is not None:
+        repository = validate_https_url(repository, f"{path}.repository")
+    runtime_image = _optional_nonempty_string(table, "runtimeImage", path)
+    if runtime_image is not None:
+        runtime_image = validate_pinned_image(runtime_image, f"{path}.runtimeImage")
+    platforms = _optional_string_array(table, "platforms", path)
+    for platform_index, platform in enumerate(platforms):
+        if PLATFORM_RE.fullmatch(platform) is None:
+            raise ValidationError(
+                f"{path}.platforms[{platform_index}] must be os/architecture"
+            )
+
     return CatalogEntry(
         name=name,
         display_name=require_string(table["displayName"], f"{path}.displayName"),
@@ -161,6 +200,29 @@ def _parse_entry(value: Any, index: int) -> CatalogEntry:
             table["manifestDigest"], f"{path}.manifestDigest"
         ),
         template_digest=template_digest,
+        license=license_name,
+        authors=_optional_string_array(table, "authors", path),
+        platforms=platforms,
+        repository=repository,
+        source_types=_optional_string_array(table, "sourceTypes", path),
+        runtime_image=runtime_image,
+    )
+
+
+def _optional_nonempty_string(table: dict[str, Any], key: str, path: str) -> str | None:
+    if key not in table:
+        return None
+    return require_string(table[key], f"{path}.{key}")
+
+
+def _optional_string_array(
+    table: dict[str, Any], key: str, path: str
+) -> tuple[str, ...]:
+    if key not in table:
+        return ()
+    return tuple(
+        require_string(item, f"{path}.{key}[{index}]")
+        for index, item in enumerate(require_array(table[key], f"{path}.{key}"))
     )
 
 
@@ -200,17 +262,59 @@ def search_catalog(
 def _search_score(entry: CatalogEntry, needle: str) -> int | None:
     if not needle:
         return 0
+    tokens = tuple(token for token in needle.split() if token)
+    scores = [_token_score(entry, token) for token in tokens]
+    if any(score is None for score in scores):
+        return None
+    score = sum(cast(int, item) for item in scores)
+    if entry.name.casefold() == needle:
+        score += 100
+    return score
+
+
+def _token_score(entry: CatalogEntry, token: str) -> int | None:
     name = entry.name.casefold()
-    if name == needle:
+    if name == token:
         return 100
-    if name.startswith(needle):
+    if name.startswith(token):
         return 80
-    if needle in name:
+    if token in name:
         return 70
-    if any(keyword.casefold() == needle for keyword in entry.keywords):
+    if any(keyword.casefold() == token for keyword in entry.keywords):
         return 60
-    if needle in entry.display_name.casefold():
+    if token in entry.display_name.casefold():
+        return 50
+    if any(token in value.casefold() for value in entry.source_types):
         return 40
-    if needle in entry.summary.casefold():
+    if any(token in value.casefold() for value in entry.platforms):
+        return 30
+    if token in entry.edition or token in entry.kind:
+        return 25
+    if token in entry.summary.casefold():
         return 20
     return None
+
+
+def suggest_catalog(
+    snapshot: CatalogSnapshot, query: str, *, limit: int = 3
+) -> tuple[str, ...]:
+    """Suggest canonical entry names for a misspelled offline query."""
+
+    needle = query.casefold().strip()
+    if not needle:
+        return ()
+    aliases: dict[str, str] = {}
+    for entry in snapshot.entries:
+        aliases[entry.name.casefold()] = entry.name
+        aliases[entry.display_name.casefold()] = entry.name
+        for keyword in entry.keywords:
+            aliases.setdefault(keyword.casefold(), entry.name)
+    suggestions = get_close_matches(needle, aliases, n=limit * 2, cutoff=0.5)
+    names: list[str] = []
+    for suggestion in suggestions:
+        name = aliases[suggestion]
+        if name not in names:
+            names.append(name)
+        if len(names) == limit:
+            break
+    return tuple(names)

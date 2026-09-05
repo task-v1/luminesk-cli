@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -106,6 +107,15 @@ class CatalogStore:
 
     def verify(self) -> CatalogSnapshot:
         return self.load_active()
+
+    def activated_at(self) -> str:
+        """Return when the active pointer was last atomically selected."""
+
+        try:
+            timestamp = self.active_path.stat().st_mtime
+        except OSError as exc:
+            raise ValidationError("active catalog pointer is unavailable") from exc
+        return datetime.fromtimestamp(timestamp, UTC).isoformat().replace("+00:00", "Z")
 
     def use(self, revision: str) -> CatalogSnapshot:
         if GIT_REVISION_RE.fullmatch(revision) is None:

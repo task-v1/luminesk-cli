@@ -36,6 +36,12 @@ def _entry(**overrides: object) -> dict[str, object]:
         "keywords": ["lumi", "bedrock"],
         "path": "database/lumi",
         "manifestDigest": f"sha256:{'b' * 64}",
+        "license": "LGPL-3.0-only",
+        "authors": ["Luminesk Test"],
+        "platforms": ["linux/amd64", "linux/arm64"],
+        "repository": "https://example.com/lumi",
+        "sourceTypes": ["maven"],
+        "runtimeImage": "example/lumi@sha256:" + "c" * 64,
     }
     value.update(overrides)
     return value
@@ -60,13 +66,15 @@ def test_index_is_strict_and_rejects_duplicate_or_escaping_entries() -> None:
     snapshot = parse_catalog_index(_index(_entry()))
     assert snapshot.revision == REVISION
     assert snapshot.entries[0].edition == "bedrock"
+    assert snapshot.entries[0].license == "LGPL-3.0-only"
+    assert snapshot.entries[0].source_types == ("maven",)
 
     with pytest.raises(ValidationError, match="duplicate"):
         parse_catalog_index(_index(_entry(), _entry()))
     with pytest.raises(ValidationError, match="path"):
         parse_catalog_index(_index(_entry(path="../lumi")))
     with pytest.raises(ValidationError, match="unknown key"):
-        parse_catalog_index(_index(_entry(repository="https://attacker.example")))
+        parse_catalog_index(_index(_entry(unexpected="value")))
 
 
 def test_search_ranking_and_filters_are_deterministic() -> None:
@@ -84,6 +92,9 @@ def test_search_ranking_and_filters_are_deterministic() -> None:
     snapshot = parse_catalog_index(content)
 
     assert [entry.name for entry in search_catalog(snapshot, "paper")] == ["paper"]
+    assert [entry.name for entry in search_catalog(snapshot, "java performance")] == [
+        "paper"
+    ]
     assert [entry.name for entry in search_catalog(snapshot, edition="bedrock")] == [
         "lumi"
     ]
@@ -192,16 +203,54 @@ def test_search_info_and_catalog_status_emit_stable_json(
     assert main(["search", "lumi", "--edition", "bedrock", "--json"]) == 0
     search = json.loads(capsys.readouterr().out)
     assert search["recipes"][0]["name"] == "lumi"
+    assert search["total"] == 1
+    assert search["returned"] == 1
+    assert search["catalogActivatedAt"].endswith("Z")
     assert "namespace" not in search["recipes"][0]
 
     assert main(["info", "lumi", "--json"]) == 0
     info = json.loads(capsys.readouterr().out)
     assert info["recipe"]["recipeVersion"] == "1.0.1"
+    assert info["recipe"]["license"] == "LGPL-3.0-only"
 
     assert main(["catalog", "status", "--json"]) == 0
     status = json.loads(capsys.readouterr().out)
     assert status["available"] is True
     assert status["revision"] == REVISION
+
+
+def test_search_limits_human_table_and_suggests_typos(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    root = tmp_path / "cache" / "luminesk_cli" / "v2" / "catalog"
+    paper = _entry(
+        name="paper",
+        displayName="Paper",
+        edition="java",
+        summary="High performance Java server",
+        keywords=["paper", "java"],
+        path="database/paper",
+    )
+    content = _index(_entry(), paper)
+    CatalogStore(root).commit(parse_catalog_index(content), content)
+
+    assert main(["search", "--limit", "1"]) == 0
+    output = capsys.readouterr().out
+    assert "NAME" in output
+    assert "VERSION" in output
+    assert "Showing 1 of 2" in output
+
+    assert main(["search", "papre", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["recipes"] == []
+    assert payload["suggestions"] == ["paper"]
+
+    assert main(["info", "papre", "--json"]) == 3
+    error = json.loads(capsys.readouterr().out)
+    assert "Did you mean: paper?" in error["error"]["message"]
 
 
 def test_catalog_entry_fetches_only_declared_template(tmp_path: Path) -> None:
