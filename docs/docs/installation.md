@@ -45,6 +45,26 @@ uv tool update-shell
 Then open a new terminal. You can also follow uv's printed instruction and add
 its tool binary directory to `PATH` manually.
 
+## Install with pipx
+
+With Python 3.13+ and pipx installed:
+
+```bash
+pipx install luminesk-cli
+nesk --version
+nesk doctor
+```
+
+Upgrade the isolated environment with:
+
+```bash
+pipx upgrade luminesk-cli
+```
+
+If `nesk` is not found, run `pipx ensurepath`, open a new terminal, and retry.
+Use either uv or pipx to own the tool installation; do not layer both managers
+over the same executable path.
+
 ## Prebuilt release bundles
 
 Release bundles do not require a system Python. Each tagged release publishes

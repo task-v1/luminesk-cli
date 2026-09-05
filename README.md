@@ -47,6 +47,9 @@ nesk doctor
 nesk catalog update
 ```
 
+With pipx, use `pipx install luminesk-cli`. Upgrade through the same tool manager
+that installed the CLI.
+
 Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
 

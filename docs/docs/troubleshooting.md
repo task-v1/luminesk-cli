@@ -27,8 +27,9 @@ exit codes identify the failing layer; the JSON `error.code` is its string name.
 **Likely cause.** The tool was installed into a directory that the current shell
 does not search, or a newly changed `PATH` has not reached this terminal.
 
-**Check.** Run `uv tool list`, then inspect the executable directory reported by
-`uv tool dir --bin`. On Windows, also open a new terminal after changing `PATH`.
+**Check.** For uv, run `uv tool list`, then inspect the executable directory
+reported by `uv tool dir --bin`. For pipx, run `pipx list`. On Windows, also
+open a new terminal after changing `PATH`.
 
 **Fix.** Run `uv tool update-shell`, start a new shell, and retry:
 
@@ -37,6 +38,8 @@ uv tool install luminesk-cli
 uv tool update-shell
 nesk --version
 ```
+
+For a pipx installation, run `pipx ensurepath` and start a new terminal.
 
 If you installed a standalone release bundle, invoke `nesk` or `nesk.exe` from
 the extracted directory or add that exact directory to `PATH`.
@@ -382,7 +385,8 @@ nesk import INSTANCE
 nesk import /srv/minecraft --scan
 ```
 
-`--scan` checks immediate child directories. Import does not convert legacy or
+`--scan` recursively searches descendants for `.luminesk_cli/state.json` and
+validates each recorded instance root. Import does not convert legacy or
 arbitrary server directories.
 
 ## Collecting a useful problem report

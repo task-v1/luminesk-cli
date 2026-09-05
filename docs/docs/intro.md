@@ -40,8 +40,8 @@ and target platform.
 - ZIP, TAR, package, and recipe paths are checked before extraction or writes.
 - Install and update plans distinguish managed, generated, preserved, and data
   files.
-- Failed readiness checks restore the previous known-good instance during an
-  update.
+- Failed readiness checks during an update trigger restoration and restart of
+  the previous instance; rollback failures are reported separately.
 - Runtime commands are argument arrays; recipe-controlled shell evaluation is
   not supported.
 - Automation receives stable JSON and exit codes.
