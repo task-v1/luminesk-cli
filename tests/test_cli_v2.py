@@ -76,6 +76,11 @@ command = ["java", "-jar", "server.jar"]
     assert exit_code == 0
     assert payload["ok"] is True
     assert payload["dryRun"] is False
+    assert payload["preview"]["trust"]["classification"] == "local"
+    assert payload["preview"]["capabilities"]["runtime"]["image"].startswith(
+        "fixture/server@sha256:"
+    )
+    assert payload["preview"]["plan"]["changes"] == payload["changes"]
     assert (root / "server.jar").read_bytes() == b"server"
     assert (root / ".luminesk_cli/state.json").is_file()
     lock = json.loads((root / "luminesk.lock").read_text(encoding="utf-8"))

@@ -19,6 +19,7 @@ from luminesk_cli.cli.commands.common import (
 )
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
+from luminesk_cli.domain.preview import Preview
 from luminesk_cli.domain.primitives import PACKAGE_NAME_RE
 from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.catalog import CatalogClient
@@ -184,17 +185,24 @@ def _install_snapshot(
             recipe_cache().store(snapshot, lockfile, locator=cache_locator)
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
         plan = installer.plan(package, target)
+        preview = Preview.for_install(snapshot, lockfile, plan)
         if plan.has_conflicts:
+            if not namespace.json:
+                print(preview.to_text())
             conflicts = [
                 change.path for change in plan.changes if change.action == "conflict"
             ]
             raise ConflictError(
-                "install plan contains user-file conflicts", conflicts=conflicts
+                "install plan contains user-file conflicts",
+                conflicts=conflicts,
+                preview=preview.to_dict(),
             )
         if confirm:
-            _confirm(namespace, snapshot, target, lockfile)
+            _confirm(namespace, preview)
+        elif not namespace.json:
+            print(preview.to_text())
         if namespace.dry_run:
-            return _emit_result(namespace, plan, None)
+            return _emit_result(namespace, preview, None)
         plan, state = installer.install(
             manifest,
             lockfile,
@@ -203,57 +211,19 @@ def _install_snapshot(
             inputs=values,
             recipe_snapshot=snapshot,
         )
-        return _emit_result(namespace, plan, state)
+        return _emit_result(
+            namespace, Preview.for_install(snapshot, lockfile, plan), state
+        )
     finally:
         temporary.cleanup()
 
 
 def _confirm(
     namespace: Any,
-    snapshot: RecipeSnapshot,
-    target: Path,
-    lockfile: Lockfile,
+    preview: Preview,
 ) -> None:
-    manifest = snapshot.manifest
-    origin = snapshot.origin
-    trust = {
-        "database": "official",
-        "github": "direct",
-        "local": "local",
-    }[origin.kind]
-    source_types = ", ".join(source.type for source in manifest.sources) or "none"
-    artifacts = (
-        ", ".join(
-            f"{source_id}@{resolved.version} ({resolved.digest})"
-            for source_id, resolved in sorted(lockfile.sources.items())
-        )
-        or "none"
-    )
-    template_files = sum(
-        1
-        for entry in snapshot.entries
-        if entry.type == "file"
-        and manifest.template is not None
-        and (
-            entry.path == manifest.template
-            or entry.path.startswith(f"{manifest.template}/")
-        )
-    )
-    summary = (
-        f"Recipe origin: {trust} ({origin.source})\n"
-        f"Exact recipe revision: {origin.revision}\n"
-        f"Recipe version: {origin.version}\n"
-        f"Source types: {source_types}\n"
-        f"Resolved artifacts: {artifacts}\n"
-        f"Runtime image: {lockfile.runtime.image}\n"
-        f"Build: {'enabled' if lockfile.build is not None else 'disabled'}\n"
-        f"Build network: "
-        f"{'enabled' if manifest.build is not None and manifest.build.network else 'disabled'}\n"
-        f"Template files: {template_files}\n"
-        f"Writes: {target}"
-    )
     if not namespace.json:
-        print(summary)
+        print(preview.to_text())
     if namespace.yes:
         return
     if namespace.non_interactive or namespace.json:
@@ -263,16 +233,23 @@ def _confirm(
         raise ConflictError("installation was not confirmed")
 
 
-def _emit_result(namespace: Any, plan: Any, state: Any) -> int:
+def _emit_result(namespace: Any, preview: Preview, state: Any) -> int:
+    plan = preview.plan
     payload = {
         "operation": plan.operation,
         "target": plan.target,
         "dryRun": state is None,
         "instanceId": state.instance_id if state is not None else None,
         "changes": [
-            {"action": item.action, "path": item.path, "reason": item.reason}
+            {
+                "action": item.action,
+                "path": item.path,
+                "reason": item.reason,
+                "digest": item.digest,
+            }
             for item in plan.changes
         ],
+        "preview": preview.to_dict(),
     }
     verb = "Planned" if state is None else "Installed"
     emit(namespace, payload, f"{verb} {plan.target} ({len(plan.changes)} changes)")
