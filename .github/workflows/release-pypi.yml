@@ -50,6 +50,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -59,6 +60,14 @@ jobs:
 
       - name: Match tag, package metadata, and runtime constant
         run: python scripts/check_release_version.py "${RELEASE_TAG}"
+
+      - name: Require candidate to come from the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          git fetch origin "${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          python scripts/check_release_source.py --default-branch "${DEFAULT_BRANCH}"
 
   python-artifacts:
     name: Build wheel and source distribution
