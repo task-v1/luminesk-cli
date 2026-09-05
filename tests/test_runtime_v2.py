@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from luminesk_cli.application.runtime import DockerRuntime, build_run_argv
-from luminesk_cli.domain.errors import ValidationError
+from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.instance import (
     InstanceState,
     RecipeState,
@@ -113,6 +113,28 @@ def test_runtime_command_keeps_shell_metacharacters_in_one_argv_element(
     )
     assert "19132:19132/udp" in argv
     assert lockfile.runtime.image in argv
+
+
+@pytest.mark.parametrize("operation", ["logs", "attach"])
+def test_interactive_runtime_failures_use_stable_runtime_error(
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 17, "", "stream failed")
+
+    runtime = DockerRuntime(runner=runner)
+    with pytest.raises(RuntimeOperationError) as raised:
+        if operation == "logs":
+            runtime.logs(root, follow=True)
+        else:
+            runtime.attach(root)
+
+    assert raised.value.code == 8
+    assert raised.value.details["exitCode"] == 17
 
 
 def test_runtime_start_records_container_and_readiness(tmp_path: Path) -> None:

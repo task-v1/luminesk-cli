@@ -5,7 +5,7 @@ from typing import Any
 
 from luminesk_cli.application.runtime import DockerRuntime
 from luminesk_cli.cli.commands.common import emit, parse_inputs, recipe
-from luminesk_cli.domain.errors import ValidationError
+from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.manifest import MANIFEST_NAME
 
 
@@ -79,7 +79,9 @@ def logs(namespace: Any) -> int:
     result = DockerRuntime().logs(root, follow=namespace.follow)
 
     if isinstance(result, int):
-        return result
+        if result != 0:
+            raise RuntimeOperationError("Docker log stream failed", exitCode=result)
+        return 0
 
     emit(namespace, {"logs": result}, result)
     return 0
@@ -89,7 +91,10 @@ def attach(namespace: Any) -> int:
     if namespace.json or namespace.non_interactive:
         raise ValidationError("attach requires an interactive terminal")
 
-    return DockerRuntime().attach(_instance_root(namespace.dir))
+    result = DockerRuntime().attach(_instance_root(namespace.dir))
+    if result != 0:
+        raise RuntimeOperationError("Docker attach failed", exitCode=result)
+    return 0
 
 
 def _instance_root(value: str | None) -> Path:
