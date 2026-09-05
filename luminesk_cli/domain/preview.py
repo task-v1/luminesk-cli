@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -144,27 +145,95 @@ class Preview:
         sources = self.capabilities["sources"]
         runtime = self.capabilities["runtime"]
         build = self.capabilities["build"]
+        ownership = self.capabilities["ownership"]
         lines = [
             "Install preview",
-            f"  Trust: {self.trust['classification']} ({self.trust['source']})",
-            f"  Recipe: {self.trust['version']} @ {self.trust['revision']}",
-            f"  Manifest: {self.trust['manifestDigest']}",
+            f"  Trust: {self.trust['classification']} ({self.trust['kind']})",
+            f"  Source: {self.trust['source']}",
+            f"  Recipe: {self.trust['version']} @ {self.trust['revision']} "
+            f"(tracking {'yes' if self.trust['tracking'] else 'no'})",
+            f"  Manifest digest: {self.trust['manifestDigest']}",
+            f"  Template digest: {self.trust['templateDigest'] or 'none'}",
             f"  Target platform: {self.capabilities['targetPlatform']}",
             f"  Runtime image: {runtime['image']}",
+            "  Runtime command: " + json.dumps(runtime["command"], ensure_ascii=False),
+            f"  Runtime memory: {runtime['memory'] or 'not limited'}",
             f"  Runtime user: {runtime['runAs'] or 'image default'}",
             f"  Read-only root: {'yes' if runtime['readOnlyRoot'] else 'no'}",
             f"  Build: {'enabled' if build['enabled'] else 'disabled'} "
             f"(network {'enabled' if build['network'] else 'disabled'})",
+            "  Build images: "
+            + (
+                ", ".join(f"{name}={image}" for name, image in build["images"].items())
+                or "none"
+            ),
             "  Resolved artifacts:",
         ]
         if sources:
-            lines.extend(
-                f"    {source['id']}: {source['type']} {source['version']} "
-                f"({source['digest']}) -> {source['target']}"
-                for source in sources
-            )
+            for source in sources:
+                lines.extend(
+                    (
+                        f"    {source['id']}: {source['type']} {source['version']} "
+                        f"@ {source['sourceRevision']}",
+                        f"      URL: {source['url']}",
+                        f"      Digest: {source['digest']}",
+                        f"      Size/media: {source['size']} bytes / "
+                        f"{source['mediaType'] or 'unspecified'}",
+                        f"      Target: {source['target']}",
+                    )
+                )
         else:
             lines.append("    none")
+        lines.append("  Mounts:")
+        lines.extend(
+            (
+                f"    {mount['source']} -> {mount['target']} ({mount['mode']})"
+                for mount in runtime["mounts"]
+            )
+            if runtime["mounts"]
+            else ("    none",)
+        )
+        lines.append("  Ports:")
+        lines.extend(
+            (
+                f"    {port['name']}: {port['host']}:{port['container']}"
+                f"/{port['protocol']}"
+                for port in runtime["ports"]
+            )
+            if runtime["ports"]
+            else ("    none",)
+        )
+        lines.append("  Template files:")
+        lines.extend(
+            (f"    {path}" for path in self.capabilities["templateFiles"])
+            if self.capabilities["templateFiles"]
+            else ("    none",)
+        )
+        lines.extend(
+            (
+                "  Ownership preserve: " + (", ".join(ownership["preserve"]) or "none"),
+                "  Ownership data: " + (", ".join(ownership["data"]) or "none"),
+                "  Ownership executable: "
+                + (", ".join(ownership["executable"]) or "none"),
+                "  Checks:",
+            )
+        )
+        lines.extend(
+            (
+                f"    {check['id']}: {check['phase']}/{check['kind']} "
+                f"({'required' if check['required'] else 'optional'})"
+                for check in self.capabilities["checks"]
+            )
+            if self.capabilities["checks"]
+            else ("    none",)
+        )
+        lines.extend(
+            (
+                f"  Requires downtime: {'yes' if self.plan.requires_downtime else 'no'}",
+                "  Downloads: " + (", ".join(self.plan.downloads) or "none"),
+                "  Warnings: " + (", ".join(self.plan.warnings) or "none"),
+            )
+        )
         lines.append(f"  Changes ({len(self.plan.changes)}):")
         if self.plan.changes:
             lines.extend(

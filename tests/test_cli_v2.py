@@ -12,6 +12,7 @@ from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
 from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.domain.plan import Plan
+from luminesk_cli.domain.preview import Preview
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 
 
@@ -209,6 +210,20 @@ command = ["server"]
         ref="main",
         tracking=True,
     )
+    preview = Preview.for_install(snapshot, lockfile, Plan("install", "target", ()))
+    rendered_preview = preview.to_text()
+    for section in (
+        "Trust:",
+        "Manifest digest:",
+        "Resolved artifacts:",
+        "Runtime command:",
+        "Mounts:",
+        "Ports:",
+        "Ownership preserve:",
+        "Checks:",
+        "Changes (0):",
+    ):
+        assert section in rendered_preview
     events: list[str] = []
     monkeypatch.setattr(
         install_command,
