@@ -173,7 +173,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     search.add_argument("query", nargs="?")
     search.add_argument("--type", choices=["core", "template"], default=None)
-    search.add_argument("--edition", choices=["java", "bedrock"], default=None)
+    search.add_argument(
+        "--edition", choices=["java", "bedrock", "cross-platform"], default=None
+    )
+    search.add_argument(
+        "--limit", type=int, default=50, help="Maximum results to return (default: 50)."
+    )
+    search.add_argument("--all", action="store_true", help="Return every match.")
     _automation_options(search)
     search.set_defaults(handler="luminesk_cli.cli.commands.catalog:search")
 
