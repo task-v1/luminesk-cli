@@ -28,6 +28,12 @@ edition = "bedrock"
 [inputs.port]
 type = "integer"
 default = 19132
+[inputs.runtime_uid]
+type = "integer"
+default = 1000
+[inputs.runtime_gid]
+type = "integer"
+default = 1000
 [[sources]]
 id = "core"
 type = "http"
@@ -39,7 +45,7 @@ image = "example/server:latest"
 command = ["java", "-jar", "server.jar; echo not-a-shell"]
 workdir = "/server"
 memory = "1g"
-run_as = "1000:1000"
+run_as = "${input.runtime_uid}:${input.runtime_gid}"
 read_only_root = true
 restart = "on-failure"
 restart_limit = 3
@@ -80,7 +86,7 @@ def prepare_instance(root: Path) -> tuple[Lockfile, InstanceState]:
         applied_lock_digest=lockfile.digest,
         installed_package_digest=f"sha256:{'b' * 64}",
         recipe=RecipeState(),
-        inputs={"port": 19132},
+        inputs={"port": 19132, "runtime_uid": 1000, "runtime_gid": 1000},
         runtime=RuntimeState(),
         created_at="2026-08-29T00:00:00+00:00",
         updated_at="2026-08-29T00:00:00+00:00",
@@ -101,7 +107,7 @@ def test_runtime_command_keeps_shell_metacharacters_in_one_argv_element(
         manifest,
         lockfile.runtime.image,
         "luminesk-fixture",
-        {"port": 19132},
+        {"port": 19132, "runtime_uid": 1000, "runtime_gid": 1000},
     )
 
     assert "sh" not in argv
@@ -112,6 +118,7 @@ def test_runtime_command_keeps_shell_metacharacters_in_one_argv_element(
         "server.jar; echo not-a-shell",
     )
     assert "19132:19132/udp" in argv
+    assert argv[argv.index("--user") + 1] == "1000:1000"
     assert lockfile.runtime.image in argv
 
 

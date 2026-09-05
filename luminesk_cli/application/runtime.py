@@ -370,7 +370,7 @@ def build_run_argv(
         command.append("--read-only")
 
     if runtime.run_as is not None:
-        command.extend(("--user", runtime.run_as))
+        command.extend(("--user", _interpolate(runtime.run_as, values)))
 
     restart = runtime.restart
 
