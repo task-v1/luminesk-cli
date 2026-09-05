@@ -15,8 +15,9 @@ nesk diff --dir INSTANCE
 nesk cache verify
 ```
 
-`nesk doctor` only confirms that the Docker executable is on `PATH`.
-`docker version` is the separate check for daemon connectivity and permissions.
+`nesk doctor` checks both that the Docker executable is on `PATH` and that the
+current user can reach the daemon. `docker version` prints the underlying
+client/server detail.
 Add `--json --non-interactive` when collecting diagnostics in automation. Process
 exit codes identify the failing layer; the JSON `error.code` is its string name.
 
@@ -80,17 +81,19 @@ nesk doctor
 docker version
 ```
 
-### `nesk doctor` succeeds but an operation cannot contact Docker
+### `nesk doctor` succeeds but a later Docker operation fails
 
-**Cause.** `doctor` does not contact the daemon. The daemon may be stopped or the
-current account may lack access.
+**Cause.** The daemon state or permissions may have changed after `doctor`, or
+the operation may need registry, image, port, or mount access that `doctor`
+does not exercise.
 
 **Check.** `docker version` must show both client and server sections. On macOS
 and Windows, confirm Docker Desktop is running. On Linux, inspect the daemon and
 socket permissions using your distribution's Docker instructions.
 
-**Fix.** Start Docker and grant the current account the intended access. Docker
-daemon access is security-sensitive; do not make its socket world-writable.
+**Fix.** Run `nesk doctor` again, then inspect the operation's runtime error and
+Docker detail. Docker daemon access is security-sensitive; do not make its
+socket world-writable.
 
 ### Docker cannot pull or use the locked image
 

@@ -142,8 +142,10 @@ docker version
 nesk catalog update
 ```
 
-`doctor` checks whether the Docker CLI is available; `docker version` is the
-daemon connectivity check. If a release bundle fails before `--version`,
+`doctor` checks both the Docker CLI and daemon connectivity; `docker version`
+prints their detailed versions. The one-line installers now stop if release
+metadata, the matching asset digest, or a SHA-256 tool is unavailable; they
+never install an unverified download. If a release bundle fails before `--version`,
 compare its checksum with `SHA256SUMS`, remove the extracted copy, and extract
 the entire archive again. See [Troubleshooting](/docs/troubleshooting) for PATH,
 Docker, and damaged-download diagnostics.

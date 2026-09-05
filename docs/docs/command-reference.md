@@ -46,7 +46,7 @@ The process exit codes are stable:
 | Code | JSON error name | Meaning |
 | ---: | --- | --- |
 | `0` | — | Success. |
-| `2` | — | Command-line usage error produced by the argument parser. |
+| `2` | `usage` | Command-line usage error produced by the argument parser. |
 | `3` | `validation` | Invalid manifest, lock, package, input, or instance. |
 | `4` | `resolution` | A version, artifact, recipe, or image could not be resolved. |
 | `5` | `network` | A bounded network request failed. |
@@ -146,11 +146,13 @@ direct GitHub recipe.
 | `--set-file KEY=PATH` | Read a UTF-8 input from a file; repeatable and required for secret inputs. |
 | `--dry-run` | Resolve, build, and show the plan without applying it. |
 | `--frozen` | Use matching cached recipe/lock/artifacts only; perform no new resolution. |
-| `--yes` | Accept the printed trust summary. |
+| `--yes` | Accept the printed trust/capability/change preview. |
 
 Remote and external local recipes require confirmation even for `--dry-run`,
-because resolution and package building occur before the apply stage. In
-automation, pass `--yes --non-interactive` only after approving the source.
+because resolution and package building occur before the apply stage. Human and
+JSON modes expose the same `Preview`: trust classification, exact recipe and
+artifact identities, runtime/build capabilities, and every planned file change.
+In automation, pass `--yes --non-interactive` only after approving that payload.
 
 ## Inspecting and applying updates
 
@@ -211,13 +213,15 @@ Catalog search and inspection are offline against the active verified snapshot.
 
 ```text
 nesk search [QUERY] [--type {core,template}]
-  [--edition {java,bedrock}] [--json] [--non-interactive]
+  [--edition {java,bedrock,cross-platform}] [--limit N | --all]
+  [--json] [--non-interactive]
 ```
 
-Searches names, display names, keywords, and summaries. An omitted query lists
-all matching entries. The edition filter exposes `java` and `bedrock`; catalog
-entries may also identify themselves as cross-platform and are visible without
-that filter.
+Searches names, display names, keywords, summaries, platforms, and source types.
+Multiple query words must all match. An omitted query lists entries; output is
+limited to 50 by default, while `--all` returns every match. Human output is a
+table and JSON includes total/returned counts, suggestions, revision, and the
+local catalog activation time.
 
 ### `nesk info`
 
@@ -226,7 +230,9 @@ nesk info NAME [--json] [--non-interactive]
 ```
 
 Shows one exact lowercase catalog entry from the active snapshot, including
-kind, edition, recipe version, summary, and install name.
+kind, edition, recipe version, platforms, license, authors, repository, source
+types, pinned runtime image, catalog freshness, and install name. Misspellings
+include deterministic offline suggestions when available.
 
 ### `nesk catalog update`
 
@@ -244,8 +250,8 @@ nesk catalog status [--json] [--non-interactive]
 ```
 
 Reports whether a snapshot is active and, when available, its exact commit,
-index digest, and entry count. It exits successfully when no catalog has been
-downloaded yet.
+index digest, entry count, and local activation time. It exits successfully when
+no catalog has been downloaded yet.
 
 ### `nesk catalog verify`
 
@@ -334,8 +340,9 @@ It rejects `--json` and `--non-interactive`.
 nesk doctor [--json] [--non-interactive]
 ```
 
-Checks whether the Docker executable is on `PATH`. It does not contact the
-daemon; use `docker version` for that connectivity and permission check.
+Checks whether the Docker executable is on `PATH` and whether the current user
+can contact the daemon. Missing CLI, timeout, permission denial, or an
+unreachable daemon produces the stable `runtime` error and exit code 8.
 
 ### `nesk cache verify`
 

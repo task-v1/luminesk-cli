@@ -14,16 +14,17 @@ Git is not required for installation or operation. A normal
 `nesk install OWNER/REPO` resolves the requested ref through the GitHub API and
 downloads only the bounded, declared content for the exact commit.
 
-Run both environment checks after installation:
+Check the complete Docker runtime boundary after installation:
 
 ```bash
 nesk doctor
 docker version
 ```
 
-`nesk doctor` confirms that the Docker command is on `PATH`. `docker version`
-also confirms that the current user can reach the daemon. Docker is required
-for runtime, mutable image resolution, and any declared recipe build.
+`nesk doctor` requires both a Docker command on `PATH` and a daemon reachable by
+the current user. `docker version` remains useful when collecting the full
+client/server details. Docker is required for runtime, mutable image
+resolution, and any declared recipe build.
 
 ## Choose a recipe and a destination
 

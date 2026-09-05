@@ -90,10 +90,12 @@ produces a warning. Treat that as a maintainer error and review the full diff.
 
 ## Confirmation model
 
-Remote and external local installs print a trust summary after resolution,
+Remote and external local installs print a unified preview after resolution,
 package construction, and conflict planning. It includes origin, exact
 revision/version, source types and resolved artifact digests, locked runtime
-image, build/network status, template file count, and write target.
+image, runtime user/mount/port capabilities, build/network status, ownership,
+checks, and every planned file change. JSON exposes the same data under
+`preview`.
 
 ```bash
 nesk install RECIPE --dir ./instance --dry-run

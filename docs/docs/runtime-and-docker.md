@@ -24,7 +24,7 @@ and records a full digest reference. Apply and start use only the lock's image;
 a tag-only lock entry is invalid.
 
 Image resolution therefore needs both the Docker CLI and a reachable daemon.
-`nesk doctor` checks the first; `docker version` checks the second.
+`nesk doctor` checks both; `docker version` prints their detailed versions.
 
 ## Command and working directory
 
@@ -116,9 +116,11 @@ with optional `b`, `k`, `m`, or `g` suffix and is passed as Docker's memory
 limit. Coordinate it with a JVM heap setting so the process has room for
 non-heap memory.
 
-`run_as` is passed to Docker's `--user`. The recipe/operator must ensure that
-the identity can read managed content and write mounted data. Files created by
-a container without `run_as` may be owned by root on the host.
+`run_as` is passed to Docker's `--user` after declared input interpolation. An
+official recipe can expose `runtime_uid` and `runtime_gid` inputs and use
+`run_as = "${input.runtime_uid}:${input.runtime_gid}"`. The recipe/operator must
+ensure that the identity can read managed content and write mounted data. Files
+created by a container without `run_as` may be owned by root on the host.
 
 Manifest schema v1 has no runtime CPU field. `[build].cpu` limits recipe builds,
 not the server container. Apply external Docker controls if a production host

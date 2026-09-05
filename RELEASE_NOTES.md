@@ -11,6 +11,8 @@ Docker-first recipe composer for Java and Bedrock servers.
 - Commit-pinned GitHub recipes without requiring a local Git executable.
 - Bounded downloads and extraction, artifact hashes, and OCI image digests.
 - Stable JSON output and exit codes for automation.
+- Decision-ready catalog tables and unified install Preview payloads.
+- Official PaperMC Java and Lumi Bedrock recipes with configurable non-root users.
 - Linux, macOS, and Windows bundles for AMD64 and ARM64.
 
 ## Breaking changes
@@ -29,4 +31,6 @@ Desktop is required for runtime operations and declared recipe builds.
 Release assets include build-provenance attestations, a CycloneDX runtime SBOM,
 and `SHA256SUMS`. The wheel, source distribution, six platform bundles, security
 corpus, dependency audits, documentation build, and a real Docker lifecycle are
-all release gates.
+all release gates. The release workflow also exercises the published catalog
+through PaperMC install/start/validate/stop, rejects assets that do not match the
+installer matrix, and permits tags only from the repository's default branch.

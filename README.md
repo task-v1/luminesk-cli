@@ -58,11 +58,11 @@ Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 ```bash
 # Inspect recipes before trusting one.
 nesk search
-nesk info lumi
+nesk info paper
 
-# Preview, confirm, and install the inspected official recipe.
-nesk install lumi --dir ./servers/example --dry-run
-nesk install lumi --dir ./servers/example --yes
+# Preview, confirm, and install the inspected PaperMC recipe.
+nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
+nesk install paper --dir ./servers/example --set eula=true --yes
 
 # Operate and update the instance.
 nesk start --dir ./servers/example

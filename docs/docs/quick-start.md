@@ -4,8 +4,8 @@ sidebar_position: 4
 
 # Quick Start
 
-This walkthrough assumes `lumi` appears in your catalog search. Substitute a
-different reviewed core recipe when needed.
+This walkthrough uses the official `paper` recipe for Minecraft Java Edition.
+The catalog also includes `lumi` for Bedrock Edition.
 
 ## 1. Install and check the environment
 
@@ -22,8 +22,8 @@ docker version
 nesk catalog update
 nesk catalog status
 nesk search --type core
-nesk search lumi --type core
-nesk info lumi
+nesk search paper --type core --edition java
+nesk info paper
 ```
 
 Catalog entries are discovery metadata, not an automatic trust decision. Open
@@ -33,8 +33,8 @@ Dockerfile.
 ## 3. Preview and install
 
 ```bash
-nesk install lumi --dir ./servers/example --dry-run
-nesk install lumi --dir ./servers/example --yes
+nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
+nesk install paper --dir ./servers/example --set eula=true --yes
 ```
 
 An official catalog name installs the exact recipe associated with the active
@@ -43,9 +43,15 @@ catalog entry. For a direct GitHub recipe, use `OWNER/RECIPE@REF` or
 the exact commit. The target must be empty for a remote or external local
 recipe.
 
-`--dry-run` resolves, builds, and prints the transaction plan without applying
-it; remote recipes still require trust confirmation. `--yes` accepts the
-displayed trust summary, so use it only after reviewing the recipe and plan.
+`--dry-run` resolves, builds, and prints the unified preview without applying
+it. The preview includes trust, capabilities, pinned artifacts, runtime image,
+and every planned file change. Remote recipes still require confirmation;
+`--yes` accepts this exact preview. PaperMC also requires the explicit
+`eula=true` input and never defaults acceptance on the user's behalf.
+
+Official recipes default their non-root container identity to UID/GID 1000. On
+Linux accounts with another identity, add
+`--set runtime_uid=$(id -u) --set runtime_gid=$(id -g)` to the install command.
 
 ## 4. Run the instance
 

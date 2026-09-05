@@ -34,8 +34,8 @@ Git client during installation or operation.
 ## Do I need Docker?
 
 Yes. Docker is the only runtime driver and is also the isolated build boundary
-for recipes that declare `[build]`. `nesk doctor` finds the Docker executable;
-`docker version` verifies daemon access.
+for recipes that declare `[build]`. `nesk doctor` verifies both the Docker
+executable and daemon access.
 
 ## Does Luminesk support multiple instances?
 
@@ -124,13 +124,15 @@ recipe. See [Lockfiles and Packages](./lockfile-and-packages.md).
 Yes. Use `--json --non-interactive`, inspect the process exit status and the JSON
 `error` object, and add `--yes` only after automation has approved remote recipe
 trust or another confirmation. Parser/usage errors may be emitted before JSON
-rendering is active, so validate command construction in your integration.
+dispatch, but they use the same JSON error envelope whenever `--json` is
+present. Without `--json`, errors are written to stderr. Usage errors exit with
+code 2.
 
 ## Does `nesk doctor` prove that Docker is healthy?
 
-No. It only checks whether the Docker executable can be found. Use
-`docker version` to test daemon connectivity and permissions, then a recipe plan
-or validation phase to test the required resolution/build boundary.
+It verifies that the CLI exists and that the current user can contact the
+daemon. It does not pull an image, test registry access, or run a recipe; use a
+recipe resolution/validation phase for those workload-specific boundaries.
 
 ## Can I directly open or import a 1.x instance?
 
