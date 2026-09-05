@@ -370,7 +370,9 @@ def test_github_identity_never_falls_back_to_database(
     )
 
     assert main(["i", "owner/repo", "--dir", str(tmp_path / "instance")]) != 0
-    assert "direct GitHub marker" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "direct GitHub marker" in captured.err
     assert calls == ["github:owner/repo"]
 
 
