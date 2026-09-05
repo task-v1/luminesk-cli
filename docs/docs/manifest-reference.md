@@ -188,7 +188,7 @@ build = "latest"
 | `id` | string | yes | — | Unique lowercase package identifier used as an update component and lock key. |
 | `type` | string enum | yes | — | `http`, `maven`, `jenkins`, `github-release`, `github-source`, `gitlab-release`, `gitlab-job-artifact`, `mojang-version`, `paper`, or `local-file`. |
 | `target` | path | yes | — | Package-relative destination. `.` is allowed only with `extract = true`. Targets from multiple contributors may not collide. |
-| `options` | table | yes | — | Provider-specific strict table; see [Recipes and Updates](/docs/recipes-and-updates). |
+| `options` | table | yes | — | Provider-specific strict table; see [Source Providers](/docs/sources). |
 | `max_size` | integer | no | `536870912` | Maximum downloaded/decoded bytes (512 MiB); must be at least 1. |
 | `extract` | boolean | no | `false` | Safely extract a ZIP/TAR-like artifact into `target`. Required for `github-source`. |
 | `platforms` | array of strings | no | `[]` | Resolve this source only for matching `os/architecture` targets. |

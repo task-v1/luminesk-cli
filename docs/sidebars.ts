@@ -22,6 +22,9 @@ const sidebars: SidebarsConfig = {
       items: [
         'creating-a-recipe',
         'manifest-reference',
+        'sources',
+        'templates-and-inputs',
+        'ownership',
         'manifest-and-lockfile',
       ],
     },
