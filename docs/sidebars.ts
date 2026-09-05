@@ -18,8 +18,12 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Contracts',
-      items: ['manifest-and-lockfile'],
+      label: 'Recipes',
+      items: [
+        'creating-a-recipe',
+        'manifest-reference',
+        'manifest-and-lockfile',
+      ],
     },
     {
       type: 'category',
