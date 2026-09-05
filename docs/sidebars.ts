@@ -25,8 +25,14 @@ const sidebars: SidebarsConfig = {
         'sources',
         'templates-and-inputs',
         'ownership',
+        'checks',
         'manifest-and-lockfile',
       ],
+    },
+    {
+      type: 'category',
+      label: 'Reproducibility',
+      items: ['lockfile-and-packages'],
     },
     {
       type: 'category',
