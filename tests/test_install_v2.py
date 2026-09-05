@@ -6,7 +6,10 @@ import pytest
 
 from luminesk_cli.application.install import TransactionalInstaller
 from luminesk_cli.application.locking import LockService
+from luminesk_cli.cli.commands.update import _managed_drift
+from luminesk_cli.cli.commands.validate import _validate_instance
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
+from luminesk_cli.domain.instance import OwnershipEntry, OwnershipLedger
 from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.manifest import Check, Manifest, parse_manifest
 from luminesk_cli.domain.package import ServerPackage
@@ -14,7 +17,11 @@ from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import ContentCache
 from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
-from luminesk_cli.infrastructure.state import load_ownership, load_state
+from luminesk_cli.infrastructure.state import (
+    load_ownership,
+    load_state,
+    write_ownership,
+)
 
 
 def make_package(
@@ -129,6 +136,44 @@ def test_install_refuses_to_overwrite_user_drift(tmp_path: Path) -> None:
 
     assert (target / "server.jar").read_bytes() == b"user modified"
     assert load_state(target).installed_package_digest == first_package.digest  # type: ignore[union-attr]
+
+
+def test_instance_validation_ignores_user_owned_drift(tmp_path: Path) -> None:
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"initial")
+    target = tmp_path / "instance"
+    TransactionalInstaller().install(manifest, lockfile, package, target)
+    preserved = target / "server.properties"
+    preserved.write_text("motd=initial\n", encoding="utf-8")
+    ledger = load_ownership(target)
+    write_ownership(
+        target,
+        OwnershipLedger(
+            files={
+                **ledger.files,
+                "server.properties": OwnershipEntry(
+                    mode="preserve",
+                    digest="sha256:" + "a" * 64,
+                ),
+            }
+        ),
+    )
+
+    preserved.write_text("motd=changed by server\n", encoding="utf-8")
+
+    _validate_instance(target, manifest.digest)
+    assert _managed_drift(target) == []
+
+
+def test_instance_validation_still_rejects_managed_drift(tmp_path: Path) -> None:
+    manifest, lockfile, package = make_package(tmp_path, "2.0.0", b"initial")
+    target = tmp_path / "instance"
+    TransactionalInstaller().install(manifest, lockfile, package, target)
+    (target / "server.jar").write_bytes(b"changed outside Luminesk")
+
+    with pytest.raises(ValidationError, match="managed-file drift"):
+        _validate_instance(target, manifest.digest)
+
+    assert _managed_drift(target) == [{"path": "server.jar", "status": "modified"}]
 
 
 def test_failed_update_restores_files_and_metadata(tmp_path: Path) -> None:

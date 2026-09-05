@@ -104,6 +104,9 @@ def _validate_instance(root: Path, manifest_digest: str) -> None:
     drift = []
 
     for path, entry in ledger.files.items():
+        if entry.mode not in {"managed", "generated"}:
+            continue
+
         target = root / path
 
         if entry.digest is None:

@@ -618,7 +618,7 @@ def _recipe_drift(
 def _managed_drift(root: Path) -> list[dict[str, str]]:
     changes = []
     for relative, entry in load_ownership(root).files.items():
-        if entry.digest is None:
+        if entry.mode not in {"managed", "generated"} or entry.digest is None:
             continue
         path = root / relative
         if not path.is_file() or path.is_symlink():
