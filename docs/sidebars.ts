@@ -4,7 +4,6 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     'intro',
     'getting-started',
-    'migrating-to-2.0',
     'installation',
     'quick-start',
     {
@@ -25,7 +24,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Support',
-      items: ['troubleshooting', 'faq'],
+      items: ['troubleshooting', 'faq', 'migrating-to-2.0'],
     },
     {
       type: 'category',

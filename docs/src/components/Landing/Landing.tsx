@@ -77,8 +77,8 @@ export default function Landing() {
 
   return (
     <Layout
-      title="Luminesk-CLI - CLI manager for MCBE servers"
-      description="CLI manager for MCBE servers. Manage your servers with ease and efficiency.">
+      title="Luminesk-CLI - reproducible Minecraft server composer"
+      description="Compose, install, run, and update Minecraft Java and Bedrock servers from reproducible recipes.">
       <main ref={containerRef} className={styles.landingWrapper}>
         <Hero />
         <FeaturesBento />
