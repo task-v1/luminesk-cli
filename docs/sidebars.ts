@@ -14,7 +14,11 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Operations',
-      items: ['recipes-and-updates', 'server-lifecycle', 'runtime-and-docker'],
+      items: [
+        'server-lifecycle',
+        'updating-instances',
+        'runtime-and-docker',
+      ],
     },
     {
       type: 'category',
@@ -32,7 +36,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Reproducibility',
-      items: ['lockfile-and-packages'],
+      items: ['lockfile-and-packages', 'recipes-and-updates'],
     },
     {
       type: 'category',

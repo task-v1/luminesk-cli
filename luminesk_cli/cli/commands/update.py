@@ -289,7 +289,7 @@ def _installed_recipe(
 ) -> RecipeSnapshot:
     if lockfile.recipe is None:
         raise ValidationError(
-            "instance lock has no recipe origin; reinstall it with Luminesk 2.0"
+            "instance lock has no recipe origin; reinstall it with current Luminesk"
         )
     origin = _origin(lockfile.recipe)
     canonical = state_directory(root) / RECIPE_DIRECTORY
