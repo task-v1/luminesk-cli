@@ -78,10 +78,14 @@ For local recipe development:
 
 ```bash
 nesk init --dir ./recipe --name example-server
+# Edit ./recipe/luminesk.toml and replace example.invalid with a real server URL.
 nesk validate --dir ./recipe --static
 nesk lock --dir ./recipe
 nesk plan --dir ./recipe
 ```
+
+The generated recipe deliberately uses a non-resolving placeholder URL; it must
+be configured for the server artifact you intend to package before `nesk lock`.
 
 See the [documentation](https://luminesk.taskov1ch.xyz), especially the
 [command reference](https://luminesk.taskov1ch.xyz/docs/command-reference) and
