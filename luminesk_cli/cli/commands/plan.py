@@ -43,7 +43,13 @@ def run(namespace: Any) -> int:
         )
     else:
         lockfile = resolve_lock(recipe_root, manifest, frozen=namespace.frozen)
-    values = parse_inputs(manifest, namespace.set, namespace.set_file)
+    known_inputs = {spec.name for spec in manifest.inputs}
+    values = (
+        {name: value for name, value in state.inputs.items() if name in known_inputs}
+        if state is not None
+        else {}
+    )
+    values.update(parse_inputs(manifest, namespace.set, namespace.set_file))
     temporary, package = build_package(recipe_root, manifest, lockfile, values)
 
     try:

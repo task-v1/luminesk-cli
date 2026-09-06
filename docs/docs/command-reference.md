@@ -127,7 +127,8 @@ nesk plan [--dir DIR] [--frozen]
 Builds a temporary package and prints the install/update changes without
 applying them. `--dir` defaults to `.` and may be a recipe or installed
 instance. On an instance, Luminesk plans from its verified canonical recipe
-snapshot.
+snapshot and its persisted non-secret input values; explicit `--set` and
+`--set-file` values override those saved values for that plan.
 
 ## Installation
 

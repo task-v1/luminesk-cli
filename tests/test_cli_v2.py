@@ -188,9 +188,15 @@ def test_local_cli_install_emits_json_and_writes_instance(
     root = tmp_path / "server"
     root.mkdir()
     (root / "server.jar.in").write_bytes(b"server")
+    template = root / "template"
+    template.mkdir()
+    (template / "runtime.txt.tmpl").write_text(
+        "memory=${input.memory}\n", encoding="utf-8"
+    )
     (root / "luminesk.toml").write_text(
         """\
 manifest_version = 1
+template = "template"
 [package]
 name = "cli-fixture"
 version = "2.0.0"
@@ -257,6 +263,7 @@ container = "${input.port}"
     ]
     assert payload["preview"]["plan"]["changes"] == payload["changes"]
     assert (root / "server.jar").read_bytes() == b"server"
+    assert (root / "runtime.txt").read_text(encoding="utf-8") == "memory=3g\n"
     assert (root / ".luminesk_cli/state.json").is_file()
     lock = json.loads((root / "luminesk.lock").read_text(encoding="utf-8"))
     assert lock["recipe"] == {
@@ -269,7 +276,7 @@ container = "${input.port}"
         "tracking": False,
         "version": "2.0.0",
         "manifestDigest": lock["manifestDigest"],
-        "templateDigest": None,
+        "templateDigest": payload["preview"]["trust"]["templateDigest"],
     }
 
     assert main(["diff", "--dir", str(root), "--json"]) == 0
@@ -279,7 +286,11 @@ container = "${input.port}"
     assert diff["managedFileDrift"] == []
 
     assert main(["plan", "--dir", str(root), "--frozen", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["ok"] is True
+    persisted_plan = json.loads(capsys.readouterr().out)
+    assert persisted_plan["ok"] is True
+    assert all(
+        change["action"] == "preserve" for change in persisted_plan["plan"]["changes"]
+    )
 
     with (root / "luminesk.toml").open("a", encoding="utf-8") as handle:
         handle.write("\n# local drift\n")
