@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sqlite3
 import tempfile
@@ -22,6 +23,15 @@ LOCAL_STATE_DIRECTORY = ".luminesk_cli"
 STATE_FILE = "state.json"
 OWNERSHIP_FILE = "ownership.json"
 RECIPE_DIRECTORY = "recipe"
+LOGGER = logging.getLogger(__name__)
+
+INSTANCE_INDEX_SCHEMA = """
+CREATE TABLE IF NOT EXISTS instances_v2 (
+    instance_id TEXT PRIMARY KEY,
+    tag TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE
+)
+"""
 
 
 def canonical_json_bytes(value: dict[str, Any]) -> bytes:
@@ -120,14 +130,10 @@ class InstanceIndex:
         with closing(sqlite3.connect(self.path, timeout=30)) as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA busy_timeout=30000")
+            _ensure_instance_index_schema(connection)
             connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS instances_v2 (
-                    instance_id TEXT PRIMARY KEY,
-                    tag TEXT NOT NULL UNIQUE,
-                    path TEXT NOT NULL UNIQUE
-                )
-                """
+                "DELETE FROM instances_v2 WHERE path = ? AND instance_id != ?",
+                (state.root, state.instance_id),
             )
             connection.execute(
                 """
@@ -146,17 +152,58 @@ class InstanceIndex:
             return ()
 
         with closing(sqlite3.connect(self.path, timeout=30)) as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS instances_v2 (
-                    instance_id TEXT PRIMARY KEY,
-                    tag TEXT NOT NULL UNIQUE,
-                    path TEXT NOT NULL UNIQUE
-                )
-                """
-            )
+            _ensure_instance_index_schema(connection)
             rows = connection.execute(
                 "SELECT instance_id, tag, path FROM instances_v2 ORDER BY tag"
             ).fetchall()
 
         return tuple(IndexedInstance(*row) for row in rows)
+
+
+def _ensure_instance_index_schema(connection: sqlite3.Connection) -> None:
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'instances_v2'"
+        ).fetchone()
+
+        if row is None:
+            connection.execute(INSTANCE_INDEX_SCHEMA)
+            connection.commit()
+            return
+
+        if not _instance_index_has_unique_tag(connection):
+            connection.commit()
+            return
+
+        LOGGER.debug("instance index schema migration started version=2")
+        connection.execute("ALTER TABLE instances_v2 RENAME TO instances_v2_unique_tag")
+        connection.execute(INSTANCE_INDEX_SCHEMA)
+        connection.execute(
+            """
+            INSERT INTO instances_v2(instance_id, tag, path)
+            SELECT instance_id, tag, path FROM instances_v2_unique_tag
+            """
+        )
+        connection.execute("DROP TABLE instances_v2_unique_tag")
+    except BaseException:
+        connection.rollback()
+        raise
+    connection.commit()
+    LOGGER.debug("instance index schema migration completed version=2")
+
+
+def _instance_index_has_unique_tag(connection: sqlite3.Connection) -> bool:
+    for index in connection.execute("PRAGMA index_list(instances_v2)").fetchall():
+        if not bool(index[2]):
+            continue
+
+        index_name = str(index[1])
+        columns = connection.execute(
+            "SELECT name FROM pragma_index_info(?)",
+            (index_name,),
+        ).fetchall()
+        if [str(column[0]) for column in columns] == ["tag"]:
+            return True
+
+    return False

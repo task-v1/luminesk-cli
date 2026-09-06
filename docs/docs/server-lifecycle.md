@@ -80,7 +80,9 @@ preview and apply `nesk update` instead.
 ## Locate and recover instances
 
 The global index is updated on normal installs but is not authoritative for
-runtime commands. Rebuild missing entries from local instance state with:
+runtime commands. Multiple instances may share the same recipe-derived tag;
+their instance IDs and paths remain distinct. Rebuild missing entries from
+local instance state with:
 
 ```bash
 nesk import ./instance
