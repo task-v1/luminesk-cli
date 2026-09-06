@@ -83,7 +83,7 @@ def logs(namespace: Any) -> int:
             raise RuntimeOperationError("Docker log stream failed", exitCode=result)
         return 0
 
-    emit(namespace, {"logs": result}, result)
+    emit(namespace, {"logs": result}, result, tone="plain")
     return 0
 
 

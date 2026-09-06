@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from rich.console import Console
 
 from luminesk_cli.cli.entry import main
 from luminesk_cli.domain.lockfile import Lockfile, RecipeLock, RuntimeLock
@@ -14,6 +16,50 @@ from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.domain.plan import Plan
 from luminesk_cli.domain.preview import Preview
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
+
+
+def test_human_output_uses_restrained_semantic_colors() -> None:
+    from luminesk_cli.cli.output import THEME, human_message
+
+    stream = StringIO()
+    console = Console(
+        file=stream,
+        force_terminal=True,
+        color_system="truecolor",
+        no_color=False,
+        highlight=False,
+        theme=THEME,
+        width=120,
+    )
+    message = human_message(
+        "Install preview\n"
+        "  Runtime image: example/server@sha256:" + "a" * 64 + "\n"
+        "  add      server.jar — managed file\n"
+        "Warning: review this change",
+        tone="info",
+    )
+
+    console.print(message)
+    rendered = stream.getvalue()
+
+    assert "\x1b[" in rendered
+    assert "38;2;122;162;200m" in rendered
+    assert "38;2;127;174;131m" in rendered
+    assert "38;2;200;169;107m" in rendered
+    assert message.plain == (
+        "Install preview\n"
+        "  Runtime image: example/server@sha256:" + "a" * 64 + "\n"
+        "  add      server.jar — managed file\n"
+        "Warning: review this change"
+    )
+
+
+def test_human_output_does_not_interpret_markup_or_terminal_controls() -> None:
+    from luminesk_cli.cli.output import human_message
+
+    message = human_message("Created [red]server[/red]\x1b[31m")
+
+    assert message.plain == "Created [red]server[/red]�[31m"
 
 
 def test_version_cold_path_does_not_import_heavy_dependencies() -> None:

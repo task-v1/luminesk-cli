@@ -38,8 +38,10 @@ class LumineskArgumentParser(argparse.ArgumentParser):
                 )
             )
         else:
+            from luminesk_cli.cli.output import print_usage_error
+
             self.print_usage(sys.stderr)
-            print(f"{self.prog}: error: {message}", file=sys.stderr)
+            print_usage_error(self.prog, message)
         self.exit(2)
 
 

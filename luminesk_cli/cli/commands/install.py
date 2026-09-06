@@ -17,6 +17,7 @@ from luminesk_cli.cli.commands.common import (
     resolve_lock,
     validate_frozen_lock,
 )
+from luminesk_cli.cli.output import print_human
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.preview import Preview
@@ -188,7 +189,7 @@ def _install_snapshot(
         preview = Preview.for_install(snapshot, lockfile, plan)
         if plan.has_conflicts:
             if not namespace.json:
-                print(preview.to_text())
+                print_human(preview.to_text(), tone="warning")
             conflicts = [
                 change.path for change in plan.changes if change.action == "conflict"
             ]
@@ -200,7 +201,7 @@ def _install_snapshot(
         if confirm:
             _confirm(namespace, preview)
         elif not namespace.json:
-            print(preview.to_text())
+            print_human(preview.to_text(), tone="info")
         if namespace.dry_run:
             return _emit_result(namespace, preview, None)
         plan, state = installer.install(
@@ -223,13 +224,14 @@ def _confirm(
     preview: Preview,
 ) -> None:
     if not namespace.json:
-        print(preview.to_text())
+        print_human(preview.to_text(), tone="info")
     if namespace.yes:
         return
     if namespace.non_interactive or namespace.json:
         raise ConflictError("install requires --yes in non-interactive mode")
-    answer = input("Continue? [y/N] ").strip().lower()
-    if answer not in {"y", "yes"}:
+    from luminesk_cli.cli.output import confirm
+
+    if not confirm("Continue?"):
         raise ConflictError("installation was not confirmed")
 
 

@@ -14,6 +14,11 @@ nesk [-h] [-v | --version] COMMAND ...
 help. Run `nesk COMMAND --help` or `nesk catalog COMMAND --help` for parser help
 from the installed release.
 
+Human-oriented output uses a restrained color palette when stdout or stderr is
+an interactive terminal. Redirected output stays plain, and the standard
+`NO_COLOR` environment variable disables color explicitly. Color and layout do
+not affect `--json` responses.
+
 ## Shared automation options
 
 Every leaf command accepts:

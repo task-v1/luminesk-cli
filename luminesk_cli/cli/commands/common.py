@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -11,6 +10,7 @@ from typing import Any
 from platformdirs import user_cache_dir, user_config_dir
 
 from luminesk_cli.application.locking import LockService
+from luminesk_cli.cli.output import OutputTone, print_human
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, load_lockfile
 from luminesk_cli.domain.manifest import MANIFEST_NAME, Manifest, load_manifest
@@ -22,7 +22,6 @@ from luminesk_cli.infrastructure.catalog import CatalogStore
 from luminesk_cli.infrastructure.platform import current_platform
 from luminesk_cli.infrastructure.recipe_cache import RecipeCache
 
-CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 MAX_INPUT_FILE_SIZE = 64 * 1024
 
 
@@ -233,12 +232,14 @@ def _coerce_input(name: str, raw_value: str, input_type: str) -> str | int | boo
     return raw_value
 
 
-def sanitize(value: str) -> str:
-    return CONTROL_CHARACTERS.sub("�", value).replace("\x1b", "�")
-
-
-def emit(namespace: Any, payload: dict[str, Any], plain: str) -> None:
+def emit(
+    namespace: Any,
+    payload: dict[str, Any],
+    plain: str,
+    *,
+    tone: OutputTone = "success",
+) -> None:
     if bool(getattr(namespace, "json", False)):
         print(json.dumps({"ok": True, **payload}, ensure_ascii=False, sort_keys=True))
     else:
-        print(sanitize(plain))
+        print_human(plain, tone=tone)

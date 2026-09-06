@@ -68,5 +68,6 @@ def run(namespace: Any) -> int:
         namespace,
         {"plan": {"operation": plan.operation, "changes": changes}},
         "\n".join(lines),
+        tone="info",
     )
     return 0

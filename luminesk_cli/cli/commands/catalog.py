@@ -45,7 +45,7 @@ def search(namespace: Any) -> int:
             plain += " Did you mean: " + ", ".join(suggestions) + "?"
         plain += " Run `nesk catalog update` to refresh the catalog."
     plain += f"\nCatalog {snapshot.revision[:12]} activated {store.activated_at()}."
-    emit(namespace, payload, plain)
+    emit(namespace, payload, plain, tone="info")
     return 0
 
 
@@ -83,6 +83,7 @@ def info(namespace: Any) -> int:
             "recipe": data,
         },
         plain,
+        tone="info",
     )
     return 0
 
@@ -106,7 +107,12 @@ def update(namespace: Any) -> int:
 def status(namespace: Any) -> int:
     store = catalog_store()
     if not store.active_path.is_file():
-        emit(namespace, {"available": False}, "Catalog is unavailable.")
+        emit(
+            namespace,
+            {"available": False},
+            "Catalog is unavailable.",
+            tone="warning",
+        )
         return 0
     snapshot = store.load_active()
     emit(

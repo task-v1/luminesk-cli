@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -52,11 +51,8 @@ def dispatch(command: ParsedCommand) -> int:
                 )
             )
         else:
-            from luminesk_cli.cli.commands.common import sanitize
+            from luminesk_cli.cli.output import print_error
 
-            print(
-                f"error [{code.name.lower()}]: {sanitize(message)}",
-                file=sys.stderr,
-            )
+            print_error(code.name.lower(), message)
 
         return int(code)

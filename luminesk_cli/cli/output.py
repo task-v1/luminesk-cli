@@ -1,0 +1,145 @@
+"""Rich-backed presentation helpers for human-oriented CLI output."""
+
+from __future__ import annotations
+
+import re
+from typing import Literal
+
+from rich.console import Console
+from rich.text import Text
+from rich.theme import Theme
+
+OutputTone = Literal["success", "info", "warning", "plain"]
+
+CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+LABEL = re.compile(r"^(\s*)([A-Za-z][A-Za-z0-9 /()_-]*:)(.*)$")
+ACTION = re.compile(
+    r"^(\s*)(add|added|change|changed|conflict|create|delete|missing|modify|"
+    r"preserve|remove|removed|update|write)(\s+)",
+    re.IGNORECASE,
+)
+HEADING = re.compile(r"^[A-Za-z][A-Za-z0-9 /()_-]+$")
+
+THEME = Theme(
+    {
+        "message.success": "bold #7fae83",
+        "message.info": "bold #7aa2c8",
+        "message.warning": "bold #c8a96b",
+        "message.error": "bold #cf7777",
+        "message.label": "#8fb3c9",
+        "message.muted": "#8b949e",
+        "message.command": "#8fb3c9",
+        "message.added": "#7fae83",
+        "message.removed": "#cf7777",
+        "message.prompt": "bold #7aa2c8",
+    }
+)
+
+
+def sanitize(value: str) -> str:
+    """Remove terminal control sequences from untrusted human output."""
+
+    return CONTROL_CHARACTERS.sub("�", value).replace("\x1b", "�")
+
+
+def human_message(value: str, *, tone: OutputTone = "success") -> Text:
+    """Build safely styled text while preserving the underlying plain message."""
+
+    safe_value = sanitize(value)
+    if tone == "plain":
+        return Text(safe_value)
+
+    rendered = Text()
+    for index, line in enumerate(safe_value.split("\n")):
+        if index:
+            rendered.append("\n")
+        rendered.append_text(_styled_line(line, index=index, tone=tone))
+    return rendered
+
+
+def print_human(value: str, *, tone: OutputTone = "success") -> None:
+    """Write human output to stdout with terminal-aware color support."""
+
+    _console().print(human_message(value, tone=tone), soft_wrap=True)
+
+
+def print_error(code: str, message: str) -> None:
+    """Write a sanitized, consistently styled command error to stderr."""
+
+    rendered = Text()
+    rendered.append("error", style="message.error")
+    rendered.append(f" [{code}]", style="message.muted")
+    rendered.append(": ")
+    rendered.append(sanitize(message))
+    _console(stderr=True).print(rendered, soft_wrap=True)
+
+
+def print_usage_error(program: str, message: str) -> None:
+    """Write an argparse-compatible usage error to stderr."""
+
+    rendered = Text()
+    rendered.append(f"{program}: ", style="message.muted")
+    rendered.append("error: ", style="message.error")
+    rendered.append(sanitize(message))
+    _console(stderr=True).print(rendered, soft_wrap=True)
+
+
+def confirm(question: str) -> bool:
+    """Ask a softly styled yes/no question with a safe negative default."""
+
+    prompt = Text(sanitize(question), style="message.prompt")
+    prompt.append(" [y/N] ", style="message.muted")
+    _console().print(prompt, end="", soft_wrap=True)
+    return input().strip().lower() in {"y", "yes"}
+
+
+def _console(*, stderr: bool = False) -> Console:
+    return Console(stderr=stderr, theme=THEME, highlight=False)
+
+
+def _styled_line(line: str, *, index: int, tone: OutputTone) -> Text:
+    rendered = Text(line)
+    stripped = line.strip()
+    if not stripped:
+        return rendered
+
+    if index == 0:
+        rendered.stylize(f"message.{tone}")
+    elif not line[:1].isspace() and HEADING.fullmatch(stripped):
+        rendered.stylize("message.info")
+
+    label = LABEL.match(line)
+    if label is not None:
+        rendered.stylize("message.label", len(label[1]), len(label[1] + label[2]))
+
+    lowered = stripped.lower()
+    if (
+        lowered.startswith("warning:")
+        or lowered.startswith("warning ")
+        or lowered.startswith("security-sensitive ")
+    ):
+        rendered.stylize("message.warning")
+
+    action = ACTION.match(line)
+    if action is not None:
+        start = len(action[1])
+        style = (
+            "message.removed"
+            if action[2].lower()
+            in {"conflict", "delete", "missing", "remove", "removed"}
+            else "message.added"
+        )
+        rendered.stylize(style, start, start + len(action[2]))
+
+    marker = len(line) - len(line.lstrip())
+    if line[marker : marker + 2] in {"+ ", "++"}:
+        rendered.stylize("message.added", marker)
+    elif line[marker : marker + 2] in {"- ", "--"}:
+        rendered.stylize("message.removed", marker)
+
+    rendered.highlight_regex(r"`[^`]+`", style="message.command")
+    rendered.highlight_regex(
+        r"(?i)\bsha256:[0-9a-f]{16,}\b|\b[0-9a-f]{40,64}\b",
+        style="message.muted",
+    )
+    return rendered

@@ -20,6 +20,7 @@ from luminesk_cli.cli.commands.common import (
     validate_frozen_lock,
 )
 from luminesk_cli.cli.commands.runtime import _instance_root
+from luminesk_cli.cli.output import print_human
 from luminesk_cli.domain.catalog import CatalogEntry
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
 from luminesk_cli.domain.lockfile import (
@@ -197,6 +198,7 @@ def outdated(namespace: Any) -> int:
             if warnings
             else ""
         ),
+        tone="info",
     )
     return 0
 
@@ -229,6 +231,7 @@ def diff(namespace: Any) -> int:
             "managedFileDrift": managed_drift,
         },
         "\n\n".join(sections),
+        tone="info",
     )
     return 0
 
@@ -732,24 +735,27 @@ def _confirm_update(
 ) -> None:
     changes = _lock_changes(old_lock, new_lock)
     if not namespace.json:
-        print(f"Update target: {root}")
-        print(
+        lines = [
+            f"Update target: {root}",
             "Capabilities: "
             f"build={'enabled' if manifest.build else 'disabled'}, "
             f"build-network={'enabled' if manifest.build and manifest.build.network else 'disabled'}, "
-            f"runtime={new_lock.runtime.image}"
-        )
+            f"runtime={new_lock.runtime.image}",
+        ]
         for change in changes:
-            print(f"  {change['component']}: {change['from']} -> {change['to']}")
+            lines.append(f"  {change['component']}: {change['from']} -> {change['to']}")
         for change in security_changes:
-            print(f"Security-sensitive source change: {change['field']}")
-            print(f"  - {change['from']}")
-            print(f"  + {change['to']}")
+            lines.append(f"Security-sensitive source change: {change['field']}")
+            lines.append(f"  - {change['from']}")
+            lines.append(f"  + {change['to']}")
         for warning in warnings:
-            print(f"Warning: {warning}")
+            lines.append(f"Warning: {warning}")
+        print_human("\n".join(lines), tone="info")
     if namespace.yes:
         return
     if namespace.non_interactive or namespace.json:
         raise ConflictError("update requires --yes in non-interactive mode")
-    if input("Apply this update? [y/N] ").strip().lower() not in {"y", "yes"}:
+    from luminesk_cli.cli.output import confirm
+
+    if not confirm("Apply this update?"):
         raise ConflictError("update was not confirmed")

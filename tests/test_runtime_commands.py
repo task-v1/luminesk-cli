@@ -69,7 +69,7 @@ def test_runtime_command_handlers_delegate_and_emit(
     root.mkdir()
     (root / "luminesk.toml").write_text("fixture", encoding="utf-8")
     fake = FakeRuntime()
-    emitted: list[tuple[dict[str, Any], str]] = []
+    emitted: list[tuple[dict[str, Any], str, str]] = []
     manifest = object()
 
     monkeypatch.setattr(runtime_commands, "DockerRuntime", lambda: fake)
@@ -82,7 +82,9 @@ def test_runtime_command_handlers_delegate_and_emit(
     monkeypatch.setattr(
         runtime_commands,
         "emit",
-        lambda namespace, payload, plain: emitted.append((payload, plain)),
+        lambda namespace, payload, plain, *, tone="success": emitted.append(
+            (payload, plain, tone)
+        ),
     )
     namespace = _namespace(root)
 
@@ -105,7 +107,7 @@ def test_runtime_command_handlers_delegate_and_emit(
         ),
     )
     assert [call[0] for call in fake.calls].count("stop") == 2
-    assert emitted[-1] == ({"logs": "server output"}, "server output")
+    assert emitted[-1] == ({"logs": "server output"}, "server output", "plain")
 
 
 def test_runtime_command_rejects_noninteractive_streams(
