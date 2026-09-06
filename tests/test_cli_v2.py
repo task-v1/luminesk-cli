@@ -148,6 +148,15 @@ version = "2.0.0"
 kind = "core"
 game = "minecraft"
 edition = "bedrock"
+[inputs.memory]
+type = "string"
+default = "2g"
+[inputs.port]
+type = "integer"
+default = 25565
+[inputs.data_dir]
+type = "string"
+default = "data"
 [[sources]]
 id = "core"
 type = "local-file"
@@ -156,12 +165,20 @@ target = "server.jar"
 path = "server.jar.in"
 [runtime]
 image = "fixture/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-command = ["java", "-jar", "server.jar"]
+command = ["java", "-Xmx${input.memory}", "-jar", "server.jar"]
+memory = "${input.memory}"
+[[runtime.mounts]]
+source = "${input.data_dir}"
+target = "/server/${input.data_dir}"
+[[runtime.ports]]
+name = "game"
+host = "${input.port}"
+container = "${input.port}"
 """,
         encoding="utf-8",
     )
 
-    exit_code = main(["install", "--dir", str(root), "--json"])
+    exit_code = main(["install", "--dir", str(root), "--set", "memory=3g", "--json"])
     payload = json.loads(capsys.readouterr().out)
 
     assert exit_code == 0
@@ -171,6 +188,24 @@ command = ["java", "-jar", "server.jar"]
     assert payload["preview"]["capabilities"]["runtime"]["image"].startswith(
         "fixture/server@sha256:"
     )
+    assert payload["preview"]["capabilities"]["runtime"]["command"] == [
+        "java",
+        "-Xmx3g",
+        "-jar",
+        "server.jar",
+    ]
+    assert payload["preview"]["capabilities"]["runtime"]["memory"] == "3g"
+    assert payload["preview"]["capabilities"]["runtime"]["mounts"] == [
+        {"source": "data", "target": "/server/data", "mode": "rw"}
+    ]
+    assert payload["preview"]["capabilities"]["runtime"]["ports"] == [
+        {
+            "name": "game",
+            "host": 25565,
+            "container": 25565,
+            "protocol": "tcp",
+        }
+    ]
     assert payload["preview"]["plan"]["changes"] == payload["changes"]
     assert (root / "server.jar").read_bytes() == b"server"
     assert (root / ".luminesk_cli/state.json").is_file()
@@ -258,6 +293,7 @@ command = ["server"]
     )
     preview = Preview.for_install(snapshot, lockfile, Plan("install", "target", ()))
     rendered_preview = preview.to_text()
+    assert "    . -> /server (rw)" in rendered_preview
     for section in (
         "Trust:",
         "Manifest digest:",

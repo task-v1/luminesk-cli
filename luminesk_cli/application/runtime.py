@@ -13,9 +13,14 @@ from pathlib import Path
 from typing import Literal
 
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
+from luminesk_cli.domain.inputs import (
+    interpolate_input_references,
+    resolve_runtime_port,
+)
 from luminesk_cli.domain.instance import InstanceState, RuntimeState
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, Lockfile, load_lockfile
 from luminesk_cli.domain.manifest import Check, Manifest, RuntimePort, load_manifest
+from luminesk_cli.domain.primitives import safe_absolute_posix_path, safe_relative_path
 from luminesk_cli.infrastructure.recipe_snapshot import load_verified_installed_recipe
 from luminesk_cli.infrastructure.state import load_state, write_state
 
@@ -392,16 +397,25 @@ def build_run_argv(
 
         mounts = (RuntimeMount(source=".", target=runtime.workdir, mode="rw"),)
 
-    for mount in mounts:
-        source = (root / mount.source).resolve()
+    for index, mount in enumerate(mounts):
+        relative_source = safe_relative_path(
+            _interpolate(mount.source, values),
+            f"runtime.mounts[{index}].source",
+            allow_dot=True,
+        )
+        source = (root / relative_source).resolve()
 
         if not source.is_relative_to(root):
             raise ValidationError("runtime mount escapes instance root")
 
-        if mount.source != ".":
+        if relative_source != ".":
             source.mkdir(parents=True, exist_ok=True)
 
-        mount_option = f"type=bind,src={source},dst={mount.target}"
+        target = safe_absolute_posix_path(
+            _interpolate(mount.target, values),
+            f"runtime.mounts[{index}].target",
+        )
+        mount_option = f"type=bind,src={source},dst={target}"
 
         if mount.mode == "ro":
             mount_option += ",readonly"
@@ -420,33 +434,13 @@ def _port_mapping(
     port: RuntimePort,
     values: Mapping[str, str | int | bool],
 ) -> str:
-    host = _interpolate(str(port.host), values)
-    container = _interpolate(str(port.container), values)
-
-    for name, value in (("host", host), ("container", container)):
-        try:
-            number = int(value)
-        except ValueError as exc:
-            raise ValidationError(f"runtime {name} port is not an integer") from exc
-
-        if not 1 <= number <= 65535:
-            raise ValidationError(f"runtime {name} port is out of range")
-
+    host = resolve_runtime_port(port.host, values, name="host")
+    container = resolve_runtime_port(port.container, values, name="container")
     return f"{host}:{container}/{port.protocol}"
 
 
 def _interpolate(value: str, inputs: Mapping[str, str | int | bool]) -> str:
-    pattern = re.compile(r"\$\{input\.([A-Za-z0-9_-]+)\}")
-
-    def replace_input(match: re.Match[str]) -> str:
-        name = match.group(1)
-
-        if name not in inputs:
-            raise ValidationError(f"runtime references missing input: {name}")
-
-        return str(inputs[name])
-
-    return pattern.sub(replace_input, value)
+    return interpolate_input_references(value, inputs)
 
 
 def _validate_readiness_host(host: str) -> None:

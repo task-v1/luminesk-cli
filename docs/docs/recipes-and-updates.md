@@ -95,7 +95,8 @@ package construction, and conflict planning. It includes origin, exact
 revision/version, source types and resolved artifact digests, locked runtime
 image, runtime user/mount/port capabilities, build/network status, ownership,
 checks, and every planned file change. JSON exposes the same data under
-`preview`.
+`preview`. Runtime command, memory, user, mounts, and ports are shown after
+declared non-secret input values and defaults have been resolved.
 
 ```bash
 nesk install RECIPE --dir ./instance --dry-run

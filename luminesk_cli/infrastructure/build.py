@@ -12,6 +12,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from luminesk_cli.domain.errors import SecurityError, TransactionError, ValidationError
+from luminesk_cli.domain.inputs import resolve_inputs
 from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.manifest import (
     Build,
@@ -188,7 +189,7 @@ class DeclarativeBuilder:
         if manifest.digest != lockfile.manifest_digest:
             raise ValidationError("lockfile does not match manifest")
 
-        values = _resolve_inputs(manifest, inputs or {})
+        values = resolve_inputs(manifest, inputs or {})
         template_tree = read_template_tree(recipe_root, manifest)
 
         with tempfile.TemporaryDirectory(
@@ -343,50 +344,6 @@ def _extract_source(
                 shutil.copyfile(item, destination)
             else:
                 raise SecurityError("GitHub source contains a special file")
-
-
-def _resolve_inputs(
-    manifest: Manifest,
-    overrides: Mapping[str, str | int | bool],
-) -> dict[str, str | int | bool]:
-    declared = {item.name: item for item in manifest.inputs}
-    unknown = sorted(set(overrides) - set(declared))
-
-    if unknown:
-        raise ValidationError(f"unknown input: {unknown[0]}")
-
-    values: dict[str, str | int | bool] = {}
-
-    for name, spec in declared.items():
-        value = overrides.get(name, spec.default)
-
-        if value is None:
-            if spec.required:
-                raise ValidationError(f"required input has no value: {name}")
-
-            continue
-
-        expected_type = {"string": str, "integer": int, "boolean": bool}[spec.type]
-
-        if not isinstance(value, expected_type) or (
-            spec.type == "integer" and isinstance(value, bool)
-        ):
-            raise ValidationError(f"input {name} has the wrong type")
-
-        if isinstance(value, int) and not isinstance(value, bool):
-            if spec.minimum is not None and value < spec.minimum:
-                raise ValidationError(f"input {name} is below its minimum")
-
-            if spec.maximum is not None and value > spec.maximum:
-                raise ValidationError(f"input {name} is above its maximum")
-
-        if isinstance(value, str) and spec.pattern is not None:
-            if re.fullmatch(spec.pattern, value) is None:
-                raise ValidationError(f"input {name} does not match its pattern")
-
-        values[name] = value
-
-    return values
 
 
 def _render_template(content: bytes, values: Mapping[str, str | int | bool]) -> bytes:

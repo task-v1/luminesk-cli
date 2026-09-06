@@ -9,7 +9,11 @@ import pytest
 
 from luminesk_cli.domain.errors import SecurityError, ValidationError
 from luminesk_cli.domain.package import PackageFile, PackageMetadata
-from luminesk_cli.domain.primitives import safe_relative_path, sha256_digest
+from luminesk_cli.domain.primitives import (
+    safe_absolute_posix_path,
+    safe_relative_path,
+    sha256_digest,
+)
 from luminesk_cli.infrastructure.package import verify_package
 from luminesk_cli.infrastructure.security.archive import extract_archive
 
@@ -30,6 +34,21 @@ from luminesk_cli.infrastructure.security.archive import extract_archive
 def test_package_paths_must_be_canonical_and_portable(value: str) -> None:
     with pytest.raises(ValidationError):
         safe_relative_path(value, "fixture.path")
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["server", "//server", "/server/../host", "/server/./data", "/server\\data"],
+)
+def test_container_paths_must_be_absolute_canonical_posix(value: str) -> None:
+    with pytest.raises(ValidationError):
+        safe_absolute_posix_path(value, "runtime.mount.target")
+
+
+def test_container_path_accepts_absolute_canonical_posix() -> None:
+    assert safe_absolute_posix_path("/server/data", "runtime.mount.target") == (
+        "/server/data"
+    )
 
 
 def test_package_verifier_rejects_duplicate_payload_member(tmp_path: Path) -> None:

@@ -144,6 +144,27 @@ def safe_relative_path(value: Any, path: str, *, allow_dot: bool = False) -> str
     return posix.as_posix()
 
 
+def safe_absolute_posix_path(value: Any, path: str) -> str:
+    """Validate a canonical absolute path inside a Linux container."""
+
+    text = require_string(value, path)
+    posix = PurePosixPath(text)
+
+    if any(ord(character) < 32 or ord(character) == 127 for character in text):
+        fail(path, "control characters are not allowed")
+
+    if (
+        not posix.is_absolute()
+        or text.startswith("//")
+        or "\\" in text
+        or posix.as_posix() != text
+        or any(part in {".", ".."} for part in posix.parts)
+    ):
+        fail(path, "must be an absolute normalized POSIX path")
+
+    return text
+
+
 def sha256_digest(data: bytes) -> str:
     return f"sha256:{hashlib.sha256(data).hexdigest()}"
 

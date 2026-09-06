@@ -186,7 +186,7 @@ def _install_snapshot(
             recipe_cache().store(snapshot, lockfile, locator=cache_locator)
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
         plan = installer.plan(package, target)
-        preview = Preview.for_install(snapshot, lockfile, plan)
+        preview = Preview.for_install(snapshot, lockfile, plan, inputs=values)
         if plan.has_conflicts:
             if not namespace.json:
                 print_human(preview.to_text(), tone="warning")
@@ -213,7 +213,9 @@ def _install_snapshot(
             recipe_snapshot=snapshot,
         )
         return _emit_result(
-            namespace, Preview.for_install(snapshot, lockfile, plan), state
+            namespace,
+            Preview.for_install(snapshot, lockfile, plan, inputs=values),
+            state,
         )
     finally:
         temporary.cleanup()

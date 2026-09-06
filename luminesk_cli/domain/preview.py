@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from luminesk_cli.domain.inputs import (
+    InputValue,
+    interpolate_input_references,
+    resolve_inputs,
+    resolve_runtime_port,
+)
 from luminesk_cli.domain.lockfile import Lockfile
+from luminesk_cli.domain.manifest import RuntimeMount
 from luminesk_cli.domain.plan import Plan
+from luminesk_cli.domain.primitives import (
+    safe_absolute_posix_path,
+    safe_relative_path,
+)
 from luminesk_cli.domain.recipe import RecipeSnapshot
 
 
@@ -23,9 +35,19 @@ class Preview:
         snapshot: RecipeSnapshot,
         lockfile: Lockfile,
         plan: Plan,
+        *,
+        inputs: Mapping[str, InputValue] | None = None,
     ) -> Preview:
         manifest = snapshot.manifest
         origin = snapshot.origin
+        values = resolve_inputs(manifest, inputs or {})
+
+        def interpolate(value: str) -> str:
+            return interpolate_input_references(value, values)
+
+        runtime_mounts = manifest.runtime.mounts or (
+            RuntimeMount(source=".", target=manifest.runtime.workdir, mode="rw"),
+        )
         template_files = [
             entry.path
             for entry in snapshot.entries
@@ -69,23 +91,44 @@ class Preview:
                 ],
                 "runtime": {
                     "image": lockfile.runtime.image,
-                    "command": list(manifest.runtime.command),
-                    "memory": manifest.runtime.memory,
-                    "runAs": manifest.runtime.run_as,
+                    "command": [
+                        interpolate(argument) for argument in manifest.runtime.command
+                    ],
+                    "memory": (
+                        interpolate(manifest.runtime.memory)
+                        if manifest.runtime.memory is not None
+                        else None
+                    ),
+                    "runAs": (
+                        interpolate(manifest.runtime.run_as)
+                        if manifest.runtime.run_as is not None
+                        else None
+                    ),
                     "readOnlyRoot": manifest.runtime.read_only_root,
                     "mounts": [
                         {
-                            "source": mount.source,
-                            "target": mount.target,
+                            "source": safe_relative_path(
+                                interpolate(mount.source),
+                                f"runtime.mounts[{index}].source",
+                                allow_dot=True,
+                            ),
+                            "target": safe_absolute_posix_path(
+                                interpolate(mount.target),
+                                f"runtime.mounts[{index}].target",
+                            ),
                             "mode": mount.mode,
                         }
-                        for mount in manifest.runtime.mounts
+                        for index, mount in enumerate(runtime_mounts)
                     ],
                     "ports": [
                         {
                             "name": port.name,
-                            "host": port.host,
-                            "container": port.container,
+                            "host": resolve_runtime_port(
+                                port.host, values, name="host"
+                            ),
+                            "container": resolve_runtime_port(
+                                port.container, values, name="container"
+                            ),
                             "protocol": port.protocol,
                         }
                         for port in manifest.runtime.ports
