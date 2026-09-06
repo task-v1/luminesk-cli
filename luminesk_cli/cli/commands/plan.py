@@ -26,6 +26,11 @@ def run(namespace: Any) -> int:
         snapshot = load_verified_installed_recipe(target, installed_lock)
         recipe_root = snapshot.root
         manifest = snapshot.manifest
+        known_inputs = {spec.name for spec in manifest.inputs}
+        values = {
+            name: value for name, value in state.inputs.items() if name in known_inputs
+        }
+        values.update(parse_inputs(manifest, namespace.set, namespace.set_file))
         lockfile = (
             validate_frozen_lock(
                 installed_lock,
@@ -42,14 +47,8 @@ def run(namespace: Any) -> int:
             )
         )
     else:
+        values = parse_inputs(manifest, namespace.set, namespace.set_file)
         lockfile = resolve_lock(recipe_root, manifest, frozen=namespace.frozen)
-    known_inputs = {spec.name for spec in manifest.inputs}
-    values = (
-        {name: value for name, value in state.inputs.items() if name in known_inputs}
-        if state is not None
-        else {}
-    )
-    values.update(parse_inputs(manifest, namespace.set, namespace.set_file))
     temporary, package = build_package(recipe_root, manifest, lockfile, values)
 
     try:

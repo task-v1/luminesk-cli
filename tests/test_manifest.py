@@ -194,6 +194,36 @@ def test_manifest_rejects_duplicate_ownership_path() -> None:
         parse_manifest(content)
 
 
+def test_manifest_rejects_duplicate_source_targets() -> None:
+    duplicate_source = b"""\
+[[sources]]
+id = "mirror"
+type = "local-file"
+target = "server.jar"
+[sources.options]
+path = "mirror.jar"
+
+"""
+    content = VALID_MANIFEST.replace(b"[runtime]", duplicate_source + b"[runtime]")
+
+    with pytest.raises(ValidationError, match="source targets must be unique"):
+        parse_manifest(content)
+
+
+def test_manifest_rejects_duplicate_port_bindings() -> None:
+    duplicate_port = b"""\
+
+[[runtime.ports]]
+name = "query"
+host = 19133
+container = "${input.port}"
+protocol = "udp"
+"""
+
+    with pytest.raises(ValidationError, match="container port bindings must be unique"):
+        parse_manifest(VALID_MANIFEST + duplicate_port)
+
+
 def test_manifest_size_is_bounded() -> None:
     with pytest.raises(ValidationError, match="exceeds"):
         parse_manifest(b" " * (MAX_MANIFEST_SIZE + 1))

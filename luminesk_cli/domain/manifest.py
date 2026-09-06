@@ -604,6 +604,7 @@ def _parse_source_options(
 def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
     result = []
     seen_ids: set[str] = set()
+    seen_targets: set[str] = set()
 
     for index, raw_source in enumerate(require_array(value, "sources")):
         path = f"sources[{index}]"
@@ -631,9 +632,12 @@ def _parse_sources(value: Any) -> tuple[SourceSpec, ...]:
             fail(f"{path}.id", "must be a lowercase identifier")
         if source_id in seen_ids:
             fail(f"{path}.id", "source ids must be unique")
+        if target in seen_targets:
+            fail(f"{path}.target", "source targets must be unique")
         if source_type not in SOURCE_TYPES:
             fail(f"{path}.type", f"unsupported source type: {source_type}")
         seen_ids.add(source_id)
+        seen_targets.add(target)
         allow_http = require_bool(table.get("allow_http", False), f"{path}.allow_http")
         extract = require_bool(table.get("extract", False), f"{path}.extract")
         if target == "." and not extract:
@@ -794,6 +798,7 @@ def _parse_runtime(value: Any) -> Runtime:
         )
 
     ports = []
+    seen_container_bindings: set[tuple[int | str, str]] = set()
     for index, raw_port in enumerate(
         require_array(table.get("ports", []), f"{path}.ports")
     ):
@@ -804,13 +809,17 @@ def _parse_runtime(value: Any) -> Runtime:
         protocol = require_string(port.get("protocol", "tcp"), f"{item_path}.protocol")
         if protocol not in {"tcp", "udp"}:
             fail(f"{item_path}.protocol", "must be tcp or udp")
+        host = _parse_port_value(port["host"], f"{item_path}.host")
+        container = _parse_port_value(port["container"], f"{item_path}.container")
+        container_binding = (container, protocol)
+        if container_binding in seen_container_bindings:
+            fail(f"{item_path}.container", "container port bindings must be unique")
+        seen_container_bindings.add(container_binding)
         ports.append(
             RuntimePort(
                 name=require_string(port["name"], f"{item_path}.name"),
-                host=_parse_port_value(port["host"], f"{item_path}.host"),
-                container=_parse_port_value(
-                    port["container"], f"{item_path}.container"
-                ),
+                host=host,
+                container=container,
                 protocol=cast(Literal["tcp", "udp"], protocol),
             )
         )

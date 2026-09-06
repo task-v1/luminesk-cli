@@ -128,7 +128,8 @@ Builds a temporary package and prints the install/update changes without
 applying them. `--dir` defaults to `.` and may be a recipe or installed
 instance. On an instance, Luminesk plans from its verified canonical recipe
 snapshot and its persisted non-secret input values; explicit `--set` and
-`--set-file` values override those saved values for that plan.
+`--set-file` values override those saved values for that plan. Input override
+syntax and values are validated before source or image resolution begins.
 
 ## Installation
 

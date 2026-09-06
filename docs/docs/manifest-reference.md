@@ -187,7 +187,7 @@ build = "latest"
 | --- | --- | --- | --- | --- |
 | `id` | string | yes | — | Unique lowercase package identifier used as an update component and lock key. |
 | `type` | string enum | yes | — | `http`, `maven`, `jenkins`, `github-release`, `github-source`, `gitlab-release`, `gitlab-job-artifact`, `mojang-version`, `paper`, or `local-file`. |
-| `target` | path | yes | — | Package-relative destination. `.` is allowed only with `extract = true`. Targets from multiple contributors may not collide. |
+| `target` | path | yes | — | Unique package-relative destination. `.` is allowed only with `extract = true`. Targets from multiple contributors may not collide. |
 | `options` | table | yes | — | Provider-specific strict table; see [Source Providers](/docs/sources). |
 | `max_size` | integer | no | `536870912` | Maximum downloaded/decoded bytes (512 MiB); must be at least 1. |
 | `extract` | boolean | no | `false` | Safely extract a ZIP/TAR-like artifact into `target`. Required for `github-source`. |
@@ -312,7 +312,8 @@ protocol = "tcp"
 | `protocol` | string enum | no | `tcp` | `tcp` or `udp`. |
 
 String port values must be exactly `${input.name}`; arbitrary numeric strings
-or mixed interpolation are rejected by the manifest loader.
+or mixed interpolation are rejected by the manifest loader. Container bindings
+must be unique within each protocol.
 
 ## `[build]`
 

@@ -416,3 +416,62 @@ command = ["server"]
     )
 
     assert events == ["build", "plan", "confirm"]
+
+
+@pytest.mark.parametrize("option", ["--set", "--set-file"])
+def test_plan_validates_input_syntax_before_resolution(
+    option: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from luminesk_cli.cli.commands import plan as plan_command
+
+    root = tmp_path / "recipe"
+    root.mkdir()
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+[package]
+name = "plan-input-fixture"
+version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.memory]
+type = "string"
+[[sources]]
+id = "server"
+type = "http"
+target = "server.jar"
+[sources.options]
+url = "https://example.invalid/server.jar"
+[runtime]
+image = "example/server:latest"
+command = ["java", "-jar", "server.jar"]
+""",
+        encoding="utf-8",
+    )
+
+    def reject_resolution(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise AssertionError("resolution ran before input validation")
+
+    monkeypatch.setattr(plan_command, "resolve_lock", reject_resolution)
+
+    assert (
+        main(
+            [
+                "plan",
+                "--dir",
+                str(root),
+                option,
+                "malformed-input",
+                "--json",
+            ]
+        )
+        == 3
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"]["code"] == "validation"
+    assert "must be KEY=VALUE" in payload["error"]["message"]
