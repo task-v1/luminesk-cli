@@ -116,7 +116,12 @@ class UpdateService:
                     self.runtime.stop(root, remove=True)
 
                 if (backup / "install-plan.json").is_file():
-                    restore_install_backup(root, backup)
+                    restore_install_backup(
+                        root,
+                        backup,
+                        transaction_id=transaction_id,
+                        allow_completed=True,
+                    )
 
                 if was_running:
                     self.runtime.start(root, wait_for_readiness=True)

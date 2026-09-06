@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -19,7 +20,11 @@ from luminesk_cli.cli.commands.update import (
     _security_changes,
 )
 from luminesk_cli.domain.catalog import CatalogEntry, CatalogSnapshot
-from luminesk_cli.domain.errors import RuntimeOperationError, TransactionError
+from luminesk_cli.domain.errors import (
+    ConflictError,
+    RuntimeOperationError,
+    TransactionError,
+)
 from luminesk_cli.domain.instance import RuntimeState
 from luminesk_cli.domain.lockfile import (
     Lockfile,
@@ -122,6 +127,77 @@ class FailingThenRecoveringRuntime:
         )
         write_state(root, running)
         return running
+
+
+def install_release(tmp_path: Path) -> Path:
+    recipe, manifest, lockfile, package = make_release(tmp_path, "2.0.0", b"healthy")
+    target = tmp_path / "instance"
+    TransactionalInstaller().install(
+        manifest,
+        lockfile,
+        package,
+        target,
+        recipe_snapshot=create_recipe_snapshot(recipe, manifest),
+    )
+    return target
+
+
+def recovery_namespace(
+    target: Path, *, force_clean: bool, yes: bool
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        dir=str(target),
+        force_clean=force_clean,
+        yes=yes,
+        json=False,
+        non_interactive=True,
+    )
+
+
+def test_recover_refuses_retained_backup_without_active_journal(
+    tmp_path: Path,
+) -> None:
+    target = install_release(tmp_path)
+    protected_paths = (
+        target / "server.bin",
+        target / "luminesk.lock",
+        target / ".luminesk_cli/state.json",
+        target / ".luminesk_cli/ownership.json",
+    )
+    original_contents = {path: path.read_bytes() for path in protected_paths}
+
+    with pytest.raises(TransactionError, match="no active transaction journal"):
+        update_command.recover(recovery_namespace(target, force_clean=False, yes=False))
+
+    assert {path: path.read_bytes() for path in protected_paths} == original_contents
+
+
+def test_recover_refuses_stale_journal_for_committed_instance(tmp_path: Path) -> None:
+    target = install_release(tmp_path)
+    backup = next((target / ".luminesk_cli/backups").iterdir())
+    journal = target / ".luminesk_cli/transaction.json"
+    journal.write_text(f'{{"id":"{backup.name}"}}', encoding="utf-8")
+
+    with pytest.raises(TransactionError, match="no matching pending transaction"):
+        update_command.recover(recovery_namespace(target, force_clean=False, yes=False))
+
+    assert (target / "server.bin").read_bytes() == b"healthy"
+    assert load_state(target) is not None
+
+
+def test_force_clean_recovery_requires_confirmation(tmp_path: Path) -> None:
+    target = install_release(tmp_path)
+    namespace = recovery_namespace(target, force_clean=True, yes=False)
+
+    with pytest.raises(ConflictError, match="requires --yes"):
+        update_command.recover(namespace)
+
+    assert (target / "server.bin").read_bytes() == b"healthy"
+    namespace.yes = True
+
+    assert update_command.recover(namespace) == 0
+    assert not (target / "server.bin").exists()
+    assert load_state(target) is None
 
 
 def test_failed_readiness_restores_previous_running_instance(tmp_path: Path) -> None:

@@ -242,16 +242,25 @@ def recover(namespace: Any) -> int:
     journal = local_state / "transaction.json"
     backups = local_state / "backups"
     transaction_id = None
+    force_clean = bool(getattr(namespace, "force_clean", False))
 
-    if journal.is_file():
+    if journal.exists() or journal.is_symlink():
+        if journal.is_symlink() or not journal.is_file():
+            raise TransactionError("transaction journal is invalid")
         try:
             transaction_id = json.loads(journal.read_text(encoding="utf-8"))["id"]
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
             raise TransactionError("transaction journal is invalid") from exc
+        if not isinstance(transaction_id, str) or not transaction_id:
+            raise TransactionError("transaction journal is invalid")
 
     if transaction_id is not None:
         backup = backups / transaction_id
     else:
+        if not force_clean:
+            raise TransactionError(
+                "no active transaction journal; refusing to restore a retained backup"
+            )
         candidates = sorted(
             (path for path in backups.iterdir() if path.is_dir())
             if backups.exists()
@@ -262,11 +271,33 @@ def recover(namespace: Any) -> int:
         if not candidates:
             raise TransactionError("no recoverable transaction was found")
         backup = candidates[0]
+        transaction_id = backup.name
 
-    restore_install_backup(root, backup)
+    if force_clean:
+        _confirm_forced_recovery(namespace, root, backup)
+
+    restore_install_backup(
+        root,
+        backup,
+        transaction_id=transaction_id,
+        allow_completed=force_clean,
+    )
     journal.unlink(missing_ok=True)
     emit(namespace, {"backup": str(backup)}, f"Recovered instance from {backup}")
     return 0
+
+
+def _confirm_forced_recovery(namespace: Any, root: Path, backup: Path) -> None:
+    if namespace.yes:
+        return
+    if namespace.non_interactive or namespace.json:
+        raise ConflictError("forced recovery requires --yes in non-interactive mode")
+    from luminesk_cli.cli.output import confirm
+
+    if not confirm(
+        f"Force recovery of {root} from {backup}? Current files may be removed."
+    ):
+        raise ConflictError("forced recovery was not confirmed")
 
 
 def _origin(recipe: RecipeLock) -> RecipeOrigin:

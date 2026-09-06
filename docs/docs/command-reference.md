@@ -210,12 +210,14 @@ override them for the candidate package.
 ### `nesk recover`
 
 ```text
-nesk recover [--dir DIR] [--json] [--non-interactive]
+nesk recover [--dir DIR] [--force-clean] [--yes] [--json] [--non-interactive]
 ```
 
-Restores the transaction named by `.luminesk_cli/transaction.json`. If there is
-no journal, it selects the newest retained backup. It errors when no recoverable
-transaction exists. Validate and inspect the instance after recovery.
+Restores the transaction named by `.luminesk_cli/transaction.json`. Without an
+active journal it refuses to change the instance. `--force-clean` explicitly
+selects the newest retained backup instead and may remove current files;
+non-interactive and JSON use also requires `--yes`. Validate and inspect the
+instance after recovery.
 
 ## Catalog
 

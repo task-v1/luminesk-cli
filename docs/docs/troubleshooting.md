@@ -380,9 +380,11 @@ nesk validate --dir INSTANCE --instance
 nesk diff --dir INSTANCE
 ```
 
-When a journal exists, `recover` selects its matching backup. Without a journal,
-it selects the newest retained transaction backup and fails if none exists.
-Review the resulting instance before starting it.
+When a journal exists, `recover` selects its matching backup. Without an active
+journal it refuses to modify the instance. Only after independently inspecting
+the retained backup should an operator use `--force-clean` to select the newest
+one; scripts must combine it with `--yes`. Review the resulting instance before
+starting it.
 
 ### The global index lost an instance
 

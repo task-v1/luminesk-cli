@@ -137,7 +137,7 @@ class TransactionalInstaller:
         )
         old_ownership = load_ownership(root)
         LOGGER.debug("transaction backup started id=%s", transaction_id)
-        _backup_transaction_files(root, backup, plan, manifest)
+        _backup_transaction_files(root, backup, plan, manifest, transaction_id)
         _backup_metadata(root, backup)
         _backup_recipe_snapshot(root, backup, recipe_snapshot is not None)
         LOGGER.debug("transaction backup completed id=%s", transaction_id)
@@ -441,6 +441,7 @@ def _backup_transaction_files(
     backup: Path,
     plan: Plan,
     manifest: Manifest,
+    transaction_id: str,
 ) -> None:
     backup.mkdir(parents=True, exist_ok=True)
     atomic_write(
@@ -448,6 +449,7 @@ def _backup_transaction_files(
         canonical_json_bytes(
             {
                 "planVersion": 1,
+                "transactionId": transaction_id,
                 "changes": [
                     {"action": change.action, "path": change.path}
                     for change in plan.changes
@@ -686,7 +688,52 @@ def prune_instance_backups(root: Path, retain: int) -> None:
         shutil.rmtree(old_backup)
 
 
-def restore_install_backup(root: Path, backup: Path) -> None:
+def restore_install_backup(
+    root: Path,
+    backup: Path,
+    *,
+    transaction_id: str,
+    allow_completed: bool = False,
+) -> None:
+    backup_directory = state_directory(root) / "backups"
+    if (
+        backup.parent != backup_directory
+        or backup.name != transaction_id
+        or backup.is_symlink()
+        or not backup.is_dir()
+    ):
+        raise TransactionError(
+            "backup does not match the requested transaction",
+            backup=str(backup),
+            transaction=transaction_id,
+        )
+
+    if not allow_completed:
+        journal = state_directory(root) / "transaction.json"
+        if journal.is_symlink() or not journal.is_file():
+            raise TransactionError(
+                "backup restore requires an active transaction journal",
+                transaction=transaction_id,
+            )
+        try:
+            journal_transaction_id = json.loads(journal.read_text(encoding="utf-8"))[
+                "id"
+            ]
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise TransactionError("transaction journal is invalid") from exc
+        if journal_transaction_id != transaction_id:
+            raise TransactionError(
+                "backup does not match the active transaction journal",
+                backup=str(backup),
+                transaction=transaction_id,
+            )
+        state = load_state(root)
+        if state is not None and state.pending_transaction != transaction_id:
+            raise TransactionError(
+                "instance state has no matching pending transaction",
+                transaction=transaction_id,
+            )
+
     plan_path = backup / "install-plan.json"
 
     if not plan_path.is_file():
@@ -694,12 +741,19 @@ def restore_install_backup(root: Path, backup: Path) -> None:
 
     try:
         raw_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        raw_transaction_id = raw_plan["transactionId"]
         raw_changes = raw_plan["changes"]
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise TransactionError("backup install plan is invalid") from exc
 
     if not isinstance(raw_changes, list):
         raise TransactionError("backup install changes must be an array")
+    if raw_transaction_id != transaction_id:
+        raise TransactionError(
+            "backup install plan belongs to another transaction",
+            backup=str(backup),
+            transaction=transaction_id,
+        )
 
     for raw_change in reversed(raw_changes):
         if not isinstance(raw_change, dict):

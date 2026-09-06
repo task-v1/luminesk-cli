@@ -201,10 +201,13 @@ nesk start --dir ./instance
 nesk logs --dir ./instance
 ```
 
-If a journal identifies a transaction, `recover` uses that backup. Otherwise it
-selects the newest retained backup. It reverses the saved install plan and
-restores prior metadata/recipe state. It does not verify external databases or
-application consistency and does not replace your independent backup.
+`recover` requires an active journal and restores only the backup identified by
+that journal. It refuses to select a retained backup from a healthy instance.
+After inspecting the instance and backup independently, an operator can opt in
+to that destructive fallback with `--force-clean`; automation must also pass
+`--yes`. Recovery reverses the saved install plan and restores prior
+metadata/recipe state. It does not verify external databases or application
+consistency and does not replace your independent backup.
 
 If state is valid but the global instance index is missing, use `nesk import`;
 that command does not recover files or convert legacy state.

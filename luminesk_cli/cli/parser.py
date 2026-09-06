@@ -181,6 +181,12 @@ def build_parser() -> argparse.ArgumentParser:
         "recover", help="Roll back an interrupted transaction."
     )
     recover.add_argument("--dir", default=None, help="Instance directory.")
+    recover.add_argument(
+        "--force-clean",
+        action="store_true",
+        help="Restore the newest retained backup without an active journal.",
+    )
+    recover.add_argument("--yes", action="store_true", help="Confirm forced recovery.")
     _automation_options(recover)
     recover.set_defaults(handler="luminesk_cli.cli.commands.update:recover")
 

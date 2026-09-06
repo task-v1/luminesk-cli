@@ -90,8 +90,8 @@ nesk import ./instance
 nesk import /srv/minecraft --scan
 ```
 
-If an interrupted install/update left a transaction journal or a restorable
-backup, recover it explicitly and validate the result:
+If an interrupted install/update left an active transaction journal, recover it
+explicitly and validate the result:
 
 ```bash
 nesk recover --dir ./instance
