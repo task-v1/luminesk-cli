@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from luminesk_cli.domain.instance import InstanceState, RecipeState, RuntimeState
@@ -30,7 +31,7 @@ def test_instance_index_migrates_unique_tags_and_allows_multiple_instances(
     first = _state(tmp_path / "first", "11111111-1111-1111-1111-111111111111")
     second = _state(tmp_path / "second", "22222222-2222-2222-2222-222222222222")
 
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         connection.execute(
             """
             CREATE TABLE instances_v2 (
@@ -44,6 +45,7 @@ def test_instance_index_migrates_unique_tags_and_allows_multiple_instances(
             "INSERT INTO instances_v2(instance_id, tag, path) VALUES (?, ?, ?)",
             (first.instance_id, first.tag, first.root),
         )
+        connection.commit()
 
     index = InstanceIndex(path)
     index.register(second)
