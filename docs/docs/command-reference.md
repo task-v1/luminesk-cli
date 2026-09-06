@@ -7,7 +7,7 @@ sidebar_position: 5
 The public entry point is `nesk`:
 
 ```text
-nesk [-h] [-v | --version] COMMAND ...
+nesk [-h] [-v | --version] [--debug] COMMAND ...
 ```
 
 `nesk --version` prints the installed version. `nesk` with no command prints
@@ -27,11 +27,17 @@ Every leaf command accepts:
 | --- | --- |
 | `--json` | Emit one stable JSON result instead of human-oriented output. |
 | `--non-interactive` | Never read from stdin; a required choice becomes an error. |
+| `--debug` | Emit stage-level diagnostics to stderr without changing normal/JSON stdout. |
 
 `--non-interactive` does not approve trust. A remote install or an applied
 update also needs `--yes`. `attach` is the exception in practice: the parser
 accepts the shared flags, but the command rejects both because attaching is
 inherently interactive. `logs --follow` similarly rejects `--json`.
+
+`--debug` is opt-in and may be placed before the command or on a leaf command.
+It reports command, resolution, package, transaction, and runtime stages. It
+does not print input values, secret-file paths, provider URLs, subprocess argv,
+Docker output, exception text, or traceback locals.
 
 Successful JSON objects contain `"ok": true`. A handled error has this shape:
 

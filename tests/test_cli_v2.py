@@ -100,6 +100,55 @@ def test_doctor_reports_healthy_cli_and_daemon(monkeypatch, capsys) -> None:
     assert payload["checks"][0]["daemonReachable"] is True
 
 
+def test_debug_diagnostics_use_stderr_without_changing_json(
+    monkeypatch, capsys
+) -> None:
+    from luminesk_cli.cli.commands import doctor
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: "/usr/bin/docker")
+    monkeypatch.setattr(
+        doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, '{"Client":{"Version":"27"}}', ""
+        ),
+    )
+
+    assert main(["doctor", "--debug", "--json"]) == 0
+    captured = capsys.readouterr()
+
+    assert json.loads(captured.out)["ok"] is True
+    assert "DEBUG luminesk_cli.cli.dispatch: command started name=doctor" in (
+        captured.err
+    )
+    assert "command completed name=doctor exit_code=0" in captured.err
+
+    assert main(["doctor", "--json"]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["ok"] is True
+    assert captured.err == ""
+
+
+def test_debug_trace_omits_exception_text(capsys) -> None:
+    import logging
+
+    from luminesk_cli.cli.debug import configure_debug, log_exception_frames
+
+    secret = "never-log-this-secret"
+    configure_debug(True)
+    try:
+        try:
+            raise RuntimeError(secret)
+        except RuntimeError as exc:
+            log_exception_frames(logging.getLogger("luminesk_cli.security-test"), exc)
+    finally:
+        configure_debug(False)
+
+    captured = capsys.readouterr()
+    assert "exception_type=RuntimeError" in captured.err
+    assert secret not in captured.err
+
+
 def test_doctor_fails_when_docker_is_unavailable(monkeypatch, capsys) -> None:
     from luminesk_cli.cli.commands import doctor
 
@@ -321,7 +370,8 @@ command = ["server"]
 
     def build(*args):
         events.append("build")
-        return SimpleNamespace(cleanup=lambda: None), object()
+        package = SimpleNamespace(metadata=SimpleNamespace(files=()))
+        return SimpleNamespace(cleanup=lambda: None), package
 
     class FakeInstaller:
         def __init__(self, **kwargs):

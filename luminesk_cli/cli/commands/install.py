@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -34,10 +35,13 @@ from luminesk_cli.infrastructure.recipe_cache import database_locator, github_lo
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
 from luminesk_cli.infrastructure.state import InstanceIndex
 
+LOGGER = logging.getLogger(__name__)
+
 
 def run(namespace: Any) -> int:
     target = Path(namespace.dir or ".").expanduser().resolve()
     if namespace.source is None:
+        LOGGER.debug("install source selected kind=local in_place=true")
         root, manifest = recipe(target)
         return _install_snapshot(
             namespace,
@@ -49,6 +53,7 @@ def run(namespace: Any) -> int:
     raw_source = namespace.source.strip()
     source_path = Path(raw_source).expanduser()
     if source_path.exists():
+        LOGGER.debug("install source selected kind=local in_place=false")
         if namespace.ref is not None:
             raise ValidationError("--ref is valid only for direct GitHub recipes")
         recipe_root = source_path.resolve()
@@ -66,6 +71,7 @@ def run(namespace: Any) -> int:
 
     database_name = _database_name(raw_source)
     if database_name is not None:
+        LOGGER.debug("install source selected kind=database")
         if namespace.ref is not None:
             raise ValidationError("--ref is valid only for direct GitHub recipes")
         ensure_empty_target(target)
@@ -82,6 +88,7 @@ def run(namespace: Any) -> int:
             raise ValidationError(f"catalog recipe not found: {database_name}")
         locator = database_locator(catalog.revision, entry.name)
         if namespace.frozen:
+            LOGGER.debug("database recipe cache load started frozen=true")
             cached = recipe_cache().load_locator(locator, current_platform())
             return _install_snapshot(
                 namespace,
@@ -93,6 +100,7 @@ def run(namespace: Any) -> int:
         with tempfile.TemporaryDirectory(
             prefix="luminesk-database-recipe-"
         ) as temporary:
+            LOGGER.debug("database recipe acquisition started")
             snapshot = CatalogClient(catalog_store()).acquire_entry(
                 catalog,
                 entry,
@@ -107,9 +115,11 @@ def run(namespace: Any) -> int:
             )
 
     ensure_empty_target(target)
+    LOGGER.debug("install source selected kind=github")
     source = normalize_git_source(raw_source, namespace.ref)
     locator = github_locator(source.canonical, source.requested_ref)
     if namespace.frozen:
+        LOGGER.debug("github recipe cache load started frozen=true")
         cached = recipe_cache().load_locator(locator, current_platform())
         return _install_snapshot(
             namespace,
@@ -119,6 +129,7 @@ def run(namespace: Any) -> int:
             cached_lock=cached.lockfile,
         )
     with tempfile.TemporaryDirectory(prefix="luminesk-github-recipe-") as temporary:
+        LOGGER.debug("github recipe acquisition started")
         snapshot = acquire_github_recipe(
             source,
             Path(temporary) / "recipe",
@@ -163,6 +174,12 @@ def _install_snapshot(
     root = snapshot.root
     manifest = snapshot.manifest
     origin = snapshot.origin
+    LOGGER.debug(
+        "install lock resolution started origin_kind=%s frozen=%s cached=%s",
+        origin.kind,
+        bool(namespace.frozen),
+        cached_lock is not None,
+    )
     lockfile = (
         validate_frozen_lock(
             cached_lock,
@@ -178,14 +195,34 @@ def _install_snapshot(
             recipe_origin=origin,
         )
     )
+    LOGGER.debug(
+        "install lock resolution completed sources=%d build=%s",
+        len(lockfile.sources),
+        lockfile.build is not None,
+    )
     values = parse_inputs(manifest, namespace.set, namespace.set_file)
+    LOGGER.debug(
+        "install input parsing completed overrides=%d file_overrides=%d",
+        len(namespace.set),
+        len(namespace.set_file),
+    )
+    LOGGER.debug("install package build started")
     temporary, package = build_package(root, manifest, lockfile, values)
+    LOGGER.debug(
+        "install package build completed files=%d",
+        len(package.metadata.files),
+    )
 
     try:
         if origin.kind != "local" and cached_lock is None:
             recipe_cache().store(snapshot, lockfile, locator=cache_locator)
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
         plan = installer.plan(package, target)
+        LOGGER.debug(
+            "install plan completed changes=%d conflicts=%s",
+            len(plan.changes),
+            plan.has_conflicts,
+        )
         preview = Preview.for_install(snapshot, lockfile, plan, inputs=values)
         if plan.has_conflicts:
             if not namespace.json:
@@ -199,11 +236,14 @@ def _install_snapshot(
                 preview=preview.to_dict(),
             )
         if confirm:
+            LOGGER.debug("install confirmation stage entered")
             _confirm(namespace, preview)
         elif not namespace.json:
             print_human(preview.to_text(), tone="info")
         if namespace.dry_run:
+            LOGGER.debug("install apply skipped dry_run=true")
             return _emit_result(namespace, preview, None)
+        LOGGER.debug("install transaction apply started")
         plan, state = installer.install(
             manifest,
             lockfile,
@@ -212,6 +252,7 @@ def _install_snapshot(
             inputs=values,
             recipe_snapshot=snapshot,
         )
+        LOGGER.debug("install transaction apply completed")
         return _emit_result(
             namespace,
             Preview.for_install(snapshot, lockfile, plan, inputs=values),
@@ -219,6 +260,7 @@ def _install_snapshot(
         )
     finally:
         temporary.cleanup()
+        LOGGER.debug("install package workspace cleaned")
 
 
 def _confirm(

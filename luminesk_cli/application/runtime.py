@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import socket
 import subprocess
@@ -27,6 +28,7 @@ from luminesk_cli.infrastructure.state import load_state, write_state
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 MEMORY_RE = re.compile(r"^[1-9][0-9]*(?:[bkmg])?$", re.IGNORECASE)
 CONTAINER_NAME_RE = re.compile(r"[^a-z0-9_.-]+")
+LOGGER = logging.getLogger(__name__)
 
 
 class DockerRuntime:
@@ -41,6 +43,11 @@ class DockerRuntime:
         wait_for_readiness: bool = True,
     ) -> InstanceState:
         root = root.resolve()
+        LOGGER.debug(
+            "runtime start requested overrides=%d wait_for_readiness=%s",
+            len(input_overrides or {}),
+            wait_for_readiness,
+        )
         state, manifest, lockfile = _load_instance(root)
 
         if state.pending_transaction is not None:
@@ -51,6 +58,7 @@ class DockerRuntime:
 
         if state.runtime.status == "running" and state.runtime.container_id:
             if self.is_running(state.runtime.container_id):
+                LOGGER.debug("runtime start skipped already_running=true")
                 return state
 
         values = {**state.inputs, **(input_overrides or {})}
@@ -62,6 +70,12 @@ class DockerRuntime:
             lockfile.runtime.image,
             container_name,
             values,
+        )
+        LOGGER.debug(
+            "runtime Docker argv prepared mounts=%d ports=%d arguments=%d",
+            len(manifest.runtime.mounts) or 1,
+            len(manifest.runtime.ports),
+            len(command),
         )
         result = self._run(command, check=False)
 
@@ -87,11 +101,13 @@ class DockerRuntime:
             updated_at=datetime.now(UTC).isoformat(),
         )
         write_state(root, running_state)
+        LOGGER.debug("runtime state committed status=running")
 
         try:
             readiness_at = None
 
             if wait_for_readiness:
+                LOGGER.debug("runtime readiness started")
                 self.wait_ready(root, manifest, running_state, values)
                 readiness_at = datetime.now(UTC).isoformat()
 
@@ -101,13 +117,22 @@ class DockerRuntime:
                 updated_at=datetime.now(UTC).isoformat(),
             )
             write_state(root, committed)
+            LOGGER.debug(
+                "runtime start completed readiness_checked=%s",
+                readiness_at is not None,
+            )
             return committed
-        except BaseException:
+        except BaseException as exc:
+            LOGGER.debug(
+                "runtime start cleanup requested exception_type=%s",
+                type(exc).__name__,
+            )
             self.stop(root, remove=True)
             raise
 
     def stop(self, root: Path, *, remove: bool = False) -> InstanceState:
         root = root.resolve()
+        LOGGER.debug("runtime stop requested remove=%s", remove)
         state, manifest, _ = _load_instance(root)
         identifier = state.runtime.container_id or _container_name(state)
         result = self._run(
@@ -135,10 +160,12 @@ class DockerRuntime:
             updated_at=datetime.now(UTC).isoformat(),
         )
         write_state(root, stopped)
+        LOGGER.debug("runtime stop completed")
         return stopped
 
     def status(self, root: Path) -> InstanceState:
         root = root.resolve()
+        LOGGER.debug("runtime status requested")
         state, _, _ = _load_instance(root)
         identifier = state.runtime.container_id
         running = bool(identifier and self.is_running(identifier))
@@ -147,6 +174,7 @@ class DockerRuntime:
         )
 
         if state.runtime.status == actual_status:
+            LOGGER.debug("runtime status unchanged status=%s", actual_status)
             return state
 
         updated = replace(
@@ -159,9 +187,11 @@ class DockerRuntime:
             updated_at=datetime.now(UTC).isoformat(),
         )
         write_state(root, updated)
+        LOGGER.debug("runtime status reconciled status=%s", actual_status)
         return updated
 
     def logs(self, root: Path, *, follow: bool = False) -> int | str:
+        LOGGER.debug("runtime logs requested follow=%s", follow)
         state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
 
@@ -193,6 +223,7 @@ class DockerRuntime:
         return result.stdout
 
     def attach(self, root: Path) -> int:
+        LOGGER.debug("runtime attach requested")
         state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
         try:
@@ -236,8 +267,16 @@ class DockerRuntime:
                 )
             ]
 
-        for check in checks:
+        LOGGER.debug("runtime readiness checks prepared count=%d", len(checks))
+        for index, check in enumerate(checks):
+            LOGGER.debug(
+                "runtime readiness check started index=%d kind=%s required=%s",
+                index,
+                check.kind,
+                check.required,
+            )
             self._wait_check(root, state, check, values)
+            LOGGER.debug("runtime readiness check completed index=%d", index)
 
     def check_readiness(self, root: Path) -> InstanceState:
         """Run the declared readiness policy against the live instance."""
@@ -330,8 +369,15 @@ class DockerRuntime:
         *,
         check: bool,
     ) -> subprocess.CompletedProcess[str]:
+        operation = argv[1] if len(argv) > 1 else "unknown"
+        LOGGER.debug(
+            "Docker command started operation=%s arguments=%d check=%s",
+            operation,
+            len(argv),
+            check,
+        )
         try:
-            return self._runner(
+            result = self._runner(
                 argv,
                 check=check,
                 capture_output=True,
@@ -339,7 +385,18 @@ class DockerRuntime:
                 shell=False,
             )
         except (OSError, subprocess.CalledProcessError) as exc:
+            LOGGER.debug(
+                "Docker command raised operation=%s exception_type=%s",
+                operation,
+                type(exc).__name__,
+            )
             raise RuntimeOperationError(f"Docker command failed: {exc}") from exc
+        LOGGER.debug(
+            "Docker command completed operation=%s exit_code=%d",
+            operation,
+            result.returncode,
+        )
+        return result
 
 
 def build_run_argv(

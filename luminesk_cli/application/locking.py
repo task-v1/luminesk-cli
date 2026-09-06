@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import httpx
@@ -23,6 +24,8 @@ from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.platform import current_platform
 from luminesk_cli.infrastructure.security.transport import create_secure_client
 from luminesk_cli.infrastructure.sources.base import ResolverRegistry, default_registry
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LockService:
@@ -50,6 +53,13 @@ class LockService:
         target: str | None = None,
     ) -> Lockfile:
         target_platform = target or current_platform()
+        LOGGER.debug(
+            "lock resolution started target=%s sources=%d build=%s recipe_origin=%s",
+            target_platform,
+            len(manifest.sources),
+            manifest.build is not None,
+            recipe_origin is not None,
+        )
 
         if recipe_origin is not None and (
             recipe_origin.manifest_digest != manifest.digest
@@ -96,13 +106,16 @@ class LockService:
             else None
         )
 
-        return Lockfile(
+        LOGGER.debug(
+            "runtime image resolution started pinned=%s", "@" in manifest.runtime.image
+        )
+        runtime_image = self.image_resolver.resolve(manifest.runtime.image)
+        LOGGER.debug("runtime image resolution completed")
+        lockfile = Lockfile(
             manifest_digest=manifest.digest,
             target=target_platform,
             sources=sources,
-            runtime=RuntimeLock(
-                image=self.image_resolver.resolve(manifest.runtime.image)
-            ),
+            runtime=RuntimeLock(image=runtime_image),
             build=(
                 BuildLock(
                     images=resolve_build_images(
@@ -116,6 +129,12 @@ class LockService:
             ),
             recipe=recipe,
         )
+        LOGGER.debug(
+            "lock resolution completed sources=%d build_images=%d",
+            len(lockfile.sources),
+            len(lockfile.build.images) if lockfile.build is not None else 0,
+        )
+        return lockfile
 
     def _resolve_source(
         self,
@@ -123,10 +142,19 @@ class LockService:
         recipe_root: Path,
         client: httpx.Client,
     ) -> ResolvedSource:
+        LOGGER.debug(
+            "source resolution started type=%s local=%s",
+            source.type,
+            source.type == "local-file",
+        )
         if source.type == "local-file":
-            return self._resolve_local(source, recipe_root)
+            resolved = self._resolve_local(source, recipe_root)
+            LOGGER.debug("source resolution completed type=local-file")
+            return resolved
 
         resolution = self.registry.resolve(source, client)
+        LOGGER.debug("source provider metadata resolved type=%s", source.type)
+        LOGGER.debug("source artifact fetch started type=%s", source.type)
         blob = self.fetcher.fetch(
             resolution.url,
             max_size=source.max_size,
@@ -134,6 +162,11 @@ class LockService:
             expected_size=resolution.size,
             allow_http=source.allow_http,
             allow_private_network=source.allow_private_network,
+        )
+        LOGGER.debug(
+            "source artifact verified type=%s size=%d",
+            source.type,
+            blob.size,
         )
 
         return ResolvedSource(

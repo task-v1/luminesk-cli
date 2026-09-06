@@ -52,6 +52,12 @@ def _automation_options(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Disable prompts; required choices become errors.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Emit diagnostic stage logs to stderr.",
+    )
 
 
 def _validation_levels(parser: argparse.ArgumentParser) -> None:
@@ -87,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Luminesk server and server-template composer.",
     )
     parser.add_argument("--version", "-v", action="store_true", help="Show version.")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Emit diagnostic stage logs to stderr.",
+    )
     commands = parser.add_subparsers(dest="command", required=False)
 
     init_parser = commands.add_parser("init", help="Create a recipe skeleton.")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import uuid
@@ -43,6 +44,7 @@ from luminesk_cli.infrastructure.state import (
 )
 
 ApplyHook = Callable[[str], None]
+LOGGER = logging.getLogger(__name__)
 
 
 class TransactionalInstaller:
@@ -59,12 +61,19 @@ class TransactionalInstaller:
         root = target.resolve()
         ownership = load_ownership(root)
         changes = _plan_changes(package.metadata.files, root, ownership)
-        return Plan(
+        plan = Plan(
             operation="update" if load_state(root) is not None else "install",
             target=str(root),
             changes=changes,
             requires_downtime=load_state(root) is not None,
         )
+        LOGGER.debug(
+            "transaction plan created operation=%s changes=%d conflicts=%s",
+            plan.operation,
+            len(plan.changes),
+            plan.has_conflicts,
+        )
+        return plan
 
     def install(
         self,
@@ -102,6 +111,7 @@ class TransactionalInstaller:
             )
 
         if dry_run:
+            LOGGER.debug("transaction apply skipped dry_run=true")
             return plan, old_state
 
         transaction_id = transaction_id or uuid.uuid4().hex
@@ -116,13 +126,21 @@ class TransactionalInstaller:
                 "instance has an unfinished transaction journal; recover it first"
             )
 
+        LOGGER.debug("transaction staging started id=%s", transaction_id)
         extract_package(package, payload)
         if recipe_snapshot is not None:
             stage_recipe_snapshot(recipe_snapshot, staging / RECIPE_DIRECTORY)
+        LOGGER.debug(
+            "transaction staging completed id=%s recipe_snapshot=%s",
+            transaction_id,
+            recipe_snapshot is not None,
+        )
         old_ownership = load_ownership(root)
+        LOGGER.debug("transaction backup started id=%s", transaction_id)
         _backup_transaction_files(root, backup, plan, manifest)
         _backup_metadata(root, backup)
         _backup_recipe_snapshot(root, backup, recipe_snapshot is not None)
+        LOGGER.debug("transaction backup completed id=%s", transaction_id)
         now = datetime.now(UTC).isoformat()
         pending_state = _new_state(
             manifest,
@@ -153,11 +171,20 @@ class TransactionalInstaller:
             ),
         )
         write_state(root, pending_state)
+        LOGGER.debug(
+            "transaction journal committed phase=pending id=%s", transaction_id
+        )
 
         try:
+            LOGGER.debug("transaction file apply started id=%s", transaction_id)
             _apply_plan(root, payload, plan, package.metadata.files, self.apply_hook)
             if recipe_snapshot is not None:
                 _install_recipe_snapshot(root, staging, recipe_snapshot)
+            LOGGER.debug(
+                "transaction post-install checks started id=%s count=%d",
+                transaction_id,
+                len(manifest.checks),
+            )
             _run_post_install_checks(root, manifest.checks)
             new_ownership = _create_ownership(package.metadata.files, root)
             write_lockfile(root / LOCKFILE_NAME, lockfile)
@@ -166,11 +193,24 @@ class TransactionalInstaller:
             write_state(root, committed_state)
             journal.unlink()
             shutil.rmtree(staging)
+            LOGGER.debug("transaction committed id=%s", transaction_id)
         except BaseException as exc:
+            LOGGER.debug(
+                "transaction apply failed id=%s exception_type=%s",
+                transaction_id,
+                type(exc).__name__,
+            )
             try:
+                LOGGER.debug("transaction rollback started id=%s", transaction_id)
                 _rollback(root, backup, plan, old_state, old_ownership)
                 journal.unlink(missing_ok=True)
+                LOGGER.debug("transaction rollback completed id=%s", transaction_id)
             except BaseException as rollback_exc:
+                LOGGER.debug(
+                    "transaction rollback failed id=%s exception_type=%s",
+                    transaction_id,
+                    type(rollback_exc).__name__,
+                )
                 raise TransactionError(
                     "install failed and rollback was incomplete",
                     original=str(exc),
@@ -185,9 +225,11 @@ class TransactionalInstaller:
 
         if prune_backups:
             prune_instance_backups(root, manifest.update.retain_backups)
+            LOGGER.debug("transaction backup pruning completed id=%s", transaction_id)
 
         if self.index is not None:
             self.index.register(committed_state)
+            LOGGER.debug("transaction instance index updated id=%s", transaction_id)
 
         return plan, committed_state
 

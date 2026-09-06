@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,8 @@ from luminesk_cli.domain.package import ServerPackage
 from luminesk_cli.domain.plan import Plan
 from luminesk_cli.domain.recipe import RecipeSnapshot
 from luminesk_cli.infrastructure.state import state_directory
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -52,6 +55,11 @@ class UpdateService:
     ) -> UpdateResult:
         root = root.resolve()
         install_plan = self.installer.plan(package, root)
+        LOGGER.debug(
+            "update plan completed changes=%d dry_run=%s",
+            len(install_plan.changes),
+            dry_run,
+        )
 
         if dry_run:
             return UpdateResult(install_plan, None)
@@ -60,8 +68,14 @@ class UpdateService:
         backup = state_directory(root) / "backups" / transaction_id
         previous_state = self.runtime.status(root)
         was_running = previous_state.runtime.status == "running"
+        LOGGER.debug(
+            "update transaction started id=%s was_running=%s",
+            transaction_id,
+            was_running,
+        )
 
         if was_running:
+            LOGGER.debug("update runtime stop started id=%s", transaction_id)
             self.runtime.stop(root)
 
         try:
@@ -82,12 +96,20 @@ class UpdateService:
                 )
 
             if was_running:
+                LOGGER.debug("update runtime restart started id=%s", transaction_id)
                 state = self.runtime.start(root, wait_for_readiness=True)
 
             prune_instance_backups(root, manifest.update.retain_backups)
+            LOGGER.debug("update transaction completed id=%s", transaction_id)
             return UpdateResult(install_plan, state)
         except BaseException as exc:
+            LOGGER.debug(
+                "update transaction failed id=%s exception_type=%s",
+                transaction_id,
+                type(exc).__name__,
+            )
             try:
+                LOGGER.debug("update rollback started id=%s", transaction_id)
                 current_state = self.runtime.status(root)
 
                 if current_state.runtime.status == "running":
@@ -98,7 +120,13 @@ class UpdateService:
 
                 if was_running:
                     self.runtime.start(root, wait_for_readiness=True)
+                LOGGER.debug("update rollback completed id=%s", transaction_id)
             except BaseException as rollback_exc:
+                LOGGER.debug(
+                    "update rollback failed id=%s exception_type=%s",
+                    transaction_id,
+                    type(rollback_exc).__name__,
+                )
                 raise TransactionError(
                     "update failed and the previous runtime could not be restored",
                     original=str(exc),
