@@ -185,6 +185,24 @@ def test_recover_refuses_stale_journal_for_committed_instance(tmp_path: Path) ->
     assert load_state(target) is not None
 
 
+def test_recover_restores_backup_for_active_transaction(tmp_path: Path) -> None:
+    target = install_release(tmp_path)
+    backup = next((target / ".luminesk_cli/backups").iterdir())
+    state = load_state(target)
+    assert state is not None
+    write_state(target, replace(state, pending_transaction=backup.name))
+    journal = target / ".luminesk_cli/transaction.json"
+    journal.write_text(f'{{"id":"{backup.name}"}}', encoding="utf-8")
+
+    assert (
+        update_command.recover(recovery_namespace(target, force_clean=False, yes=False))
+        == 0
+    )
+    assert not journal.exists()
+    assert not (target / "server.bin").exists()
+    assert load_state(target) is None
+
+
 def test_force_clean_recovery_requires_confirmation(tmp_path: Path) -> None:
     target = install_release(tmp_path)
     namespace = recovery_namespace(target, force_clean=True, yes=False)
