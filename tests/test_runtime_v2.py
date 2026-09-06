@@ -37,9 +37,14 @@ default = 1000
 [inputs.data_dir]
 type = "string"
 default = "data"
+pattern = "^[a-z]+$"
 [inputs.container_dir]
 type = "string"
 default = "data"
+[inputs.token]
+type = "string"
+required = true
+secret = true
 [[sources]]
 id = "core"
 type = "http"
@@ -236,6 +241,25 @@ def test_runtime_start_records_container_and_readiness(tmp_path: Path) -> None:
     assert load_state(root) == state
     run_call = next(call for call in calls if call[1] == "run")
     assert run_call[-1] == "server.jar; echo not-a-shell"
+
+
+def test_runtime_start_validates_input_overrides_before_docker(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(tuple(argv))
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    with pytest.raises(ValidationError, match="does not match its pattern"):
+        DockerRuntime(runner=runner).start(
+            root,
+            input_overrides={"data_dir": "UPPER"},
+            wait_for_readiness=False,
+        )
+
+    assert calls == []
 
 
 def test_command_readiness_runs_argv_inside_container(tmp_path: Path) -> None:

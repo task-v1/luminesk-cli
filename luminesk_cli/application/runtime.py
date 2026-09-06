@@ -16,6 +16,7 @@ from typing import Literal
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.inputs import (
     interpolate_input_references,
+    resolve_inputs,
     resolve_runtime_port,
 )
 from luminesk_cli.domain.instance import InstanceState, RuntimeState
@@ -61,7 +62,12 @@ class DockerRuntime:
                 LOGGER.debug("runtime start skipped already_running=true")
                 return state
 
-        values = {**state.inputs, **(input_overrides or {})}
+        values = resolve_inputs(
+            manifest,
+            {**state.inputs, **(input_overrides or {})},
+            require_required=False,
+        )
+        LOGGER.debug("runtime input validation completed values=%d", len(values))
         container_name = _container_name(state)
         self._run(["docker", "rm", "--force", container_name], check=False)
         command = build_run_argv(

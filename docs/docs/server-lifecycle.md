@@ -73,9 +73,10 @@ start, including readiness unless `--no-wait` is set.
 
 `start` and `restart` accept repeatable `--set` and `--set-file`. They are
 combined with the non-secret values saved at install/update time and affect
-that container creation only. They do not rewrite the installed package or
-persist new state. To render updated files and persist non-secret input values,
-preview and apply `nesk update` instead.
+that container creation only. Type, range, and pattern validation runs before
+Docker is called. They do not rewrite the installed package or persist new
+state. To render updated files and persist non-secret input values, preview and
+apply `nesk update` instead.
 
 ## Locate and recover instances
 

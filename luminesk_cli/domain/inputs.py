@@ -16,6 +16,8 @@ INPUT_REFERENCE_RE = re.compile(r"\$\{input\.([A-Za-z0-9_-]+)\}")
 def resolve_inputs(
     manifest: Manifest,
     overrides: Mapping[str, InputValue],
+    *,
+    require_required: bool = True,
 ) -> dict[str, InputValue]:
     """Merge validated manifest defaults with explicit input overrides."""
 
@@ -31,7 +33,7 @@ def resolve_inputs(
         value = overrides.get(name, spec.default)
 
         if value is None:
-            if spec.required:
+            if spec.required and require_required:
                 raise ValidationError(f"required input has no value: {name}")
 
             continue
