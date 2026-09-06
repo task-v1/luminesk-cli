@@ -193,7 +193,7 @@ jobs:
         run: uv build
 
       - name: Verify wheel contents and metadata
-        run: uv run python scripts/verify_wheel.py dist/*.whl
+        run: uv run --extra build python scripts/verify_wheel.py dist/*.whl
 
       - name: Install wheel into a clean environment
         run: |

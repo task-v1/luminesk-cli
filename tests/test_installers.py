@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 INSTALLER_ASSETS = {
@@ -47,6 +48,39 @@ def test_release_matrix_matches_installer_assets() -> None:
     for name in INSTALLER_ASSETS:
         workflow_name = name.removesuffix(".exe")
         assert f"installer_asset: {workflow_name}" in workflow
+    assert workflow.count("--collect-all platformdirs") == 2
+
+
+def test_wheel_verifier_parses_dependency_requirements(tmp_path: Path) -> None:
+    wheel = tmp_path / "luminesk_cli-2.0.0-py3-none-any.whl"
+    metadata = """\
+Metadata-Version: 2.4
+Name: luminesk-cli
+Version: 2.0.0
+Requires-Dist: rich>=15.0.0
+Requires-Dist: platformdirs[tests] >= 4.10.0; python_version >= "3.13"
+"""
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("luminesk_cli/__init__.py", "")
+        archive.writestr("luminesk_cli-2.0.0.dist-info/METADATA", metadata)
+    command = [
+        sys.executable,
+        str(REPOSITORY_ROOT / "scripts/verify_wheel.py"),
+        str(wheel),
+    ]
+
+    accepted = subprocess.run(command, check=False, capture_output=True, text=True)
+    assert accepted.returncode == 0, accepted.stderr
+
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("luminesk_cli/__init__.py", "")
+        archive.writestr(
+            "luminesk_cli-2.0.0.dist-info/METADATA",
+            metadata + "Requires-Dist: cyclopts>=3.0\n",
+        )
+    rejected = subprocess.run(command, check=False, capture_output=True, text=True)
+    assert rejected.returncode != 0
+    assert "cyclopts" in rejected.stderr
 
 
 def test_release_asset_verifier_accepts_only_complete_hashed_set(

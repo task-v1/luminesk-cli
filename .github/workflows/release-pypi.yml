@@ -98,7 +98,7 @@ jobs:
         run: uv build
 
       - name: Verify wheel contents
-        run: uv run python scripts/verify_wheel.py dist/*.whl
+        run: uv run --extra build python scripts/verify_wheel.py dist/*.whl
 
       - name: Attest Python artifacts
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
@@ -171,6 +171,7 @@ jobs:
           --onedir
           --name nesk
           --collect-all luminesk_cli
+          --collect-all platformdirs
           --exclude-module tkinter
           luminesk_cli/__main__.py
 
@@ -192,6 +193,7 @@ jobs:
           --distpath artifacts
           --workpath build/installer-${{ matrix.name }}
           --collect-all luminesk_cli
+          --collect-all platformdirs
           --exclude-module tkinter
           luminesk_cli/__main__.py
 

@@ -45,7 +45,7 @@ Repository = "https://github.com/task-v1/luminesk-cli.git"
 nesk = "luminesk_cli.main:main"
 
 [project.optional-dependencies]
-build = ["pyinstaller>=6.21.0"]
+build = ["packaging>=26.2", "pyinstaller>=6.21.0"]
 dev = [
   "mypy>=2.1.0",
   "pytest>=9.1.1",

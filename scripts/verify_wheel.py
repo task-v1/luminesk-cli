@@ -7,6 +7,9 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
+
 RETIRED_DIRECTORIES = {
     "bundled_recipes",
     "community_catalog",
@@ -17,7 +20,7 @@ RETIRED_DIRECTORIES = {
     "models",
     "utils",
 }
-RETIRED_DEPENDENCIES = {"cyclopts", "rich"}
+RETIRED_DEPENDENCIES = {canonicalize_name("cyclopts")}
 
 
 def main(argv: list[str]) -> int:
@@ -41,10 +44,13 @@ def main(argv: list[str]) -> int:
     if metadata["Version"] != "2.0.0":
         raise SystemExit(f"unexpected wheel version: {metadata['Version']}")
 
-    normalized_requirements = {
-        requirement.split(";", 1)[0].split("[", 1)[0].split(" ", 1)[0].lower()
-        for requirement in requirements
-    }
+    try:
+        normalized_requirements = {
+            canonicalize_name(Requirement(requirement).name)
+            for requirement in requirements
+        }
+    except InvalidRequirement as exc:
+        raise SystemExit(f"wheel contains an invalid requirement: {exc}") from exc
     forbidden_dependencies = normalized_requirements & RETIRED_DEPENDENCIES
 
     if forbidden_dependencies:
