@@ -27,15 +27,30 @@ def resolve_inputs(
     if unknown:
         raise ValidationError(f"unknown input: {unknown[0]}")
 
+    missing = [
+        spec
+        for spec in manifest.inputs
+        if spec.required and spec.default is None and spec.name not in overrides
+    ]
+    if missing and require_required:
+        names = ", ".join(spec.name for spec in missing)
+        raise ValidationError(
+            f"required inputs have no values: {names}",
+            missingInputs=[
+                {
+                    "name": spec.name,
+                    "option": "--set-file" if spec.secret else "--set",
+                }
+                for spec in missing
+            ],
+        )
+
     values: dict[str, InputValue] = {}
 
     for name, spec in declared.items():
         value = overrides.get(name, spec.default)
 
         if value is None:
-            if spec.required and require_required:
-                raise ValidationError(f"required input has no value: {name}")
-
             continue
 
         expected_type = {"string": str, "integer": int, "boolean": bool}[spec.type]

@@ -161,6 +161,19 @@ direct GitHub recipe.
 | `--frozen` | Use matching cached recipe/lock/artifacts only; perform no new resolution. |
 | `--yes` | Accept the printed trust/capability/change preview. |
 
+In normal human mode, `install` opens an input wizard after it has acquired and
+verified the recipe manifest. Every input not already supplied by `--set` or
+`--set-file` is shown with its prompt, type, default, and constraints. Press Enter
+to keep a default or skip an optional value. Required values are requested until
+they validate. Boolean prompts accept `true`/`false` or `yes`/`no`; secret prompts
+request a UTF-8 file path and never accept the secret value directly. Input
+validation completes before source and image resolution begins.
+
+`--json` and `--non-interactive` never run the wizard. Missing required inputs are
+returned together in the validation error's `missingInputs` details, including the
+correct option for each input. `--yes` approves the later trust plan but does not
+silently provide or accept recipe inputs.
+
 Remote and external local recipes require confirmation even for `--dry-run`,
 because resolution and package building occur before the apply stage. Human and
 JSON modes expose the same `Preview`: trust classification, exact recipe and

@@ -32,6 +32,15 @@ Dockerfile.
 
 ## 3. Preview and install
 
+For a guided installation, let the input wizard collect EULA acceptance and
+optional settings, then review the trust plan before confirming:
+
+```bash
+nesk install paper --dir ./servers/example
+```
+
+For automation, provide inputs and trust approval explicitly:
+
 ```bash
 nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
 nesk install paper --dir ./servers/example --set eula=true --yes
@@ -43,7 +52,8 @@ catalog entry. For a direct GitHub recipe, use `OWNER/RECIPE@REF` or
 the exact commit. The target must be empty for a remote or external local
 recipe.
 
-`--dry-run` resolves, builds, and prints the unified preview without applying
+In human mode the wizard shows every recipe input with its prompt, type, default,
+and constraints. `--dry-run` resolves, builds, and prints the unified preview without applying
 it. The preview includes trust, capabilities, pinned artifacts, runtime image,
 and every planned file change. Remote recipes still require confirmation;
 `--yes` accepts this exact preview. PaperMC also requires the explicit

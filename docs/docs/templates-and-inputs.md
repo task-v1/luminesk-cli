@@ -39,8 +39,10 @@ TOML scalar type. Integer `min`/`max` and string `pattern` validation run again
 when package values are resolved. `pattern` is a Python regular expression
 matched against the complete value.
 
-`prompt` is descriptive metadata. The current CLI does not automatically ask
-that prompt; a required input without a default must be supplied explicitly.
+`prompt` is the human-facing label shown by `nesk info` and the interactive
+install wizard. The wizard visits inputs not already supplied on the command line;
+Enter keeps a declared default or skips an optional value. Automation remains
+prompt-free and must supply every required value explicitly.
 
 ## Supply values
 
@@ -56,6 +58,10 @@ nesk plan --dir ./recipe \
 parser. Boolean text accepts only case-insensitive `true` or `false`. An
 unknown name, duplicate name across value/file forms, empty assignment, wrong
 type, failed regex, or out-of-range integer is an error.
+
+The interactive install wizard also accepts `yes`/`no` for boolean inputs. This is
+only input syntax: `--yes` separately approves the displayed install plan and does
+not set a boolean recipe input such as `eula`.
 
 Install/update values have this precedence:
 

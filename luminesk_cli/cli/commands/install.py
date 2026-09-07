@@ -12,12 +12,12 @@ from luminesk_cli.cli.commands.common import (
     catalog_store,
     emit,
     index_path,
-    parse_inputs,
     recipe,
     recipe_cache,
     resolve_lock,
     validate_frozen_lock,
 )
+from luminesk_cli.cli.input_wizard import collect_install_inputs
 from luminesk_cli.cli.output import print_human
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
@@ -174,6 +174,17 @@ def _install_snapshot(
     root = snapshot.root
     manifest = snapshot.manifest
     origin = snapshot.origin
+    values = collect_install_inputs(
+        manifest,
+        namespace.set,
+        namespace.set_file,
+        interactive=not namespace.non_interactive and not namespace.json,
+    )
+    LOGGER.debug(
+        "install input parsing completed overrides=%d file_overrides=%d",
+        len(namespace.set),
+        len(namespace.set_file),
+    )
     LOGGER.debug(
         "install lock resolution started origin_kind=%s frozen=%s cached=%s",
         origin.kind,
@@ -199,12 +210,6 @@ def _install_snapshot(
         "install lock resolution completed sources=%d build=%s",
         len(lockfile.sources),
         lockfile.build is not None,
-    )
-    values = parse_inputs(manifest, namespace.set, namespace.set_file)
-    LOGGER.debug(
-        "install input parsing completed overrides=%d file_overrides=%d",
-        len(namespace.set),
-        len(namespace.set_file),
     )
     LOGGER.debug("install package build started")
     temporary, package = build_package(root, manifest, lockfile, values)

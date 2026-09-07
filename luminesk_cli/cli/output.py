@@ -93,6 +93,15 @@ def confirm(question: str) -> bool:
     return input().strip().lower() in {"y", "yes"}
 
 
+def ask(question: str) -> str:
+    """Read one safely rendered free-form answer from stdin."""
+
+    prompt = Text(sanitize(question), style="message.prompt")
+    prompt.append(" ", style="message.muted")
+    _console().print(prompt, end="", soft_wrap=True)
+    return input()
+
+
 def _console(*, stderr: bool = False) -> Console:
     return Console(stderr=stderr, theme=THEME, highlight=False)
 

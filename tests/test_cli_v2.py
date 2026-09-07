@@ -16,6 +16,7 @@ from luminesk_cli.domain.manifest import parse_manifest
 from luminesk_cli.domain.plan import Plan
 from luminesk_cli.domain.preview import Preview
 from luminesk_cli.infrastructure.recipe_snapshot import create_recipe_snapshot
+from luminesk_cli.infrastructure.state import load_state
 
 
 def test_human_output_uses_restrained_semantic_colors() -> None:
@@ -299,6 +300,109 @@ container = "${input.port}"
     assert "differs from the locked recipe snapshot" in error["error"]["message"]
 
 
+def test_interactive_install_wizard_collects_and_validates_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "wizard-server"
+    template = root / "template"
+    template.mkdir(parents=True)
+    (template / "eula.txt.tmpl").write_text("eula=${input.eula}\n", encoding="utf-8")
+    (template / "server.properties.tmpl").write_text(
+        "motd=${input.server_name}\n", encoding="utf-8"
+    )
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+template = "template"
+[package]
+name = "wizard-fixture"
+version = "2.0.0"
+display_name = "Wizard Fixture"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.eula]
+type = "boolean"
+required = true
+prompt = "Accept the Minecraft EULA"
+[inputs.server_name]
+type = "string"
+default = "Default Server"
+pattern = "^[A-Za-z ]+$"
+prompt = "Server name"
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+""",
+        encoding="utf-8",
+    )
+    answers = iter(["maybe", "yes", "Custom Server"])
+    monkeypatch.setattr("builtins.input", lambda: next(answers))
+
+    assert main(["install", "--dir", str(root)]) == 0
+
+    captured = capsys.readouterr()
+    assert "Configure inputs for Wizard Fixture" in captured.out
+    assert "Accept the Minecraft EULA" in captured.out
+    assert "Server name" in captured.out
+    assert "must be true/false or yes/no" in captured.err
+    assert (root / "eula.txt").read_text(encoding="utf-8") == "eula=true\n"
+    assert (root / "server.properties").read_text(encoding="utf-8") == (
+        "motd=Custom Server\n"
+    )
+    state = load_state(root)
+    assert state is not None
+    assert state.inputs == {"eula": True, "server_name": "Custom Server"}
+
+
+def test_non_interactive_install_reports_every_missing_input(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "missing-inputs"
+    template = root / "template"
+    template.mkdir(parents=True)
+    (template / "config.txt.tmpl").write_text(
+        "${input.eula}:${input.token}\n", encoding="utf-8"
+    )
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+template = "template"
+[package]
+name = "missing-input-fixture"
+version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.eula]
+type = "boolean"
+required = true
+[inputs.token]
+type = "string"
+required = true
+secret = true
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["install", "--dir", str(root), "--json"]) == 3
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"]["message"] == (
+        "required inputs have no values: eula, token"
+    )
+    assert payload["error"]["details"]["missingInputs"] == [
+        {"name": "eula", "option": "--set"},
+        {"name": "token", "option": "--set-file"},
+    ]
+
+
 def test_remote_recipe_is_built_and_planned_before_confirmation(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -372,7 +476,6 @@ command = ["server"]
         "resolve_lock",
         lambda *args, **kwargs: lockfile,
     )
-    monkeypatch.setattr(install_command, "parse_inputs", lambda *args: {})
     monkeypatch.setattr(
         install_command,
         "_confirm",

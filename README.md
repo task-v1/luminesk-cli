@@ -61,7 +61,10 @@ nesk search
 nesk info paper
 
 # The info output lists required inputs before installation.
-# Preview, confirm, and install the inspected PaperMC recipe.
+# Run the guided input wizard and confirm the inspected PaperMC recipe.
+nesk install paper --dir ./servers/example
+
+# For automation, provide inputs and approval explicitly.
 nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
 nesk install paper --dir ./servers/example --set eula=true --yes
 
