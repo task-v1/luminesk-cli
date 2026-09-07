@@ -4,8 +4,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from luminesk_cli.cli.commands.common import cache, emit, recipe, resolve_lock
+from luminesk_cli.cli.commands.common import (
+    cache,
+    emit,
+    parse_inputs,
+    recipe,
+    resolve_lock,
+)
 from luminesk_cli.domain.errors import ValidationError
+from luminesk_cli.domain.inputs import resolve_inputs
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, load_lockfile
 from luminesk_cli.infrastructure.build import DeclarativeBuilder
 from luminesk_cli.infrastructure.cache import digest_file
@@ -15,6 +22,8 @@ from luminesk_cli.infrastructure.state import load_ownership, load_state
 def run(namespace: Any) -> int:
     root, manifest = recipe(namespace.dir)
     phases = _phases(namespace)
+    inputs = parse_inputs(manifest, namespace.set, namespace.set_file)
+    resolve_inputs(manifest, inputs, require_required="build" in phases)
     results = []
     lockfile = None
 
@@ -34,6 +43,7 @@ def run(namespace: Any) -> int:
                 lockfile,
                 root,
                 Path(temporary) / "validation.lumineskpkg",
+                inputs=inputs,
             )
             results.append(
                 {"phase": "build", "ok": True, "packageDigest": package.digest}

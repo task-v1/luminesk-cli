@@ -239,18 +239,20 @@ nesk lock --dir ./my-paper-core
 ```
 
 Review `luminesk.lock`, but do not edit it. Package assembly needs the required
-EULA value, so exercise it with `plan`:
+EULA value, so supply it to build validation or exercise the same rendering path
+with `plan`:
 
 ```bash
+nesk validate --dir ./my-paper-core --build --set eula=true
 nesk plan --dir ./my-paper-core \
   --set eula=true \
   --set server_name="Development Server" \
   --set memory=2g
 ```
 
-`nesk validate --build` has no input flags. For a recipe with a required input
-and no default, `plan` or a test install is the correct full package-rendering
-exercise after static/resolve validation.
+For a recipe with secret inputs, use `--set-file NAME=PATH` just as you would for
+an install. Validation reads the secret for temporary rendering without persisting
+it.
 
 ## 7. Test a local install
 

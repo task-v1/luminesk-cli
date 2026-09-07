@@ -403,6 +403,123 @@ command = ["server"]
     ]
 
 
+def test_validate_build_accepts_value_and_secret_file_inputs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "validate-inputs"
+    template = root / "template"
+    template.mkdir(parents=True)
+    (template / "config.txt.tmpl").write_text(
+        "${input.eula}:${input.token}\n", encoding="utf-8"
+    )
+    secret = tmp_path / "token"
+    secret.write_text("secret\n", encoding="utf-8")
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+template = "template"
+[package]
+name = "validate-input-fixture"
+version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.eula]
+type = "boolean"
+required = true
+[inputs.token]
+type = "string"
+required = true
+secret = true
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+""",
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "validate",
+                "--dir",
+                str(root),
+                "--build",
+                "--set",
+                "eula=true",
+                "--set-file",
+                f"token={secret}",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert [item["phase"] for item in payload["validation"]] == [
+        "static",
+        "resolve",
+        "build",
+    ]
+
+
+def test_validate_rejects_bad_input_before_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from luminesk_cli.cli.commands import validate as validate_command
+
+    root = tmp_path / "validate-bad-input"
+    root.mkdir()
+    (root / "payload.in").write_text("payload", encoding="utf-8")
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+[package]
+name = "validate-bad-input-fixture"
+version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.port]
+type = "integer"
+min = 1
+max = 65535
+[[files]]
+source = "payload.in"
+target = "payload"
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        validate_command,
+        "resolve_lock",
+        lambda *args, **kwargs: pytest.fail("resolution must not run"),
+    )
+
+    assert (
+        main(
+            [
+                "validate",
+                "--dir",
+                str(root),
+                "--build",
+                "--set",
+                "port=70000",
+                "--json",
+            ]
+        )
+        == 3
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["error"]["message"] == "input port is above its maximum"
+
+
 def test_remote_recipe_is_built_and_planned_before_confirmation(
     tmp_path: Path, monkeypatch
 ) -> None:

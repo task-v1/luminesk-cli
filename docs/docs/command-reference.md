@@ -89,6 +89,7 @@ before attempting resolution.
 ```text
 nesk validate [--dir DIR]
   [--static | --resolve | --build | --instance | --readiness | --all]
+  [--set KEY=VALUE]... [--set-file KEY=PATH]...
   [--json] [--non-interactive]
 ```
 
@@ -102,6 +103,10 @@ nesk validate [--dir DIR]
 | `--instance` | Verify installed state, root marker, lock binding, ownership ledger, and managed-file digests. |
 | `--readiness` | Run readiness checks against an already running instance. |
 | `--all` | Run every level; therefore needs installed state and, for readiness, a running container. |
+
+`--set` and `--set-file` provide recipe inputs for validation. Values are checked
+before resolution, and `--build` requires all mandatory inputs because it renders
+the package. Secret inputs retain the same file-only contract as installation.
 
 ### `nesk lock`
 

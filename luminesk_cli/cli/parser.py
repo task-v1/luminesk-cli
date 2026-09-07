@@ -109,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate = commands.add_parser("validate", help="Validate a recipe or instance.")
     validate.add_argument("--dir", default=".", help="Recipe or instance directory.")
     _validation_levels(validate)
+    _input_options(validate)
     _automation_options(validate)
     validate.set_defaults(handler="luminesk_cli.cli.commands.validate:run")
 
