@@ -199,6 +199,38 @@ def test_search_info_and_catalog_status_emit_stable_json(
     root = tmp_path / "cache" / "luminesk_cli" / "v2" / "catalog"
     content = _index(_entry())
     CatalogStore(root).commit(parse_catalog_index(content), content)
+    manifest = parse_manifest(
+        b"""\
+manifest_version = 1
+template = "template"
+[package]
+name = "lumi"
+version = "1.0.1"
+display_name = "Lumi"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
+summary = "Lumi Minecraft server"
+keywords = ["lumi", "bedrock"]
+[inputs.server_name]
+type = "string"
+default = "Lumi Server"
+prompt = "Server name"
+[inputs.token]
+type = "string"
+required = true
+secret = true
+prompt = "Provider token"
+[runtime]
+image = "example/server:2"
+command = ["./server"]
+"""
+    )
+    monkeypatch.setattr(
+        CatalogClient,
+        "fetch_entry_manifest",
+        lambda self, snapshot, entry: manifest,
+    )
 
     assert main(["search", "lumi", "--edition", "bedrock", "--json"]) == 0
     search = json.loads(capsys.readouterr().out)
@@ -212,6 +244,32 @@ def test_search_info_and_catalog_status_emit_stable_json(
     info = json.loads(capsys.readouterr().out)
     assert info["recipe"]["recipeVersion"] == "1.0.1"
     assert info["recipe"]["license"] == "LGPL-3.0-only"
+    assert info["recipe"]["inputs"] == [
+        {
+            "default": "Lumi Server",
+            "maximum": None,
+            "minimum": None,
+            "name": "server_name",
+            "option": "--set",
+            "pattern": None,
+            "prompt": "Server name",
+            "required": False,
+            "secret": False,
+            "type": "string",
+        },
+        {
+            "default": None,
+            "maximum": None,
+            "minimum": None,
+            "name": "token",
+            "option": "--set-file",
+            "pattern": None,
+            "prompt": "Provider token",
+            "required": True,
+            "secret": True,
+            "type": "string",
+        },
+    ]
 
     assert main(["catalog", "status", "--json"]) == 0
     status = json.loads(capsys.readouterr().out)
@@ -326,3 +384,63 @@ command = ["./server"]
     assert recipe.origin.entry == "lumi"
     assert (recipe.root / "template/settings.yml.tmpl").read_bytes() == template_content
     assert not any("src" in path or "tests" in path for path in requested_paths)
+
+
+def test_catalog_manifest_inspection_fetches_no_recipe_assets(tmp_path: Path) -> None:
+    manifest_bytes = b"""\
+manifest_version = 1
+template = "template"
+[package]
+name = "lumi"
+version = "1.0.1"
+display_name = "Lumi"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
+summary = "Lumi Minecraft server"
+keywords = ["lumi", "bedrock"]
+[inputs.port]
+type = "integer"
+default = 19132
+min = 1
+max = 65535
+prompt = "Game port"
+[runtime]
+image = "example/server:2"
+command = ["./server"]
+"""
+    entry = CatalogEntry(
+        name="lumi",
+        display_name="Lumi",
+        recipe_version="1.0.1",
+        kind="core",
+        game="minecraft",
+        edition="bedrock",
+        summary="Lumi Minecraft server",
+        keywords=("lumi", "bedrock"),
+        path="database/lumi",
+        manifest_digest=sha256_digest(manifest_bytes),
+    )
+    snapshot = CatalogSnapshot(
+        revision=REVISION,
+        entries=(entry,),
+        index_digest=f"sha256:{'e' * 64}",
+    )
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.path)
+        return httpx.Response(200, content=manifest_bytes)
+
+    client = CatalogClient(
+        CatalogStore(tmp_path / "catalog"),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        allow_private_network=True,
+    )
+
+    manifest = client.fetch_entry_manifest(snapshot, entry)
+
+    assert manifest.inputs[0].name == "port"
+    assert requests == [
+        f"/task-v1/luminesk-database/{REVISION}/database/lumi/luminesk.toml"
+    ]

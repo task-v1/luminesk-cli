@@ -222,7 +222,10 @@ instance after recovery.
 
 ## Catalog
 
-Catalog search and inspection are offline against the active verified snapshot.
+Catalog search is offline against the active verified snapshot. Recipe inspection
+also loads the manifest pinned by that snapshot so it can expose the complete input
+contract. A previously cached manifest remains available offline; the first
+inspection of an entry may require HTTPS access.
 
 ### `nesk search`
 
@@ -246,8 +249,11 @@ nesk info NAME [--json] [--non-interactive]
 
 Shows one exact lowercase catalog entry from the active snapshot, including
 kind, edition, recipe version, platforms, license, authors, repository, source
-types, pinned runtime image, catalog freshness, and install name. Misspellings
-include deterministic offline suggestions when available.
+types, pinned runtime image, catalog freshness, and install name. It fetches and
+SHA-256-verifies only that entry's `luminesk.toml`, then lists every declared input
+with its type, prompt, requirement, default, constraints, and the correct
+`--set`/`--set-file` option. Misspellings include deterministic offline
+suggestions when available.
 
 ### `nesk catalog update`
 

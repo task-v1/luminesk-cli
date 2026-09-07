@@ -60,6 +60,7 @@ Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
 nesk search
 nesk info paper
 
+# The info output lists required inputs before installation.
 # Preview, confirm, and install the inspected PaperMC recipe.
 nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
 nesk install paper --dir ./servers/example --set eula=true --yes

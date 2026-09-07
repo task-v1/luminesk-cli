@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from luminesk_cli.cli.commands.common import catalog_store, emit
 from luminesk_cli.domain.catalog import CatalogEntry, search_catalog, suggest_catalog
 from luminesk_cli.domain.errors import ValidationError
+from luminesk_cli.domain.manifest import InputSpec
 from luminesk_cli.infrastructure.catalog import CatalogClient
 
 
@@ -59,7 +61,9 @@ def info(namespace: Any) -> int:
         suggestions = suggest_catalog(snapshot, namespace.name)
         hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
         raise ValidationError(f"catalog recipe not found: {namespace.name}.{hint}")
+    manifest = CatalogClient(store).fetch_entry_manifest(snapshot, entry)
     data = _payload(entry)
+    data["inputs"] = [_input_payload(spec) for spec in manifest.inputs]
     plain = (
         f"{entry.display_name}\n"
         f"Edition: {entry.edition}\n"
@@ -71,8 +75,9 @@ def info(namespace: Any) -> int:
         f"Sources: {', '.join(entry.source_types) or 'not indexed'}\n"
         f"Runtime image: {entry.runtime_image or 'not indexed'}\n"
         f"Repository: {entry.repository or 'not declared'}\n"
+        f"{_input_text(manifest.inputs)}\n"
         f"Catalog: {snapshot.revision[:12]} (activated {store.activated_at()})\n"
-        f"Install: nesk i {entry.name}\n"
+        f"Install: nesk i {entry.name} --dir INSTANCE\n"
         f"{entry.summary}"
     )
     emit(
@@ -177,6 +182,51 @@ def _payload(entry: CatalogEntry) -> dict[str, Any]:
         "sourceTypes": list(entry.source_types),
         "runtimeImage": entry.runtime_image,
     }
+
+
+def _input_payload(spec: InputSpec) -> dict[str, Any]:
+    return {
+        "name": spec.name,
+        "type": spec.type,
+        "required": spec.required,
+        "secret": spec.secret,
+        "default": spec.default,
+        "prompt": spec.prompt,
+        "minimum": spec.minimum,
+        "maximum": spec.maximum,
+        "pattern": spec.pattern,
+        "option": "--set-file" if spec.secret else "--set",
+    }
+
+
+def _input_text(inputs: tuple[InputSpec, ...]) -> str:
+    if not inputs:
+        return "Inputs: none"
+
+    lines = ["Inputs:"]
+    for spec in inputs:
+        requirement = "required" if spec.required else "optional"
+        default = (
+            "no default"
+            if spec.default is None
+            else f"default {json.dumps(spec.default, ensure_ascii=False)}"
+        )
+        lines.append(f"  {spec.name}: {spec.type}, {requirement}, {default}")
+        if spec.prompt is not None:
+            lines.append(f"    {spec.prompt}")
+        constraints = []
+        if spec.minimum is not None:
+            constraints.append(f"minimum {spec.minimum}")
+        if spec.maximum is not None:
+            constraints.append(f"maximum {spec.maximum}")
+        if spec.pattern is not None:
+            constraints.append(f"pattern {spec.pattern}")
+        if constraints:
+            lines.append("    Constraints: " + ", ".join(constraints))
+        option = "--set-file" if spec.secret else "--set"
+        value = "PATH" if spec.secret else "VALUE"
+        lines.append(f"    Supply: {option} {spec.name}={value}")
+    return "\n".join(lines)
 
 
 def _search_table(entries: tuple[CatalogEntry, ...]) -> str:

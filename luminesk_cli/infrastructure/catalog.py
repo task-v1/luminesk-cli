@@ -26,7 +26,7 @@ from luminesk_cli.domain.manifest import (
     HttpOptions,
     Manifest,
     SourceSpec,
-    load_manifest,
+    parse_manifest,
 )
 from luminesk_cli.domain.primitives import validate_digest
 from luminesk_cli.domain.recipe import RecipeSnapshot
@@ -266,9 +266,8 @@ class CatalogClient:
         owned_client = self.client is None
         client = self.client or create_secure_client()
         try:
-            self._fetch_manifest(client, snapshot, entry, destination)
-            manifest = load_manifest(destination / MANIFEST_NAME)
-            _validate_entry_manifest(entry, manifest)
+            manifest, content = self._fetch_manifest(client, snapshot, entry)
+            atomic_write(destination / MANIFEST_NAME, content)
             GitHubContentsFetcher(
                 client=client,
                 cache=ContentCache(self.store.root / "blobs"),
@@ -304,6 +303,26 @@ class CatalogClient:
             if owned_client:
                 client.close()
 
+    def fetch_entry_manifest(
+        self,
+        snapshot: CatalogSnapshot,
+        entry: CatalogEntry,
+    ) -> Manifest:
+        """Fetch and verify one catalog manifest without its recipe assets."""
+
+        if entry not in snapshot.entries:
+            raise ValidationError(
+                "catalog entry does not belong to the active snapshot"
+            )
+        owned_client = self.client is None
+        client = self.client or create_secure_client()
+        try:
+            manifest, _ = self._fetch_manifest(client, snapshot, entry)
+            return manifest
+        finally:
+            if owned_client:
+                client.close()
+
     def _resolve_revision(self, client: httpx.Client) -> str:
         source = self._metadata_source()
         repository = request_json_object(
@@ -331,8 +350,7 @@ class CatalogClient:
         client: httpx.Client,
         snapshot: CatalogSnapshot,
         entry: CatalogEntry,
-        destination: Path,
-    ) -> None:
+    ) -> tuple[Manifest, bytes]:
         fetcher = SecureFetcher(ContentCache(self.store.root / "blobs"), client=client)
         blob = fetcher.fetch(
             f"{RAW_ROOT}/{snapshot.revision}/{entry.path}/{MANIFEST_NAME}",
@@ -340,7 +358,10 @@ class CatalogClient:
             expected_digest=entry.manifest_digest,
             allow_private_network=self.allow_private_network,
         )
-        atomic_write(destination / MANIFEST_NAME, blob.path.read_bytes())
+        content = blob.path.read_bytes()
+        manifest = parse_manifest(content, source=f"{entry.path}/{MANIFEST_NAME}")
+        _validate_entry_manifest(entry, manifest)
+        return manifest, content
 
     def _metadata_source(self) -> SourceSpec:
         return SourceSpec(

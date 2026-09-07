@@ -41,7 +41,9 @@ nesk info RECIPE
 `RECIPE` is the lowercase catalog name printed by `search`. Direct GitHub and
 local recipes are also supported, but they have a different trust boundary.
 Choose a new, empty directory for a remote install. One directory represents
-one instance.
+one instance. `info` lists every recipe input before installation, including
+required values such as EULA acceptance and whether each value must use `--set`
+or the secret-safe `--set-file` form.
 
 ## What an instance contains
 

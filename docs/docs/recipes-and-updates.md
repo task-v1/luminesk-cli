@@ -32,8 +32,11 @@ activates it crash-safely. The index binds each entry to a package identity,
 recipe path, manifest digest, and optional template digest at an exact database
 content revision.
 
-`search` and `info` use only the active local snapshot. They do not silently
-refresh it. Reverify or deliberately select cached state with:
+`search` uses only the active local snapshot. `info` does not refresh that
+snapshot, but it loads the selected entry's manifest at the exact revision and
+verifies the manifest digest before showing its complete input contract. That
+manifest is content-cached, so later inspection can remain offline. Reverify or
+deliberately select cached state with:
 
 ```bash
 nesk catalog verify
