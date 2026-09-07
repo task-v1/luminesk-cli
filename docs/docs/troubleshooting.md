@@ -208,8 +208,10 @@ Pass non-secret values with `--set NAME=VALUE` and secrets with
 nesk plan --dir RECIPE --set port=25565 --set-file rcon_password=./secret.txt
 ```
 
-`validate --resolve` has no input flags. If a later phase needs a required input
-without a default, use `plan` or a dry-run install with the required values.
+Use `validate --build` with the same `--set` and `--set-file` values when the
+complete package-rendering phase needs required inputs. `plan` or a dry-run install
+can exercise the same inputs while also showing their resulting changes and
+capabilities.
 
 ### A template fails to render
 

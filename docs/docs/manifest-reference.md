@@ -409,11 +409,12 @@ to imply runtime permissions or behavior that the public schema does not have.
 ```bash
 nesk validate --dir ./recipe --static
 nesk validate --dir ./recipe --resolve
+nesk validate --dir ./recipe --build --set eula=true
 nesk lock --dir ./recipe
 nesk plan --dir ./recipe --set eula=true
 ```
 
 `--resolve` includes static validation and performs provider/image resolution.
-`--build` also creates a temporary package, but that command has no input flags;
-a recipe with required inputs and no defaults should use `plan` or a test
-install with explicit values to exercise rendering and package assembly.
+`--build` also creates a temporary package and accepts repeatable `--set` and
+`--set-file` inputs. A recipe with required inputs and no defaults must provide
+them to exercise rendering and package assembly.
