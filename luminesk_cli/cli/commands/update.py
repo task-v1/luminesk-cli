@@ -14,12 +14,12 @@ from luminesk_cli.cli.commands.common import (
     cache,
     catalog_store,
     emit,
-    parse_inputs,
     recipe_cache,
     resolve_lock,
     validate_frozen_lock,
 )
 from luminesk_cli.cli.commands.runtime import _instance_root
+from luminesk_cli.cli.input_wizard import collect_recipe_inputs
 from luminesk_cli.cli.output import print_human
 from luminesk_cli.domain.catalog import CatalogEntry
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
@@ -69,6 +69,13 @@ def run(namespace: Any) -> int:
             )
         )
         manifest = candidate.manifest
+        values = _update_inputs(
+            root,
+            manifest,
+            namespace.set,
+            namespace.set_file,
+            interactive=not namespace.non_interactive and not namespace.json,
+        )
         new_lock = (
             validate_frozen_lock(
                 old_lock,
@@ -85,7 +92,6 @@ def run(namespace: Any) -> int:
             )
         )
         new_lock = _select_component(namespace.component, old_lock, new_lock)
-        values = _update_inputs(root, manifest, namespace.set, namespace.set_file)
         temporary_package, package = build_package(
             candidate.root,
             manifest,
@@ -722,6 +728,8 @@ def _update_inputs(
     manifest: Manifest,
     arguments: list[str],
     file_arguments: list[str],
+    *,
+    interactive: bool,
 ) -> dict[str, str | int | bool]:
     state = load_state(root)
     known = {spec.name for spec in manifest.inputs}
@@ -730,9 +738,13 @@ def _update_inputs(
         if state is not None
         else {}
     )
-    overrides = parse_inputs(manifest, arguments, file_arguments)
-    values.update(overrides)
-    return values
+    return collect_recipe_inputs(
+        manifest,
+        arguments,
+        file_arguments,
+        interactive=interactive,
+        known_values=values,
+    )
 
 
 def _plain_drift_section(title: str, changes: list[dict[str, str]]) -> str:

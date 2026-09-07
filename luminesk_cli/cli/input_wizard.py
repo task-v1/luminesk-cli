@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from luminesk_cli.cli.commands.common import parse_inputs
 from luminesk_cli.cli.output import ask, print_error, print_human
@@ -29,7 +30,29 @@ def collect_install_inputs(
 ) -> dict[str, InputValue]:
     """Parse explicit overrides and prompt for the rest when permitted."""
 
-    values = parse_inputs(manifest, arguments, file_arguments)
+    return collect_recipe_inputs(
+        manifest,
+        arguments,
+        file_arguments,
+        interactive=interactive,
+    )
+
+
+def collect_recipe_inputs(
+    manifest: Manifest,
+    arguments: list[str],
+    file_arguments: list[str],
+    *,
+    interactive: bool,
+    known_values: Mapping[str, InputValue] | None = None,
+) -> dict[str, InputValue]:
+    """Merge known values and overrides, prompting for undeclared values."""
+
+    declared = {spec.name for spec in manifest.inputs}
+    values = {
+        name: value for name, value in (known_values or {}).items() if name in declared
+    }
+    values.update(parse_inputs(manifest, arguments, file_arguments))
     resolve_inputs(manifest, values, require_required=False)
 
     pending = [spec for spec in manifest.inputs if spec.name not in values]

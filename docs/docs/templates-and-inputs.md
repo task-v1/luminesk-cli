@@ -104,8 +104,9 @@ LF or CRLF. Secret inputs:
   file is explicitly executable).
 
 The original secret still exists in the input file and rendered instance file;
-protect both. Because the value is not persisted, provide it again when a later
-update must re-render the secret-bearing file.
+protect both. Because the value is not persisted, an interactive update asks for
+the file again when it must re-render secret-bearing content. Automation must
+repeat the appropriate `--set-file` option.
 
 ## Top-level template tree
 

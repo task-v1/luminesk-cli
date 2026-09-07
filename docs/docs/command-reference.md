@@ -226,7 +226,9 @@ component retained in the mixed lock.
 instance. `--frozen` uses the verified installed/cached recipe and the existing
 lock and cache only. `--yes` is required to apply without a prompt. Existing
 non-secret input values are reused; repeatable `--set`/`--set-file` options
-override them for the candidate package.
+override them for the candidate package. In human mode, the input wizard asks for
+any value that is not persisted, including a secret file required again for
+rendering. Input validation completes before source and image resolution.
 
 ### `nesk recover`
 

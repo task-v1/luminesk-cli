@@ -520,6 +520,69 @@ command = ["server"]
     assert payload["error"]["message"] == "input port is above its maximum"
 
 
+def test_update_wizard_reprompts_only_for_unpersisted_secret_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "secret-update"
+    template = root / "template"
+    template.mkdir(parents=True)
+    (template / "credentials.txt.tmpl").write_text("${input.token}\n", encoding="utf-8")
+    secret = tmp_path / "token"
+    secret.write_text("secret value\n", encoding="utf-8")
+    (root / "luminesk.toml").write_text(
+        """\
+manifest_version = 1
+template = "template"
+[package]
+name = "secret-update-fixture"
+version = "2.0.0"
+display_name = "Secret Update Fixture"
+kind = "core"
+game = "minecraft"
+edition = "java"
+[inputs.server_name]
+type = "string"
+default = "Saved Server"
+prompt = "Server name"
+[inputs.token]
+type = "string"
+required = true
+secret = true
+prompt = "Provider token"
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+""",
+        encoding="utf-8",
+    )
+    assert (
+        main(
+            [
+                "install",
+                "--dir",
+                str(root),
+                "--set-file",
+                f"token={secret}",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    monkeypatch.setattr("builtins.input", lambda: str(secret))
+
+    assert main(["update", "--dir", str(root), "--dry-run"]) == 0
+
+    captured = capsys.readouterr()
+    assert "Configure inputs for Secret Update Fixture" in captured.out
+    assert "Provider token" in captured.out
+    assert "Path for token:" in captured.out
+    assert "Server name" not in captured.out
+    assert "secret value" not in captured.out
+
+
 def test_remote_recipe_dry_run_is_built_and_planned_without_confirmation(
     tmp_path: Path, monkeypatch
 ) -> None:
