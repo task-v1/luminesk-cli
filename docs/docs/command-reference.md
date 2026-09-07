@@ -179,11 +179,13 @@ returned together in the validation error's `missingInputs` details, including t
 correct option for each input. `--yes` approves the later trust plan but does not
 silently provide or accept recipe inputs.
 
-Remote and external local recipes require confirmation even for `--dry-run`,
-because resolution and package building occur before the apply stage. Human and
-JSON modes expose the same `Preview`: trust classification, exact recipe and
-artifact identities, runtime/build capabilities, and every planned file change.
-In automation, pass `--yes --non-interactive` only after approving that payload.
+`--dry-run` displays the complete preview and returns without confirmation because
+it does not apply the plan. Remote and external local recipes still require
+confirmation for a real installation. Human and JSON modes expose the same
+`Preview`: trust classification, exact recipe and artifact identities,
+runtime/build capabilities, and every planned file change. In automation, pass
+`--yes --non-interactive` for the real installation only after approving that
+payload.
 
 ## Inspecting and applying updates
 
@@ -428,6 +430,6 @@ Example automation:
 
 ```bash
 nesk validate --dir ./recipe --static --json --non-interactive
-nesk install lumi --dir ./instance --dry-run --yes --json --non-interactive
+nesk install lumi --dir ./instance --dry-run --json --non-interactive
 nesk status --dir ./instance --json --non-interactive
 ```

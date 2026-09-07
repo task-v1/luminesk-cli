@@ -42,7 +42,7 @@ nesk install paper --dir ./servers/example
 For automation, provide inputs and trust approval explicitly:
 
 ```bash
-nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
+nesk install paper --dir ./servers/example --set eula=true --dry-run
 nesk install paper --dir ./servers/example --set eula=true --yes
 ```
 
@@ -53,10 +53,11 @@ the exact commit. The target must be empty for a remote or external local
 recipe.
 
 In human mode the wizard shows every recipe input with its prompt, type, default,
-and constraints. `--dry-run` resolves, builds, and prints the unified preview without applying
-it. The preview includes trust, capabilities, pinned artifacts, runtime image,
-and every planned file change. Remote recipes still require confirmation;
-`--yes` accepts this exact preview. PaperMC also requires the explicit
+and constraints. `--dry-run` resolves, builds, and prints the unified preview
+without applying it. The preview includes trust, capabilities, pinned artifacts,
+runtime image, and every planned file change. A dry-run never asks for trust
+approval because it does not apply the plan. For the real installation, `--yes`
+accepts this exact preview. PaperMC also requires the explicit
 `eula=true` input and never defaults acceptance on the user's behalf.
 
 Official recipes default their non-root container identity to UID/GID 1000. On

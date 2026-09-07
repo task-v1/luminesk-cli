@@ -65,7 +65,7 @@ nesk info paper
 nesk install paper --dir ./servers/example
 
 # For automation, provide inputs and approval explicitly.
-nesk install paper --dir ./servers/example --set eula=true --dry-run --yes
+nesk install paper --dir ./servers/example --set eula=true --dry-run
 nesk install paper --dir ./servers/example --set eula=true --yes
 
 # Operate and update the instance.

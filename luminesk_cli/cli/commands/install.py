@@ -240,14 +240,16 @@ def _install_snapshot(
                 conflicts=conflicts,
                 preview=preview.to_dict(),
             )
+        if namespace.dry_run:
+            if not namespace.json:
+                print_human(preview.to_text(), tone="info")
+            LOGGER.debug("install apply skipped dry_run=true")
+            return _emit_result(namespace, preview, None)
         if confirm:
             LOGGER.debug("install confirmation stage entered")
             _confirm(namespace, preview)
         elif not namespace.json:
             print_human(preview.to_text(), tone="info")
-        if namespace.dry_run:
-            LOGGER.debug("install apply skipped dry_run=true")
-            return _emit_result(namespace, preview, None)
         LOGGER.debug("install transaction apply started")
         plan, state = installer.install(
             manifest,

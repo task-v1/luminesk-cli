@@ -85,13 +85,15 @@ Use a new empty destination, supply required inputs, and inspect the plan before
 approval:
 
 ```bash
-nesk install RECIPE --dir /srv/minecraft/new-instance --dry-run --yes
+nesk install RECIPE --dir /srv/minecraft/new-instance --dry-run
 nesk install RECIPE --dir /srv/minecraft/new-instance --yes
 ```
 
-`--yes` is needed here because even a dry-run of a remote recipe crosses the
-recipe trust boundary. Never choose the old 1.x directory as the target. Do not
-copy 1.x control metadata into the new directory.
+The dry-run crosses the remote trust boundary and may populate verified caches,
+but it does not apply the plan and therefore does not require `--yes`. The real
+installation still requires explicit confirmation or `--yes`. Never choose the
+old 1.x directory as the target. Do not copy 1.x control metadata into the new
+directory.
 
 ## Copy only user-owned server data
 

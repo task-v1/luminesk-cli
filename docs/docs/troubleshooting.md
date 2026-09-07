@@ -21,7 +21,7 @@ client/server detail.
 Add `--json --non-interactive` when collecting diagnostics in automation. Process
 exit codes identify the failing layer; the JSON `error.code` is its string name.
 Add `--debug` for stage-level diagnostics on stderr, for example
-`nesk install RECIPE --dir INSTANCE --dry-run --yes --debug`. Debug output is
+`nesk install RECIPE --dir INSTANCE --dry-run --debug`. Debug output is
 designed to omit input values, secret-file paths, URLs, subprocess arguments,
 and command output; still review diagnostics before sharing paths or instance
 identifiers from the surrounding error report.

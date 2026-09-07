@@ -107,9 +107,10 @@ nesk install RECIPE --dir ./instance --yes
 ```
 
 `--dry-run` prevents instance writes, but recipe/artifact metadata can still be
-fetched and verified caches populated. It still asks for source trust unless
-`--yes` is present. `--json` cannot prompt; remote installs therefore need
-`--yes --json --non-interactive` after the caller has approved the source.
+fetched and verified caches populated. It displays the complete plan without
+asking for trust approval. `--json` cannot prompt; a real remote install therefore
+needs `--yes --json --non-interactive` after the caller has approved the dry-run
+payload.
 
 `--yes` approves one displayed plan. It does not weaken schema, hash,
 ownership, or transaction checks.

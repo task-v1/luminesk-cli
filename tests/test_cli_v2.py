@@ -520,7 +520,7 @@ command = ["server"]
     assert payload["error"]["message"] == "input port is above its maximum"
 
 
-def test_remote_recipe_is_built_and_planned_before_confirmation(
+def test_remote_recipe_dry_run_is_built_and_planned_without_confirmation(
     tmp_path: Path, monkeypatch
 ) -> None:
     from luminesk_cli.cli.commands import install as install_command
@@ -621,7 +621,7 @@ command = ["server"]
         set_file=[],
         dry_run=True,
         json=False,
-        yes=True,
+        yes=False,
         non_interactive=True,
     )
 
@@ -635,7 +635,7 @@ command = ["server"]
         == 0
     )
 
-    assert events == ["build", "plan", "confirm"]
+    assert events == ["build", "plan"]
 
 
 @pytest.mark.parametrize("option", ["--set", "--set-file"])
