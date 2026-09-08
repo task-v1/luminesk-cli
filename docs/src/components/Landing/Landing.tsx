@@ -69,7 +69,7 @@ const examples = [
     filename: 'luminesk.toml',
     description:
       'Excerpt from the recipe authoring guide. The manifest is yours to review; Luminesk generates the lock.',
-    code: '[ownership]\npreserve = ["server.properties"]\ndata = ["world", "world_nether", "world_the_end", "plugins"]\n\n[update]\nstrategy = "transactional"\nbackup = ["world", "world_nether", "world_the_end", "plugins", "server.properties"]\nretain_backups = 3\nrollback_on_failure = true',
+    code: '[ownership]\npreserve = ["settings.yml"]\ndata = [".tmp", "worlds", "plugins", "players", "behavior_packs", "resource_packs"]\n\n[update]\nstrategy = "transactional"\nbackup = ["worlds", "plugins", "players", "behavior_packs", "resource_packs", "settings.yml"]\nretain_backups = 3\nrollback_on_failure = true',
     link: '/docs/creating-a-recipe',
     label: 'Read the complete recipe',
   },
@@ -78,7 +78,7 @@ const examples = [
     filename: 'Resolve the recipe',
     description:
       'Run in your recipe source directory. Resolution binds mutable inputs to exact content and the current platform.',
-    code: 'nesk validate --dir ./my-paper-core --static\nnesk lock --dir ./my-paper-core\nnesk cache verify',
+    code: 'nesk validate --dir ./my-lumi-core --static\nnesk lock --dir ./my-lumi-core\nnesk cache verify',
     link: '/docs/lockfile-and-packages',
     label: 'Understand the lockfile',
   },
@@ -363,13 +363,13 @@ export default function Landing(): ReactNode {
                 <h3 id="java-edition-title">Java Edition</h3>
               </div>
               <p>
-                Start with the Paper walkthrough. Find other Java cores in the
-                catalog.
+                Choose a Java recipe and inspect its inputs, sources and
+                platform requirements.
               </p>
               <code>nesk search --edition java</code>
-              <Link to="/docs/quick-start">
-                Try the Paper recipe <ArrowUpRight aria-hidden="true" />
-              </Link>
+              <a href={`${catalog}/tree/main/database`}>
+                Browse catalog recipes <ArrowUpRight aria-hidden="true" />
+              </a>
             </article>
             <article aria-labelledby="bedrock-edition-title">
               <div className={styles.editionHeading}>
@@ -379,13 +379,13 @@ export default function Landing(): ReactNode {
                 <h3 id="bedrock-edition-title">Bedrock Edition</h3>
               </div>
               <p>
-                Choose a Bedrock recipe and inspect its inputs, sources and
-                platform requirements.
+                Start with the Lumi walkthrough. Find other Bedrock cores in
+                the catalog.
               </p>
               <code>nesk search --edition bedrock</code>
-              <a href={`${catalog}/tree/main/database`}>
-                Browse catalog recipes <ArrowUpRight aria-hidden="true" />
-              </a>
+              <Link to="/docs/quick-start">
+                Try the Lumi recipe <ArrowUpRight aria-hidden="true" />
+              </Link>
             </article>
           </div>
           <p className={styles.platformNote}>

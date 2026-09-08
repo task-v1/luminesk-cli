@@ -22,7 +22,7 @@ The catalog is a locally cached, verified snapshot of
 nesk catalog update
 nesk catalog status
 nesk search --type core
-nesk search paper --edition java
+nesk search lumi --edition bedrock
 nesk info RECIPE
 ```
 
@@ -57,7 +57,7 @@ for your host.
 
 | Origin | Example | Acquisition and update policy |
 | --- | --- | --- |
-| Official database | `nesk install paper` or `db:paper` | Manifest/template digests must match the active verified catalog entry. The entry tracks future active-catalog changes. |
+| Official database | `nesk install lumi` or `db:lumi` | Manifest/template digests must match the active verified catalog entry. The entry tracks future active-catalog changes. |
 | Direct GitHub | `nesk install owner/repo@main` | GitHub ref resolves to an exact commit. A branch is tracked; a tag/commit is pinned. |
 | Local | `nesk install ./recipe` | Declared local assets are snapshotted and the origin is untracked. Later edits in the source directory are not followed by instance update. |
 

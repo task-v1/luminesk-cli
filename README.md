@@ -62,17 +62,16 @@ Then check the environment and install a recipe:
 nesk doctor
 nesk catalog update
 nesk search --type core
-nesk info paper
-nesk install paper --dir ./servers/example
+nesk info lumi
+nesk install lumi --dir ./servers/example
 ```
 
-`nesk info paper` lists every input before installation. In an interactive
+`nesk info lumi` lists every input before installation. In an interactive
 terminal, `install` opens a wizard: press Enter to keep a default and answer
-required questions such as Minecraft EULA acceptance. It then shows the exact
-recipe, downloads, Docker image, capabilities, and file changes before asking
-for confirmation.
+any required recipe questions. It then shows the exact recipe, downloads,
+Docker image, capabilities, and file changes before asking for confirmation.
 
-`paper` is a Java example. Use `nesk search --edition bedrock` to find Bedrock
+`lumi` is a Bedrock example. Use `nesk search --edition java` to find Java
 recipes. A remote install needs a new, empty destination directory. With pipx,
 use `pipx install luminesk-cli`. ZIP bundles for Linux, macOS, and Windows are
 also available on the
@@ -127,10 +126,10 @@ Interactive defaults are intentionally disabled for scripts. Supply inputs and
 trust approval explicitly:
 
 ```bash
-nesk install paper --dir ./servers/example \
-  --set eula=true --dry-run --json --non-interactive
-nesk install paper --dir ./servers/example \
-  --set eula=true --yes --json --non-interactive
+nesk install lumi --dir ./servers/example \
+  --dry-run --json --non-interactive
+nesk install lumi --dir ./servers/example \
+  --yes --json --non-interactive
 ```
 
 Handled failures use stable exit codes and a JSON `error` object. Secret inputs

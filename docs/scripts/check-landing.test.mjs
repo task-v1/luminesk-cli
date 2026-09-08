@@ -134,6 +134,20 @@ test("exports named edition choices with decorative icons and usable commands", 
   }
 });
 
+test("links the main Lumi walkthrough from the Bedrock edition", () => {
+  const bedrock = html.match(
+    /<article\b[^>]*aria-labelledby="bedrock-edition-title"[^>]*>(.*?)<\/article>/s,
+  )?.[1];
+  assert.ok(bedrock);
+  assert.match(bedrock, /Start with the Lumi walkthrough/);
+  assert.match(bedrock, /href="\/docs\/quick-start"[^>]*>Try the Lumi recipe/);
+  const java = html.match(
+    /<article\b[^>]*aria-labelledby="java-edition-title"[^>]*>(.*?)<\/article>/s,
+  )?.[1];
+  assert.ok(java);
+  assert.doesNotMatch(java, /href="\/docs\/quick-start"/);
+});
+
 test("shows copyright and the project license in homepage and documentation footers", async () => {
   const docs = await readFile(join(build, "docs", "index.html"), "utf8");
   for (const page of [html, docs]) {
