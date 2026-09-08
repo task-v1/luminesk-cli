@@ -13,6 +13,41 @@ from luminesk_cli.infrastructure.oci import OciImageResolver
 from luminesk_cli.infrastructure.package import verify_package
 
 
+def test_image_only_recipe_builds_metadata_only_package(tmp_path: Path) -> None:
+    recipe = tmp_path / "recipe"
+    recipe.mkdir()
+    manifest = parse_manifest(
+        b"""\
+manifest_version = 1
+[package]
+name = "image-only-server"
+version = "2.0.0"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
+[runtime]
+image = "example/server@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+command = ["server"]
+"""
+    )
+    lockfile = Lockfile(
+        manifest_digest=manifest.digest,
+        target="linux/amd64",
+        sources={},
+        runtime=RuntimeLock(image=manifest.runtime.image),
+    )
+
+    package = DeclarativeBuilder(ContentCache(tmp_path / "cache")).build(
+        manifest,
+        lockfile,
+        recipe,
+        tmp_path / "image-only.lumineskpkg",
+    )
+
+    assert package.metadata.files == ()
+    assert verify_package(package.path).metadata.files == ()
+
+
 def test_declarative_build_creates_verified_deterministic_package(
     tmp_path: Path,
 ) -> None:

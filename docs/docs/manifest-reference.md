@@ -39,9 +39,9 @@ image = "eclipse-temurin:21-jre"
 command = ["java", "-jar", "server.jar", "nogui"]
 ```
 
-At least one of `sources`, `build`, `template`, or `files` must contribute to
-the package. `[package]` and `[runtime]` are always required, even for a package
-whose `kind` is `template`.
+`[package]` and `[runtime]` are always required. A recipe may omit `sources`,
+`build`, `template`, and `files` when the pinned runtime image contains the
+complete server; the resulting package contains metadata but no payload files.
 
 ## Top-level fields
 

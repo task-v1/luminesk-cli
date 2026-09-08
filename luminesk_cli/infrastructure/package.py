@@ -35,7 +35,6 @@ def write_package(
     if path.suffix != PACKAGE_SUFFIX:
         raise ValidationError(f"package path must end with {PACKAGE_SUFFIX}")
 
-    expected_paths = {item.path for item in metadata.files}
     actual_paths = {
         item.relative_to(payload_root).as_posix()
         for item in payload_root.rglob("*")
@@ -53,9 +52,6 @@ def write_package(
             missing=sorted(expected_files - actual_paths),
             extra=sorted(actual_paths - expected_files),
         )
-
-    if not expected_paths:
-        raise ValidationError("package payload may not be empty")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(

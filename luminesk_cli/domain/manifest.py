@@ -1039,13 +1039,6 @@ def parse_manifest(content: bytes, *, source: str = MANIFEST_NAME) -> Manifest:
         extensions=extensions,
         digest=sha256_digest(content),
     )
-    if (
-        not manifest.sources
-        and manifest.build is None
-        and manifest.template is None
-        and not manifest.files
-    ):
-        fail("manifest", "must declare sources, build, template, or files")
     _validate_secret_input_usage(manifest)
     return manifest
 
