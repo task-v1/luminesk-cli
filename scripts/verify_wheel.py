@@ -41,7 +41,7 @@ def main(argv: list[str]) -> int:
         metadata = BytesParser().parsebytes(archive.read(metadata_names[0]))
         requirements = metadata.get_all("Requires-Dist", [])
 
-    if metadata["Version"] != "2.0.0":
+    if metadata["Version"] != "2.0.2":
         raise SystemExit(f"unexpected wheel version: {metadata['Version']}")
 
     try:
