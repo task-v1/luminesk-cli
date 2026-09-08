@@ -170,3 +170,31 @@ def test_attach_tui_reports_process_start_failure(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeOperationError, match="cannot attach to Docker"):
         asyncio.run(tui.run())
+
+
+def test_attach_tui_preserves_nonzero_docker_exit_code(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        process = FakeProcess()
+        process.finish(17)
+
+        async def process_factory(argv: tuple[str, ...]) -> FakeProcess:
+            del argv
+            return process
+
+        with create_pipe_input() as pipe_input:
+            tui = AttachTui(
+                tmp_path,
+                DockerRuntime(),
+                _session(),
+                process_factory=process_factory,
+                input=pipe_input,
+                output=DummyOutput(),
+            )
+            task = asyncio.create_task(tui.run())
+            await asyncio.sleep(0.05)
+            pipe_input.send_bytes(b"\x04")
+            with pytest.raises(RuntimeOperationError) as raised:
+                await asyncio.wait_for(task, 2)
+        assert raised.value.details["exitCode"] == 17
+
+    asyncio.run(scenario())
