@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Literal
 
 from rich.console import Console
@@ -19,6 +20,8 @@ ACTION = re.compile(
     re.IGNORECASE,
 )
 HEADING = re.compile(r"^[A-Za-z][A-Za-z0-9 /()_-]+$")
+MAX_ERROR_DETAIL_LENGTH = 2_000
+MAX_ERROR_DETAIL_LINES = 8
 
 THEME = Theme(
     {
@@ -63,7 +66,12 @@ def print_human(value: str, *, tone: OutputTone = "success") -> None:
     _console().print(human_message(value, tone=tone), soft_wrap=True)
 
 
-def print_error(code: str, message: str) -> None:
+def print_error(
+    code: str,
+    message: str,
+    *,
+    details: Mapping[str, object] | None = None,
+) -> None:
     """Write a sanitized, consistently styled command error to stderr."""
 
     rendered = Text()
@@ -71,6 +79,9 @@ def print_error(code: str, message: str) -> None:
     rendered.append(f" [{code}]", style="message.muted")
     rendered.append(": ")
     rendered.append(sanitize(message))
+    for line in _safe_error_details(code, details):
+        rendered.append("\n  ")
+        rendered.append(line, style="message.muted")
     _console(stderr=True).print(rendered, soft_wrap=True)
 
 
@@ -104,6 +115,22 @@ def ask(question: str) -> str:
 
 def _console(*, stderr: bool = False) -> Console:
     return Console(stderr=stderr, theme=THEME, highlight=False)
+
+
+def _safe_error_details(
+    code: str,
+    details: Mapping[str, object] | None,
+) -> tuple[str, ...]:
+    """Expose only bounded subprocess diagnostics from trusted error classes."""
+
+    if code not in {"runtime", "transaction"} or details is None:
+        return ()
+    stderr = details.get("stderr")
+    if not isinstance(stderr, str):
+        return ()
+    safe = sanitize(stderr[-MAX_ERROR_DETAIL_LENGTH:]).replace("\r", "\n")
+    lines = [line.strip() for line in safe.splitlines() if line.strip()]
+    return tuple(lines[-MAX_ERROR_DETAIL_LINES:])
 
 
 def _styled_line(line: str, *, index: int, tone: OutputTone) -> Text:

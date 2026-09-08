@@ -70,6 +70,6 @@ def dispatch(command: ParsedCommand) -> int:
         else:
             from luminesk_cli.cli.output import print_error
 
-            print_error(code.name.lower(), message)
+            print_error(code.name.lower(), message, details=details)
 
         return int(code)

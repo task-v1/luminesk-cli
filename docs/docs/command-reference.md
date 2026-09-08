@@ -56,6 +56,12 @@ Successful JSON objects contain `"ok": true`. A handled error has this shape:
 }
 ```
 
+Runtime and transaction failures also show a bounded, sanitized tail of Docker
+stderr in human mode when it is available. This exposes actionable causes such
+as port collisions and daemon permission errors without rendering arbitrary
+structured error fields. The complete stable details object remains available
+in JSON mode.
+
 The process exit codes are stable:
 
 | Code | JSON error name | Meaning |

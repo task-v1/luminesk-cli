@@ -162,6 +162,41 @@ def test_doctor_fails_when_docker_is_unavailable(monkeypatch, capsys) -> None:
     assert payload["error"]["details"]["checks"][0]["available"] is False
 
 
+def test_human_runtime_error_includes_sanitized_docker_diagnostic(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from luminesk_cli.cli.commands import doctor
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: "/usr/bin/docker")
+    monkeypatch.setattr(
+        doctor.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0],
+            1,
+            "",
+            "permission denied\x1b[31m\n",
+        ),
+    )
+
+    assert main(["doctor"]) == 8
+    captured = capsys.readouterr()
+
+    assert captured.out == ""
+    assert "Docker daemon is not reachable" in captured.err
+    assert "permission denied�[31m" in captured.err
+    assert "\x1b" not in captured.err
+
+
+def test_human_error_does_not_expose_unapproved_detail_fields(capsys) -> None:
+    from luminesk_cli.cli.output import print_error
+
+    print_error("security", "request rejected", details={"stderr": "secret-value"})
+
+    assert "secret-value" not in capsys.readouterr().err
+
+
 def test_human_errors_are_written_to_stderr(tmp_path: Path, capsys) -> None:
     assert main(["validate", "--dir", str(tmp_path)]) == 3
     captured = capsys.readouterr()
