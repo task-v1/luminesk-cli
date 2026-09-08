@@ -79,7 +79,7 @@ def test_version_cold_path_does_not_import_heavy_dependencies() -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout == "Luminesk 2.0.0\n\n"
+    assert result.stdout == "Luminesk 2.0.2\n\n"
 
 
 def test_doctor_reports_healthy_cli_and_daemon(monkeypatch, capsys) -> None:
