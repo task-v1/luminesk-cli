@@ -8,7 +8,7 @@ import socket
 import subprocess
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -30,6 +30,17 @@ CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 MEMORY_RE = re.compile(r"^[1-9][0-9]*(?:[bkmg])?$", re.IGNORECASE)
 CONTAINER_NAME_RE = re.compile(r"[^a-z0-9_.-]+")
 LOGGER = logging.getLogger(__name__)
+ATTACH_HISTORY_LINES = 200
+MAX_ATTACH_HISTORY_BYTES = 1024 * 1024
+
+
+@dataclass(slots=True, frozen=True)
+class AttachSession:
+    """Verified Docker attach target and its bounded recent console history."""
+
+    argv: tuple[str, ...]
+    history: str
+    tag: str
 
 
 class DockerRuntime:
@@ -219,33 +230,67 @@ class DockerRuntime:
                 )
             return 0
 
-        result = self._run(["docker", "logs", identifier], check=False)
+        result = self._read_logs(identifier)
 
         if result.returncode != 0:
             raise RuntimeOperationError(
-                "cannot read Docker logs", stderr=result.stderr[-4000:]
+                "cannot read Docker logs",
+                stderr=(result.stderr or result.stdout)[-4000:],
             )
 
         return result.stdout
 
-    def attach(self, root: Path) -> int:
-        LOGGER.debug("runtime attach requested")
+    def prepare_attach(self, root: Path) -> AttachSession:
+        """Resolve a live container and load recent output before opening the TUI."""
+
+        LOGGER.debug("runtime attach preparation requested")
         state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
-        try:
-            result = self._runner(
-                ["docker", "attach", "--sig-proxy=true", identifier],
-                check=False,
-                shell=False,
-            )
-        except OSError as exc:
-            raise RuntimeOperationError(f"cannot attach to Docker: {exc}") from exc
+
+        if not self.is_running(identifier):
+            raise RuntimeOperationError("instance container is not running")
+
+        result = self._read_logs(identifier, tail=ATTACH_HISTORY_LINES)
         if result.returncode != 0:
             raise RuntimeOperationError(
-                "Docker attach failed",
-                exitCode=result.returncode,
+                "cannot read Docker logs before attach",
+                stderr=(result.stderr or result.stdout)[-4000:],
             )
-        return 0
+
+        return AttachSession(
+            argv=(
+                "docker",
+                "attach",
+                "--sig-proxy=false",
+                "--detach-keys=ctrl-d",
+                identifier,
+            ),
+            history=_bounded_text(result.stdout, MAX_ATTACH_HISTORY_BYTES),
+            tag=state.tag,
+        )
+
+    def kill(self, root: Path) -> InstanceState:
+        """Immediately kill the instance container and reconcile persisted state."""
+
+        root = root.resolve()
+        LOGGER.debug("runtime kill requested")
+        state, _, _ = _load_instance(root)
+        identifier = state.runtime.container_id or _container_name(state)
+        result = self._run(["docker", "kill", identifier], check=False)
+
+        if result.returncode != 0 and self.is_running(identifier):
+            raise RuntimeOperationError(
+                "Docker failed to kill the instance", stderr=result.stderr[-4000:]
+            )
+
+        stopped = replace(
+            state,
+            runtime=RuntimeState(driver="docker", status="stopped"),
+            updated_at=datetime.now(UTC).isoformat(),
+        )
+        write_state(root, stopped)
+        LOGGER.debug("runtime kill completed")
+        return stopped
 
     def is_running(self, identifier: str) -> bool:
         result = self._run(
@@ -404,6 +449,28 @@ class DockerRuntime:
         )
         return result
 
+    def _read_logs(
+        self,
+        identifier: str,
+        *,
+        tail: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        argv = ["docker", "logs"]
+        if tail is not None:
+            argv.extend(("--tail", str(tail)))
+        argv.append(identifier)
+        try:
+            return self._runner(
+                argv,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                shell=False,
+            )
+        except OSError as exc:
+            raise RuntimeOperationError(f"cannot read Docker logs: {exc}") from exc
+
 
 def build_run_argv(
     root: Path,
@@ -551,3 +618,10 @@ def _save_readiness_logs(root: Path, check_id: str, content: str) -> None:
     path = root / ".luminesk_cli" / "logs" / f"readiness-{check_id}-{timestamp}.log"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content[-1024 * 1024 :], encoding="utf-8", errors="replace")
+
+
+def _bounded_text(content: str, maximum_bytes: int) -> str:
+    encoded = content.encode("utf-8", errors="replace")
+    if len(encoded) <= maximum_bytes:
+        return content
+    return encoded[-maximum_bytes:].decode("utf-8", errors="replace")

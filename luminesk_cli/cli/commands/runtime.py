@@ -91,10 +91,9 @@ def attach(namespace: Any) -> int:
     if namespace.json or namespace.non_interactive:
         raise ValidationError("attach requires an interactive terminal")
 
-    result = DockerRuntime().attach(_instance_root(namespace.dir))
-    if result != 0:
-        raise RuntimeOperationError("Docker attach failed", exitCode=result)
-    return 0
+    from luminesk_cli.cli.attach_tui import run_attach_tui
+
+    return run_attach_tui(_instance_root(namespace.dir), DockerRuntime())
 
 
 def _instance_root(value: str | None) -> Path:

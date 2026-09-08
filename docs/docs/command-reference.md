@@ -372,8 +372,11 @@ with `--json`.
 nesk attach [--dir DIR]
 ```
 
-Attaches the terminal to the instance container with Docker signal proxying.
-It rejects `--json` and `--non-interactive`.
+Opens a full-screen server console with the latest 200 Docker log lines and
+live output. Enter sends a server command. The footer exposes `Ctrl+C` to stop,
+`Ctrl+D` to detach without stopping, `Ctrl+K` to kill, `Ctrl+L` to clear the
+local view, and scrolling keys. It requires a real terminal and rejects
+`--json` and `--non-interactive`.
 
 ## Diagnostics, cache, and instance discovery
 

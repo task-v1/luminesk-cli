@@ -161,8 +161,10 @@ nesk stop --dir ./instance
 
 `start` verifies installed state/recipe/lock, removes a stale same-name
 container, starts the locked image, and waits for checks. `status` reconciles
-state with Docker. `restart` performs stop then start. `attach` attaches an
-interactive terminal; it does not support JSON/non-interactive operation.
+state with Docker. `restart` performs stop then start. `attach` opens an
+interactive full-screen console with bounded recent history, live output,
+server command input, and explicit detach/stop/kill shortcuts. It does not
+support JSON/non-interactive operation.
 
 A start readiness failure stops and removes the new container. An update of a
 previously running instance adds a larger safety envelope: it stops the old

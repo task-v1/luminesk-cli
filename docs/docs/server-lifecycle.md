@@ -52,7 +52,20 @@ nesk attach --dir ./instance
 `status` inspects Docker instead of trusting stale state and reconciles the
 recorded value to `running` or `stopped`. Non-following `logs` can emit JSON;
 `logs --follow` owns the terminal and cannot. `attach` is always interactive
-and passes terminal signals to Docker.
+and opens a full-screen console. It loads the latest 200 Docker log lines before
+streaming new output, so entering the console does not start with an unexplained
+blank screen. Type a server command and press Enter to send it.
+
+The bottom bar keeps the console controls visible:
+
+- `Ctrl+C` gracefully stops the server using its configured stop policy;
+- `Ctrl+D` detaches the TUI while leaving the server running;
+- `Ctrl+K` immediately kills the server;
+- `Ctrl+L` clears the local console view;
+- `PageUp` and `PageDown` scroll, and `End` resumes following new output.
+
+Console history and live output retained by the TUI are bounded to 1 MiB. The
+TUI requires a real terminal and rejects JSON and non-interactive operation.
 
 Readiness log checks save their latest captured output under the instance's
 `.luminesk_cli/` diagnostic state, which helps explain a timeout even after the

@@ -192,11 +192,7 @@ def test_runtime_mount_target_must_remain_canonical_after_input(
         )
 
 
-@pytest.mark.parametrize("operation", ["logs", "attach"])
-def test_interactive_runtime_failures_use_stable_runtime_error(
-    tmp_path: Path,
-    operation: str,
-) -> None:
+def test_follow_logs_failure_uses_stable_runtime_error(tmp_path: Path) -> None:
     root = tmp_path / "instance"
     prepare_instance(root)
 
@@ -205,13 +201,74 @@ def test_interactive_runtime_failures_use_stable_runtime_error(
 
     runtime = DockerRuntime(runner=runner)
     with pytest.raises(RuntimeOperationError) as raised:
-        if operation == "logs":
-            runtime.logs(root, follow=True)
-        else:
-            runtime.attach(root)
+        runtime.logs(root, follow=True)
 
     assert raised.value.code == 8
     assert raised.value.details["exitCode"] == 17
+
+
+def test_prepare_attach_loads_bounded_history_and_disables_signal_proxy(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append((tuple(argv), kwargs))
+        if argv[1] == "inspect":
+            return subprocess.CompletedProcess(argv, 0, "true\n", "")
+        if argv[1] == "logs":
+            return subprocess.CompletedProcess(argv, 0, "older\nrecent\n", "")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    session = DockerRuntime(runner=runner).prepare_attach(root)
+
+    assert session.history == "older\nrecent\n"
+    assert session.tag == "runtime-fixture"
+    assert session.argv == (
+        "docker",
+        "attach",
+        "--sig-proxy=false",
+        "--detach-keys=ctrl-d",
+        "luminesk-runtime-fixture-12345678",
+    )
+    logs_call = next(call for call in calls if call[0][1] == "logs")
+    assert logs_call[0][2:4] == ("--tail", "200")
+    assert logs_call[1]["stderr"] is subprocess.STDOUT
+
+
+def test_prepare_attach_rejects_stopped_container(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 1, "false\n", "")
+
+    with pytest.raises(RuntimeOperationError, match="not running"):
+        DockerRuntime(runner=runner).prepare_attach(root)
+
+
+def test_runtime_kill_updates_instance_state(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    _, state = prepare_instance(root)
+    running = replace(
+        state,
+        runtime=RuntimeState(container_id="container-id", status="running"),
+    )
+    write_state(root, running)
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(tuple(argv))
+        return subprocess.CompletedProcess(argv, 0, "container-id\n", "")
+
+    stopped = DockerRuntime(runner=runner).kill(root)
+
+    assert stopped.runtime.status == "stopped"
+    assert stopped.runtime.container_id is None
+    assert ("docker", "kill", "container-id") in calls
+    assert load_state(root) == stopped
 
 
 def test_runtime_start_records_container_and_readiness(tmp_path: Path) -> None:

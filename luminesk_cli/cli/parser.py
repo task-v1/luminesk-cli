@@ -306,7 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
     logs.set_defaults(handler="luminesk_cli.cli.commands.runtime:logs")
 
     attach = commands.add_parser(
-        "attach", help="Attach to the current recipe instance."
+        "attach", help="Open the current instance console TUI."
     )
     attach.add_argument("--dir", default=None, help="Instance directory.")
     _automation_options(attach)

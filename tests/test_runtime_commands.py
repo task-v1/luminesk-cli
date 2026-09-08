@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 
+from luminesk_cli.application.runtime import DockerRuntime
+from luminesk_cli.cli import attach_tui
 from luminesk_cli.cli.commands import runtime as runtime_commands
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 
@@ -41,10 +43,6 @@ class FakeRuntime:
     def logs(self, root: Path, *, follow: bool) -> int | str:
         self.calls.append(("logs", (root, follow)))
         return self.logs_result
-
-    def attach(self, root: Path) -> int:
-        self.calls.append(("attach", root))
-        return 9
 
 
 def _namespace(root: Path, **overrides: Any) -> Namespace:
@@ -86,6 +84,16 @@ def test_runtime_command_handlers_delegate_and_emit(
             (payload, plain, tone)
         ),
     )
+
+    def run_tui(attached_root: Path, attached_runtime: DockerRuntime) -> int:
+        fake.calls.append(("attach", (attached_root, attached_runtime)))
+        return 0
+
+    monkeypatch.setattr(
+        attach_tui,
+        "run_attach_tui",
+        run_tui,
+    )
     namespace = _namespace(root)
 
     assert runtime_commands.start(namespace) == 0
@@ -93,8 +101,7 @@ def test_runtime_command_handlers_delegate_and_emit(
     assert runtime_commands.restart(namespace) == 0
     assert runtime_commands.status(namespace) == 0
     assert runtime_commands.logs(namespace) == 0
-    with pytest.raises(RuntimeOperationError, match="attach"):
-        runtime_commands.attach(namespace)
+    assert runtime_commands.attach(namespace) == 0
 
     fake.logs_result = 7
     with pytest.raises(RuntimeOperationError, match="stream"):
@@ -107,6 +114,7 @@ def test_runtime_command_handlers_delegate_and_emit(
         ),
     )
     assert [call[0] for call in fake.calls].count("stop") == 2
+    assert ("attach", (root.resolve(), fake)) in fake.calls
     assert emitted[-1] == ({"logs": "server output"}, "server output", "plain")
 
 
