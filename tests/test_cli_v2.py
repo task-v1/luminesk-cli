@@ -315,10 +315,30 @@ container = "${input.port}"
         "templateDigest": payload["preview"]["trust"]["templateDigest"],
     }
 
+    from luminesk_cli.cli.commands import update as update_command
+
+    def reject_upstream_fetch(*args, **kwargs):
+        del args, kwargs
+        raise AssertionError("offline diff fetched the upstream recipe")
+
+    with monkeypatch.context() as offline_patch:
+        offline_patch.setattr(
+            update_command,
+            "_candidate_recipe",
+            reject_upstream_fetch,
+        )
+        assert main(["diff", "--dir", str(root), "--offline", "--json"]) == 0
+    offline_diff = json.loads(capsys.readouterr().out)
+    assert offline_diff["recipeDrift"] == []
+    assert offline_diff["upstreamRecipeDiff"] is None
+    assert offline_diff["upstreamChecked"] is False
+    assert offline_diff["managedFileDrift"] == []
+
     assert main(["diff", "--dir", str(root), "--json"]) == 0
     diff = json.loads(capsys.readouterr().out)
     assert diff["recipeDrift"] == []
     assert diff["upstreamRecipeDiff"] == []
+    assert diff["upstreamChecked"] is True
     assert diff["managedFileDrift"] == []
 
     assert main(["plan", "--dir", str(root), "--frozen", "--json"]) == 0

@@ -175,6 +175,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     diff = commands.add_parser("diff", help="Show recipe and managed-file drift.")
     diff.add_argument("--dir", default=None, help="Instance directory.")
+    diff.add_argument(
+        "--offline",
+        action="store_true",
+        help="Inspect only local drift without fetching the upstream recipe.",
+    )
     _automation_options(diff)
     diff.set_defaults(handler="luminesk_cli.cli.commands.update:diff")
 

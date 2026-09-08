@@ -224,18 +224,25 @@ def diff(namespace: Any) -> int:
     recipe_drift = _recipe_drift(root, lockfile, installed)
     managed_drift = _managed_drift(root)
 
-    with tempfile.TemporaryDirectory(prefix="luminesk-diff-") as temporary:
-        with activity(namespace, "Checking the upstream recipe"):
-            candidate = _candidate_recipe(
-                lockfile,
-                installed,
-                Path(temporary) / "recipe",
-            )
-        upstream_diff = _snapshot_diff(installed, candidate)
+    if namespace.offline:
+        upstream_diff = None
+    else:
+        with tempfile.TemporaryDirectory(prefix="luminesk-diff-") as temporary:
+            with activity(namespace, "Checking the upstream recipe"):
+                candidate = _candidate_recipe(
+                    lockfile,
+                    installed,
+                    Path(temporary) / "recipe",
+                )
+            upstream_diff = _snapshot_diff(installed, candidate)
 
     sections = [
         _plain_drift_section("Recipe drift", recipe_drift),
-        _plain_diff_section("Template/recipe upstream diff", upstream_diff),
+        (
+            "Template/recipe upstream diff\n  skipped (--offline)"
+            if upstream_diff is None
+            else _plain_diff_section("Template/recipe upstream diff", upstream_diff)
+        ),
         _plain_drift_section("Managed instance file drift", managed_drift),
     ]
     emit(
@@ -243,6 +250,7 @@ def diff(namespace: Any) -> int:
         {
             "recipeDrift": recipe_drift,
             "upstreamRecipeDiff": upstream_diff,
+            "upstreamChecked": upstream_diff is not None,
             "managedFileDrift": managed_drift,
         },
         "\n\n".join(sections),

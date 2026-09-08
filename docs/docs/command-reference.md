@@ -211,12 +211,15 @@ against the applied lock. This is a connected check; it has no frozen mode.
 ### `nesk diff`
 
 ```text
-nesk diff [--dir DIR] [--json] [--non-interactive]
+nesk diff [--dir DIR] [--offline] [--json] [--non-interactive]
 ```
 
 Shows three independent views: drift in the installed recipe snapshot,
 upstream recipe/template changes, and local changes to managed/generated
-instance files. A tracked remote recipe may require network access.
+instance files. A tracked remote recipe may require network access. `--offline`
+never fetches the upstream recipe: it still reports both local drift sections
+and explicitly marks upstream comparison as skipped. JSON reports
+`"upstreamChecked": false` and `"upstreamRecipeDiff": null` in that mode.
 
 ### `nesk update`
 

@@ -56,6 +56,7 @@ runtime image changes. This is a connected operation.
 
 ```bash
 nesk diff --dir /srv/minecraft/example
+nesk diff --dir /srv/minecraft/example --offline
 ```
 
 `diff` reports:
@@ -63,6 +64,10 @@ nesk diff --dir /srv/minecraft/example
 - changes to the installed canonical recipe/root manifest;
 - upstream recipe/template additions, removals, changes, and bounded text diffs;
 - modified/missing managed or generated instance files.
+
+Use `--offline` when the network is unavailable or only local drift matters.
+The installed recipe and managed-file checks still run; upstream comparison is
+reported as skipped rather than as an empty result.
 
 Resolve local managed-file drift before updating. There is no force flag that
 silently overwrites it.
