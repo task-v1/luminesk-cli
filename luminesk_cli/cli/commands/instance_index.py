@@ -4,10 +4,40 @@ from pathlib import Path
 from typing import Any
 
 from luminesk_cli.cli.commands.common import emit, index_path
-from luminesk_cli.domain.errors import ValidationError
-from luminesk_cli.infrastructure.state import InstanceIndex, load_state
+from luminesk_cli.domain.errors import LumineskError, ValidationError
+from luminesk_cli.infrastructure.state import (
+    IndexedInstance,
+    InstanceIndex,
+    load_state,
+)
 
 MAX_SCAN_STATES = 10_000
+
+
+def list_instances(namespace: Any) -> int:
+    """List registered instances without requiring a Docker daemon."""
+
+    instances = [_indexed_payload(item) for item in InstanceIndex(index_path()).list()]
+    if instances:
+        lines = ["TAG  RECORDED  ID        PATH"]
+        lines.extend(
+            f"{item['tag']}  {item['recordedStatus']}  "
+            f"{str(item['instanceId'])[:8]}  {item['path']}"
+            for item in instances
+        )
+        plain = "\n".join(lines)
+    else:
+        plain = (
+            "No indexed instances. Install one or run "
+            "`nesk import PATH --scan` to rebuild the index."
+        )
+    emit(
+        namespace,
+        {"instances": instances, "count": len(instances)},
+        plain,
+        tone="info",
+    )
+    return 0
 
 
 def import_instances(namespace: Any) -> int:
@@ -61,3 +91,27 @@ def _scan(root: Path) -> tuple[Path, ...]:
             raise ValidationError("instance scan found too many state files")
 
     return tuple(sorted(set(states)))
+
+
+def _indexed_payload(item: IndexedInstance) -> dict[str, str | bool | None]:
+    root = Path(item.path)
+    recorded_status = None
+    available = False
+    try:
+        state = load_state(root)
+    except (LumineskError, OSError):
+        state = None
+    if state is not None:
+        available = (
+            state.instance_id == item.instance_id
+            and Path(state.root).resolve() == root.resolve()
+        )
+        if available:
+            recorded_status = state.runtime.status
+    return {
+        "instanceId": item.instance_id,
+        "tag": item.tag,
+        "path": item.path,
+        "available": available,
+        "recordedStatus": recorded_status or "missing",
+    }

@@ -431,6 +431,17 @@ below `PATH` for `.luminesk_cli/state.json` files and imports valid instance
 roots (up to the built-in 10,000-state limit). This rebuilds discovery metadata;
 it does not convert legacy instances.
 
+### `nesk list`
+
+```text
+nesk list [--json] [--non-interactive]
+```
+
+Lists the instances registered in the global index without contacting Docker.
+Human output includes the tag, recorded runtime status, short instance ID, and
+path. Missing or invalid local state is shown as `missing` instead of hiding the
+stale index entry. Use `nesk import PATH --scan` to rebuild an empty index.
+
 ## Input values
 
 `--set` and `--set-file` may be repeated. Values are coerced according to the

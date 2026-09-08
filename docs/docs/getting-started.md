@@ -60,8 +60,8 @@ Server payload files—such as `server.jar`, `server.properties`, `world/`, and
 ownership policy determines which are managed by Luminesk and which remain
 user data.
 
-The global SQLite index is only a discovery aid. `nesk import PATH --scan` can
-rebuild it from valid local instance state.
+The global SQLite index is only a discovery aid. Use `nesk list` to inspect it;
+`nesk import PATH --scan` rebuilds it from valid local instance state.
 
 ## Trust before install
 

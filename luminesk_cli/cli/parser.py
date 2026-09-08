@@ -218,6 +218,14 @@ def build_parser() -> argparse.ArgumentParser:
         handler="luminesk_cli.cli.commands.instance_index:import_instances"
     )
 
+    list_parser = commands.add_parser(
+        "list", help="List installed instances from the local index."
+    )
+    _automation_options(list_parser)
+    list_parser.set_defaults(
+        handler="luminesk_cli.cli.commands.instance_index:list_instances"
+    )
+
     search = commands.add_parser(
         "search",
         help="Search the verified official recipe catalog offline.",

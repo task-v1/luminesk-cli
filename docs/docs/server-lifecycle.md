@@ -99,9 +99,14 @@ their instance IDs and paths remain distinct. Rebuild missing entries from
 local instance state with:
 
 ```bash
+nesk list
 nesk import ./instance
 nesk import /srv/minecraft --scan
 ```
+
+`list` is a local discovery command: it reports the recorded state and marks
+unavailable paths as `missing`, but does not contact Docker or reconcile live
+container status.
 
 If an interrupted install/update left an active transaction journal, recover it
 explicitly and validate the result:

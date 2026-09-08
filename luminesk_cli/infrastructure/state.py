@@ -154,7 +154,7 @@ class InstanceIndex:
         with closing(sqlite3.connect(self.path, timeout=30)) as connection:
             _ensure_instance_index_schema(connection)
             rows = connection.execute(
-                "SELECT instance_id, tag, path FROM instances_v2 ORDER BY tag"
+                "SELECT instance_id, tag, path FROM instances_v2 ORDER BY tag, path"
             ).fetchall()
 
         return tuple(IndexedInstance(*row) for row in rows)
