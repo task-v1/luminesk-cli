@@ -33,6 +33,22 @@ metadata is resolved while creating a lock, artifacts are cached and verified
 by SHA-256, and later application is tied to the same manifest, lock, package,
 and target platform.
 
+If you only want to run a server, you do not need to author a recipe or edit a
+lockfile. Use the official catalog:
+
+```bash
+nesk catalog update
+nesk search --type core
+nesk info RECIPE
+nesk install RECIPE --dir ./servers/NAME
+```
+
+`info` explains the recipe's inputs before installation. Human-mode `install`
+then collects missing values in a wizard and shows the complete plan before it
+writes the instance. The recipe, package, and lock concepts below explain what
+Luminesk verifies on your behalf; they are not extra setup steps for a catalog
+install.
+
 ## Design guarantees
 
 - Remote artifacts are downloaded with size limits and verified by SHA-256.
@@ -46,8 +62,13 @@ and target platform.
   not supported.
 - Automation receives stable JSON and exit codes.
 
-Start with [Installation](/docs/installation), then follow the
-[Quick Start](/docs/quick-start). Recipe authors can continue with
-[Manifest and Lockfile](/docs/manifest-and-lockfile). Operators upgrading an
-old installation should use the separate
-[migration guide from Luminesk 1.x](/docs/migrating-to-2.0).
+Choose the path that matches your task:
+
+- first server: [Installation](/docs/installation) →
+  [Quick Start](/docs/quick-start);
+- normal operation: [Server Lifecycle](/docs/server-lifecycle);
+- safe updates: [Updating Instances](/docs/updating-instances);
+- a command failed: [Troubleshooting](/docs/troubleshooting);
+- recipe authoring: [Creating a Custom Recipe](/docs/creating-a-recipe);
+- an existing Luminesk 1.x deployment: the separate
+  [side-by-side migration guide](/docs/migrating-to-2.0).

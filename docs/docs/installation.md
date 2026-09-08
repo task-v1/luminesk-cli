@@ -143,7 +143,7 @@ nesk catalog update
 ```
 
 `doctor` checks both the Docker CLI and daemon connectivity; `docker version`
-prints their detailed versions. The one-line installers now stop if release
+prints their detailed versions. The one-line installers stop if release
 metadata, the matching asset digest, or a SHA-256 tool is unavailable; they
 never install an unverified download. If a release bundle fails before `--version`,
 compare its checksum with `SHA256SUMS`, remove the extracted copy, and extract

@@ -37,13 +37,14 @@ recipe directory
           │ transactional apply
           ▼
 installed instance
-  payload + manifest + lock + .luminesk_cli state
+  optional payload + manifest + lock + .luminesk_cli state
 ```
 
 - `luminesk.toml` remains human-authored intent.
 - `luminesk.lock` is generated canonical JSON with exact resolution results.
 - `.lumineskpkg` is a deterministic, independently verified ZIP transaction
-  boundary, normally built in a temporary directory by CLI workflows.
+  boundary, normally built in a temporary directory by CLI workflows. Its
+  payload may be empty for an image-only runtime recipe.
 - An installed instance is mutable operational state. Its ownership ledger
   separates Luminesk-managed content from user data.
 

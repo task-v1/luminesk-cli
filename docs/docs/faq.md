@@ -43,11 +43,56 @@ Yes. Each instance has its own directory, local control state, runtime container
 inputs, and lock. Commands target one instance with `--dir`; the global index is
 used for discovery, not as the authoritative instance state.
 
+## How do I know which inputs an install needs?
+
+Run `nesk info NAME` for an official catalog recipe. It lists every input,
+default, constraint, and whether a value uses `--set` or `--set-file`. A normal
+interactive `nesk install NAME --dir INSTANCE` then asks for missing values in
+a wizard. JSON and non-interactive modes never prompt, so scripts must supply
+all required values explicitly.
+
+## Does `--yes` accept the Minecraft EULA?
+
+No. `--yes` approves the displayed trust and change plan. EULA acceptance is a
+separate recipe input and is never inferred. For example, Paper and Purpur
+automation commands use `--set eula=true --yes`: the first option accepts the
+EULA and the second approves the reviewed operation.
+
+## Which instance does a command use?
+
+Pass `--dir /path/to/instance` when you are outside it. Runtime commands without
+`--dir` search the current directory and its parents for an instance manifest.
+Use `nesk list` to find indexed instances and `nesk import PATH --scan` to
+rebuild missing index entries from valid instance state.
+
 ## Where should worlds and editable configuration live?
 
 In paths the recipe marks `data` or `preserve`. Managed/generated paths belong
 to the recipe and cannot be silently overwritten after an operator edits them.
 Check the recipe's ownership and backup declarations before deploying it.
+
+## Why is `server.properties` missing after install?
+
+Editable server configs are normally created by the core on first start. Start
+the instance, wait for readiness, stop it, and edit the complete generated file
+before starting again. Luminesk templates replace whole files; they do not merge
+a partial template with server defaults. Official recipes therefore avoid
+seeding incomplete `server.properties`-style files.
+
+## How do I use and leave the interactive console?
+
+`nesk attach --dir INSTANCE` opens a full-screen TUI with the latest 200 log
+lines, live output, command input, and scrolling. `Ctrl+D` detaches while the
+server keeps running, `Ctrl+C` stops it gracefully, `Ctrl+K` kills it, and
+`Ctrl+L` clears only the local view. Use `nesk logs` instead when output must be
+piped or automated.
+
+## Is a quiet long-running command stuck?
+
+Interactive terminals show the current stage with a spinner. Animation is
+disabled for redirected output, JSON, non-interactive mode, and debug mode so
+machine output remains stable. Add `--debug` for stage-level stderr diagnostics
+and wait for the original command to finish or time out before retrying it.
 
 ## How do I change an input after installation?
 

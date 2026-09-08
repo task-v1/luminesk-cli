@@ -146,7 +146,7 @@ secret = true
 | --- | --- | --- | --- | --- |
 | `type` | string enum | yes | — | `string`, `integer`, or `boolean`. |
 | `default` | matching scalar | no | none | Must match `type`. Forbidden when `secret = true`. |
-| `prompt` | string | no | none | Human-facing prompt text stored in the schema. Current commands do not synthesize an interactive value prompt from it; missing required values fail validation/build. |
+| `prompt` | string | no | none | Human-facing label shown by `nesk info` and the interactive install/update input wizard. Automation never prompts. |
 | `min` | integer | no | none | Inclusive minimum applied to integer values. Cannot exceed `max`; an integer default is checked immediately. |
 | `max` | integer | no | none | Inclusive maximum applied to integer values. |
 | `pattern` | string | no | none | Python regular expression, compiled at manifest load and matched against the complete string value. |
@@ -204,9 +204,9 @@ content cache.
 
 ```toml
 [[files]]
-source = "config/server.properties.tmpl"
-target = "server.properties"
-mode = "preserve"
+source = "config/welcome.txt.tmpl"
+target = "welcome.txt"
+mode = "generated"
 template = true
 executable = false
 
@@ -227,6 +227,12 @@ mode = "data"
 A directory source is copied recursively. Symlinks and special files are
 rejected. All target collisions—between build output, sources, the template
 tree, and declared files—are errors.
+
+`template = true` renders a complete target file; it does not merge properties
+with an existing or server-generated configuration. Do not ship partial
+server-owned configs. Prefer letting the server generate the full file and
+protecting the path with `preserve`; if seeding is required, provide a complete
+upstream-compatible file.
 
 ## `[ownership]`
 

@@ -119,7 +119,7 @@ template = "template"
 ```text
 template/
 ├── eula.txt.tmpl
-├── server.properties.tmpl
+├── welcome.txt.tmpl
 └── defaults.yml
 ```
 
@@ -134,11 +134,10 @@ template/
 Template collection rejects symlinks, hardlinks, and special files. It is
 bounded to 4,096 regular files, 16 MiB per file, and 64 MiB total.
 
-For `template/server.properties.tmpl`:
+For `template/welcome.txt.tmpl`:
 
 ```text
-motd=${input.server_name}
-server-port=${input.port}
+Welcome to ${input.server_name}.
 ```
 
 For `template/eula.txt.tmpl`:
@@ -149,6 +148,13 @@ eula=${input.eula}
 
 Boolean rendering is lowercase. Placeholders with no resolved value fail the
 package build; unknown text outside `${input.NAME}` remains unchanged.
+
+Rendering replaces the complete target file; it does not merge keys or lines
+into a file the server would otherwise generate. Never publish a partial
+`server.properties`, YAML, JSON, or similar server-owned configuration as a
+template. Omit that path and let the server create its complete defaults, or
+seed a complete upstream-compatible file when the recipe truly must own the
+initial contents.
 
 ## Explicit `[[files]]` templates
 
@@ -217,14 +223,22 @@ generic interpolation.
 
 ## Safe configuration workflow
 
-For files users will edit, such as `server.properties`, set an explicit
-preserve policy and preview updates:
+For server-generated files users will edit, omit the file from package inputs,
+set an explicit preserve policy, and include it in transaction backups:
 
 ```toml
 [ownership]
 preserve = ["server.properties"]
 data = ["world", "plugins"]
+
+[update]
+backup = ["server.properties", "world", "plugins"]
 ```
+
+After installation, start the server once, stop it, and edit the complete file
+it generated. If seeding a config is unavoidable, provide the complete file
+and use `mode = "preserve"`; a later recipe cannot silently merge new defaults
+into the operator's existing copy.
 
 ```bash
 nesk plan --dir ./recipe --set eula=true

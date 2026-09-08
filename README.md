@@ -16,89 +16,134 @@
   </p>
 </div>
 
-## Luminesk-CLI
+## What Luminesk does
 
-Luminesk-CLI (`nesk`) turns a declarative `luminesk.toml` recipe into a locked,
-verified `.lumineskpkg`, applies it transactionally, and runs the instance in Docker.
-Recipes can describe Java or Bedrock server cores, configuration templates,
-download sources, ownership rules, checks, and a Docker runtime. An installed
-instance keeps the reviewed recipe, its exact lock, user data, and Luminesk's
-transaction state together.
+Luminesk-CLI (`nesk`) installs and operates Minecraft Java and Bedrock servers
+from reviewable recipes. One server lives in one directory. Docker is the only
+runtime, so the same lifecycle works on Linux, macOS, and Windows without
+installing a Java, PHP, or other server runtime directly on the host.
 
-The important properties are:
+A recipe tells Luminesk where the server comes from, which inputs it needs,
+which ports and files it uses, how to decide that it is ready, and which data
+must survive an update. Luminesk resolves exact artifact hashes and Docker
+image digests, shows a plan, and applies it transactionally.
 
-- exact artifact hashes and OCI image digests in `luminesk.lock`;
-- bounded downloads, archive extraction, and recipe checkouts;
-- deterministic packages and explicit install/update plans;
-- ownership-aware updates that preserve user data;
-- rollback after failed installs, updates, or readiness checks;
-- argv-only process execution—recipes cannot inject shell commands;
-- stable `--json --non-interactive` behavior for automation.
+## Your first server
 
-## Install
-
-Python 3.13+ and Docker are required. Git is not required for normal GitHub recipe
-installs; Luminesk uses the GitHub API and exact commit-pinned recipe snapshots.
+You need Docker Engine or Docker Desktop. Python 3.13+ is required for the
+Python package; the release bundles include Python. Git is not required for
+normal use.
 
 ```bash
 uv tool install luminesk-cli
-nesk --version
 nesk doctor
 nesk catalog update
+nesk search --type core
+nesk info paper
+nesk install paper --dir ./servers/example
 ```
 
-With pipx, use `pipx install luminesk-cli`. Upgrade through the same tool manager
-that installed the CLI.
+`nesk info paper` lists every input before installation. In an interactive
+terminal, `install` opens a wizard: press Enter to keep a default and answer
+required questions such as Minecraft EULA acceptance. It then shows the exact
+recipe, downloads, Docker image, capabilities, and file changes before asking
+for confirmation.
 
-Prebuilt onedir bundles for Linux, macOS, and Windows are published on the
+`paper` is a Java example. Use `nesk search --edition bedrock` to find Bedrock
+recipes. A remote install needs a new, empty destination directory.
+
+With pipx, use `pipx install luminesk-cli`. Prebuilt bundles for Linux, macOS,
+and Windows are available on the
 [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
 
-## Typical workflow
+## Start, configure, and use the console
 
 ```bash
-# Inspect recipes before trusting one.
-nesk search
-nesk info paper
-
-# The info output lists required inputs before installation.
-# Run the guided input wizard and confirm the inspected PaperMC recipe.
-nesk install paper --dir ./servers/example
-
-# For automation, provide inputs and approval explicitly.
-nesk install paper --dir ./servers/example --set eula=true --dry-run
-nesk install paper --dir ./servers/example --set eula=true --yes
-
-# Operate and update the instance.
 nesk start --dir ./servers/example
 nesk status --dir ./servers/example
-nesk logs --dir ./servers/example
+nesk attach --dir ./servers/example
+```
+
+`attach` opens a full-screen console with recent history and live output. Type
+a server command and press Enter. Use `Ctrl+D` to detach while leaving the
+server running, `Ctrl+C` to stop it gracefully, or `Ctrl+K` to kill it.
+
+Editable server configs are normally created by the server on its first start.
+Official recipes do not seed partial `server.properties`-style files. Stop the
+server, edit the generated config inside the instance directory, then start it
+again. EULA files are the deliberate exception for recipes that require an
+explicit acceptance input.
+
+When your shell is already inside the instance, `--dir` may be omitted. From
+anywhere else, pass it explicitly so there is no ambiguity about which server
+the command targets.
+
+```bash
+nesk logs --dir ./servers/example --tail 500 --since 10m --timestamps
 nesk stop --dir ./servers/example
+nesk list
+```
+
+## Review an update before applying it
+
+```bash
 nesk outdated --dir ./servers/example
 nesk diff --dir ./servers/example
 nesk update --dir ./servers/example --dry-run
+nesk update --dir ./servers/example --yes
 ```
 
-For local recipe development:
+Luminesk refuses to silently overwrite a locally changed managed file. An
+update of a running server stops it, applies the reviewed package, starts it,
+waits for readiness, and attempts to restore the previous instance if a
+required step fails. Transaction rollback is not a replacement for an
+independent backup of production worlds.
+
+## Automation
+
+Interactive defaults are intentionally disabled for scripts. Supply inputs and
+trust approval explicitly:
+
+```bash
+nesk install paper --dir ./servers/example \
+  --set eula=true --dry-run --json --non-interactive
+nesk install paper --dir ./servers/example \
+  --set eula=true --yes --json --non-interactive
+```
+
+Handled failures use stable exit codes and a JSON `error` object. Secret inputs
+must use `--set-file`; Luminesk does not persist them or place them in runtime
+arguments.
+
+## What is stored in an instance?
+
+- `luminesk.toml` — the reviewed recipe;
+- `luminesk.lock` — exact source and image identities;
+- `.luminesk_cli/` — ownership, transaction, backup, recipe, and runtime state;
+- server-owned files such as worlds, plugins, logs, and generated configs.
+
+Do not hand-edit the lock or `.luminesk_cli/`. Use `nesk diff`,
+`nesk validate --instance`, and `nesk recover` when state needs inspection or
+recovery.
+
+## Custom recipes and migration
+
+Recipe authors can start with:
 
 ```bash
 nesk init --dir ./recipe --name example-server
-# Edit ./recipe/luminesk.toml and replace example.invalid with a real server URL.
+# Replace the placeholder source in luminesk.toml.
 nesk validate --dir ./recipe --static
 nesk lock --dir ./recipe
 nesk plan --dir ./recipe
 ```
 
-The generated recipe deliberately uses a non-resolving placeholder URL; it must
-be configured for the server artifact you intend to package before `nesk lock`.
-
-See the [documentation](https://luminesk.taskov1ch.xyz), especially the
-[command reference](https://luminesk.taskov1ch.xyz/docs/command-reference) and
-[trust model](https://luminesk.taskov1ch.xyz/docs/recipes-and-updates).
-Users of Luminesk 1.x should follow the
-[side-by-side migration guide](https://luminesk.taskov1ch.xyz/docs/migrating-to-2.0);
-the old and current instance formats are not interchangeable. Release-specific
-changes remain in the
-[release notes](https://github.com/task-v1/luminesk-cli/blob/main/RELEASE_NOTES.md).
+Read the [documentation](https://luminesk.taskov1ch.xyz),
+[Quick Start](https://luminesk.taskov1ch.xyz/docs/quick-start), and
+[Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference).
+Luminesk 1.x instances require a
+[side-by-side migration](https://luminesk.taskov1ch.xyz/docs/migrating-to-2.0);
+their control state and instance formats are not interchangeable.
 
 ## Development
 

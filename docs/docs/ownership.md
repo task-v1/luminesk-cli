@@ -15,7 +15,7 @@ regular file. That ledger—not a guess based on filenames—drives later plans.
 | --- | --- | --- |
 | `managed` | Core binaries, immutable launch/config assets | Replace only when the current file still matches the digest Luminesk installed. |
 | `generated` | Rendered files intended to follow recipe/input changes | Same digest conflict protection as managed; the distinct label explains provenance. |
-| `preserve` | User-editable seeded config such as `server.properties` | If a regular file already exists with different content, keep the existing copy. Never remove it merely because it leaves a later package. |
+| `preserve` | User-editable or server-created config such as `server.properties` | If a regular file already exists with different content, keep the existing copy. Never remove it merely because it leaves a later package. |
 | `data` | Worlds, plugins, player data, databases | Preserve existing content and never remove it merely because it leaves a later package. Directory contents are not treated as managed children. |
 
 Sources and Dockerfile output start as `managed`. Top-level template output
@@ -90,24 +90,29 @@ also follows the complete update candidate and security-change path.
 
 ## Example: `server.properties`
 
-For a generated seed that users may edit:
+Prefer letting the server create its complete configuration. Omit the file from
+the template tree, reserve it for the operator, and include it in transaction
+backups:
 
 ```toml
-template = "template"
-
 [ownership]
 preserve = ["server.properties"]
+
+[update]
+backup = ["server.properties"]
 ```
 
-```text title="template/server.properties.tmpl"
-motd=${input.server_name}
-server-port=${input.port}
-```
+Start the instance once, stop it, and edit the full file produced by the server.
+Because no package entry claims the path, later packages leave it alone; the
+preserve declaration also prevents a future package revision from taking over
+an existing operator copy.
 
-On first install the rendered file is created. If the user edits it, later
-packages preserve it even if the template changes. This also means new recipe
-defaults will not reach that existing file automatically; compare the upstream
-template and merge desired changes yourself.
+Templates are whole-file output, not property-level patches. Never seed only a
+few `server.properties` lines: doing so prevents the server from creating its
+complete defaults. If seeding is unavoidable, provide a complete
+upstream-compatible file and mark it `preserve`. New recipe defaults will not
+reach an existing operator copy automatically, so document any manual merge an
+update requires.
 
 If you instead leave the file `generated`, an update can replace it only while
 the installed copy is untouched. A user edit becomes an explicit conflict,
@@ -151,7 +156,7 @@ kept by modification time and older ones are removed. A value of `0` removes
 all transaction backups after success. Failed operations attempt rollback
 before pruning.
 
-The current engine always attempts rollback on install/update failure even
+Luminesk always attempts rollback on install/update failure even
 though `rollback_on_failure` is present in schema v1. Keep it `true` to express
 the only supported operational expectation.
 

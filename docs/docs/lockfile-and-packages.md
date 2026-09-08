@@ -134,8 +134,9 @@ or input-only package application, not discovering a newer artifact.
 
 ## What `.lumineskpkg` is
 
-A `.lumineskpkg` is a ZIP containing canonical `metadata.json` and a `payload/`
-tree. Metadata binds the package to:
+A `.lumineskpkg` is a ZIP containing canonical `metadata.json` and any declared
+payload entries under `payload/`. An image-only recipe can produce a valid
+metadata-only package with no payload tree. Metadata binds the package to:
 
 - format version `1`;
 - package name/version;

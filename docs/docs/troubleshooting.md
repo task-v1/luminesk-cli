@@ -50,6 +50,18 @@ For a pipx installation, run `pipx ensurepath` and start a new terminal.
 If you installed a standalone release bundle, invoke `nesk` or `nesk.exe` from
 the extracted directory or add that exact directory to `PATH`.
 
+### A long command appears to be stuck
+
+Interactive terminals show a spinner and the active stage during downloads,
+image resolution, package builds, transactions, Docker startup, and readiness
+checks. Do not start a duplicate install or update while the first command is
+still running.
+
+Redirected output, `--json`, `--non-interactive`, and `--debug` deliberately
+disable animation. Add `--debug` to see stage transitions on stderr, or check
+the original process exit status before retrying. Provider, Docker, and
+readiness operations remain bounded by their configured timeouts.
+
 ### Installation rejects the Python version
 
 **Cause.** The Python package requires Python 3.13 or newer.
@@ -201,12 +213,25 @@ Correct the TOML at the path named in the diagnostic. Do not add an undeclared
 
 ### A required input is missing
 
-Pass non-secret values with `--set NAME=VALUE` and secrets with
+For an official recipe, inspect every input, default, and constraint before
+installation:
+
+```bash
+nesk info NAME
+nesk install NAME --dir INSTANCE
+```
+
+In a normal terminal, `install` asks for missing values in a wizard. For
+automation, pass non-secret values with `--set NAME=VALUE` and secrets with
 `--set-file NAME=PATH`:
 
 ```bash
 nesk plan --dir RECIPE --set port=25565 --set-file rcon_password=./secret.txt
 ```
+
+Minecraft EULA acceptance is a recipe input, not plan approval. For Paper or
+Purpur automation, use `--set eula=true`; `--yes` separately approves the
+reviewed install/update plan and never accepts EULA terms by itself.
 
 Use `validate --build` with the same `--set` and `--set-file` values when the
 complete package-rendering phase needs required inputs. `plan` or a dry-run install
@@ -311,7 +336,40 @@ Read the failing check ID and expected path. Correct the recipe, artifact, input
 or file mapping and retry. A failed transaction attempts to restore the previous
 files and control state; validate the instance before starting it.
 
+### A server config is missing immediately after install
+
+Editable server-owned configuration is normally created in full by the core on
+its first start. Start the instance, wait for readiness, stop it, then edit the
+generated file:
+
+```bash
+nesk start --dir INSTANCE
+nesk stop --dir INSTANCE
+# Edit INSTANCE/server.properties or the config used by this core.
+nesk start --dir INSTANCE
+```
+
+Luminesk templates replace complete files; they do not merge a few properties
+into server defaults. A recipe that ships a partial server-owned config should
+be corrected instead of relying on missing implicit values.
+
 ## Runtime and readiness
+
+### Attach opens without older console output
+
+`nesk attach --dir INSTANCE` requests the latest 200 Docker log lines before it
+starts following live output. If history is still empty, confirm that the
+recorded container is running and has written to stdout/stderr:
+
+```bash
+nesk status --dir INSTANCE
+nesk logs --dir INSTANCE --tail 500
+```
+
+The TUI footer shows its controls. Use `Ctrl+D` to detach without stopping the
+server, `Ctrl+C` for a graceful stop, `Ctrl+K` to kill it, and `Ctrl+L` to clear
+only the local view. `attach` requires a real terminal; use `logs` for pipes,
+files, and automation.
 
 ### The container exits immediately
 
