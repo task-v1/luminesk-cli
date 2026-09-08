@@ -1,0 +1,36 @@
+manifest_version = 1
+
+[package]
+name = "pocketmine-bedrock-fixture"
+version = "1.0.0"
+display_name = "Synthetic PocketMine Bedrock Fixture"
+kind = "core"
+game = "minecraft"
+edition = "bedrock"
+summary = "Test-only PHP Bedrock reference recipe"
+keywords = ["synthetic", "bedrock", "php"]
+
+[[sources]]
+id = "core"
+type = "http"
+target = "PocketMine-MP.phar"
+
+[sources.options]
+url = "https://example.invalid/PocketMine-MP.phar"
+version = "test-only"
+
+[runtime]
+image = "php:8.3-cli"
+command = ["php", "PocketMine-MP.phar", "--no-wizard"]
+
+[[runtime.ports]]
+name = "bedrock"
+host = 19132
+container = 19132
+protocol = "udp"
+
+[[checks]]
+id = "core-present"
+phase = "post-build"
+kind = "file"
+path = "PocketMine-MP.phar"

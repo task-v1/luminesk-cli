@@ -78,7 +78,6 @@ switch ($RAW_ARCH) {
 }
 
 $BINARY_NAME = "luminesk_cli-$OS-$ARCH.exe"
-$DOWNLOAD_URL = "https://github.com/task-v1/luminesk-cli/releases/latest/download/$BINARY_NAME"
 
 # Check administrator privileges
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -189,20 +188,32 @@ if ($EXISTING_BIN) {
 # Fetch release info from GitHub API
 $REMOTE_VER = ""
 $EXPECTED_SHA = ""
+$DOWNLOAD_URL = ""
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $headers = @{ "User-Agent" = "Luminesk-Installer" }
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/task-v1/luminesk-cli/releases/latest" -Headers $headers -ErrorAction Stop
-    if ($release.tag_name -match 'v?(\d+\.\d+(?:\.\d+)?)') {
-        $REMOTE_VER = $Matches[1]
+    if ($release.tag_name -notmatch '^v?(\d+\.\d+\.\d+(?:(?:a|b|rc)[1-9][0-9]*)?)$') {
+        throw "Release metadata has no valid version tag."
     }
-    if ($release.assets) {
-        $targetAsset = $release.assets | Where-Object { $_.name -eq $BINARY_NAME }
-        if ($targetAsset -and $targetAsset.digest) {
-            $EXPECTED_SHA = $targetAsset.digest -replace '^sha256:', ''
-        }
+    $REMOTE_VER = $Matches[1]
+    $targetAssets = @($release.assets | Where-Object { $_.name -eq $BINARY_NAME })
+    if ($targetAssets.Count -ne 1) {
+        throw "Release metadata must contain exactly one $BINARY_NAME asset."
     }
-} catch {}
+    $targetAsset = $targetAssets[0]
+    if ($targetAsset.digest -notmatch '^sha256:([0-9a-f]{64})$') {
+        throw "Release asset has no valid SHA-256 digest."
+    }
+    $EXPECTED_SHA = $Matches[1]
+    if ($targetAsset.browser_download_url -notmatch '^https://github\.com/task-v1/luminesk-cli/releases/download/') {
+        throw "Release asset has an invalid download URL."
+    }
+    $DOWNLOAD_URL = $targetAsset.browser_download_url
+} catch {
+    Write-Error "Could not load verified release metadata: $_"
+    exit 1
+}
 
 $NEEDS_UPDATE = $false
 $STATUS_TXT = "Not installed"
@@ -275,18 +286,16 @@ if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
     exit 1
 }
 
-if ($EXPECTED_SHA) {
-    Write-Host "Verifying checksum..."
-    $actualSha = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
-    if ($actualSha -ne $EXPECTED_SHA.ToLower()) {
-        Write-Host "${COLOR_PRIMARY}Error: Checksum verification failed.${COLOR_RESET}"
-        Write-Host "Expected: $EXPECTED_SHA"
-        Write-Host "Actual:   $actualSha"
-        Remove-Item -Force $tempFile -ErrorAction SilentlyContinue
-        exit 1
-    }
-    Write-Host "${COLOR_SUCCESS}Checksum verified successfully.${COLOR_RESET}"
+Write-Host "Verifying checksum..."
+$actualSha = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLower()
+if ($actualSha -ne $EXPECTED_SHA.ToLower()) {
+    Write-Host "${COLOR_PRIMARY}Error: Checksum verification failed.${COLOR_RESET}"
+    Write-Host "Expected: $EXPECTED_SHA"
+    Write-Host "Actual:   $actualSha"
+    Remove-Item -Force $tempFile -ErrorAction SilentlyContinue
+    exit 1
 }
+Write-Host "${COLOR_SUCCESS}Checksum verified successfully.${COLOR_RESET}"
 
 try {
     Move-Item -Path $tempFile -Destination $TARGET_PATH -Force

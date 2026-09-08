@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Luminesk-CLI',
-  tagline: 'CLI manager for MCBE servers',
+  tagline: 'Reproducible Minecraft Java and Bedrock server composer',
   favicon: 'img/favicon.ico',
   headTags: [
   {

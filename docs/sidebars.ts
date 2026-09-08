@@ -14,17 +14,34 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Operations',
-      items: ['server-lifecycle', 'cores-and-upgrades', 'runtime-and-docker'],
+      items: [
+        'server-lifecycle',
+        'updating-instances',
+        'runtime-and-docker',
+      ],
     },
     {
       type: 'category',
-      label: 'Configuration',
-      items: ['configuration-and-language'],
+      label: 'Recipes',
+      items: [
+        'creating-a-recipe',
+        'manifest-reference',
+        'sources',
+        'templates-and-inputs',
+        'ownership',
+        'checks',
+        'manifest-and-lockfile',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Reproducibility',
+      items: ['lockfile-and-packages', 'recipes-and-updates'],
     },
     {
       type: 'category',
       label: 'Support',
-      items: ['troubleshooting', 'faq'],
+      items: ['troubleshooting', 'faq', 'migrating-to-2.0'],
     },
     {
       type: 'category',

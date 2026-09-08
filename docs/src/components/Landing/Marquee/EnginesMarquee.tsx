@@ -1,28 +1,25 @@
 import React, { useLayoutEffect, useRef } from 'react';
+import Link from '@docusaurus/Link';
 import gsap from 'gsap';
 
-import HeartIcon from './heart.svg';
 import styles from './Marquee.module.css';
 
-interface Engine {
+interface SourceProvider {
   name: string;
   url: string;
 }
 
-const ENGINES: Engine[] = [
-  { name: "Nukkit", url: "https://github.com/cloudburstmc/nukkit" },
-  { name: "PowerNukkitX", url: "https://github.com/PowerNukkitX/PowerNukkitX" },
-  { name: "Nukkit-MOT", url: "https://github.com/MemoriesOfTime/Nukkit-MOT" },
-  { name: "Lumi", url: "https://github.com/koshakminedev/lumi" },
-  { name: "Allay", url: "https://github.com/AllayMC/Allay" },
-  { name: "PocketMine-MP", url: "https://github.com/pmmp/pocketmine-mp" },
-  { name: "BetterAltay", url: "https://github.com/Benedikt05/BetterAltay" },
-  { name: "Lunacy", url: "https://github.com/karepanov35/Lunacy" },
-  { name: "Dragonfly", url: "https://github.com/df-mc/dragonfly" },
-  { name: "Pumpkin", url: "https://github.com/pumpkin-mc/pumpkin" },
-  { name: "Serenity", url: "https://github.com/SerenityJS/serenity" },
-  { name: "Endstone", url: "https://github.com/EndstoneMC/endstone" }
-
+const SOURCE_PROVIDERS: SourceProvider[] = [
+  { name: 'Direct HTTP', url: '/docs/sources#http' },
+  { name: 'Maven', url: '/docs/sources#maven' },
+  { name: 'Jenkins', url: '/docs/sources#jenkins' },
+  { name: 'GitHub Releases', url: '/docs/sources#github-release' },
+  { name: 'GitHub Source', url: '/docs/sources#github-source' },
+  { name: 'GitLab Releases', url: '/docs/sources#gitlab-release' },
+  { name: 'GitLab Job Artifacts', url: '/docs/sources#gitlab-job-artifact' },
+  { name: 'Mojang Versions', url: '/docs/sources#mojang-version' },
+  { name: 'Paper Downloads', url: '/docs/sources#paper' },
+  { name: 'Local Files', url: '/docs/sources#local-file' },
 ];
 
 export default function EnginesMarquee() {
@@ -47,34 +44,29 @@ export default function EnginesMarquee() {
     return () => ctx.revert();
   }, []);
 
-  const renderEngine = (engine: Engine, track: number, index: number) => (
-    <a
+  const renderProvider = (provider: SourceProvider, track: number, index: number) => (
+    <Link
       key={`${track}-${index}`}
-      href={engine.url}
-      target="_blank"
-      rel="noopener noreferrer"
+      to={provider.url}
       className={styles.engineName}
     >
-      {engine.name}
-      {engine.name === 'Lumi' && (
-        <HeartIcon className={styles.heartIcon} width="1em" height="1em" />
-      )}
-    </a>
+      {provider.name}
+    </Link>
   );
 
   return (
     <section className={`gsap-fade-up ${styles.marqueeSection}`}>
-      <div className={styles.marqueeHeader}>Supported Engines</div>
+      <div className={styles.marqueeHeader}>Source Providers</div>
 
       <div ref={marqueeRef} className={styles.marqueeContainer}>
         <div className={styles.marqueeTrack}>
-          {ENGINES.map((engine, i) => renderEngine(engine, 1, i))}
+          {SOURCE_PROVIDERS.map((provider, i) => renderProvider(provider, 1, i))}
         </div>
         <div className={styles.marqueeTrack} aria-hidden="true">
-          {ENGINES.map((engine, i) => renderEngine(engine, 2, i))}
+          {SOURCE_PROVIDERS.map((provider, i) => renderProvider(provider, 2, i))}
         </div>
         <div className={styles.marqueeTrack} aria-hidden="true">
-          {ENGINES.map((engine, i) => renderEngine(engine, 3, i))}
+          {SOURCE_PROVIDERS.map((provider, i) => renderProvider(provider, 3, i))}
         </div>
       </div>
     </section>

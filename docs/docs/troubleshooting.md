@@ -4,118 +4,478 @@ sidebar_position: 10
 
 # Troubleshooting
 
-This page uses **symptom → cause → resolution**.
-
-## `nesk diagnostic` fails
-
-**Symptom**
-
-- one or more source checks show failed status.
-
-**Likely causes**
-
-- network outage;
-- provider endpoint unavailable;
-- DNS/proxy restrictions.
-
-**Resolution**
-
-1. Re-run `nesk diagnostic`.
-2. Verify internet/proxy access from your shell.
-3. Retry later if provider endpoints are down.
-
-## Docker not found / Docker commands fail
-
-**Symptom**
-
-- startup fails with Docker-related errors.
-
-**Likely causes**
-
-- Docker is not installed;
-- Docker daemon is not running;
-- current user lacks Docker access.
-
-**Resolution**
-
-1. Install Docker and ensure `docker` is in PATH.
-2. Start Docker daemon/Desktop.
-3. Validate with `docker ps`.
-
-## Server start fails after creation
-
-**Symptom**
-
-- `nesk start` fails or exits immediately.
-
-**Likely causes**
-
-- invalid runtime image;
-- broken core download/provider response;
-- invalid server configuration for selected core.
-
-**Resolution**
-
-1. Confirm image with `nesk change-image <tag> --image <valid-image>`.
-2. Run `nesk diagnostic`.
-3. Re-download core: `nesk upgrade-core <tag> --redownload`.
-4. Attach logs: `nesk attach <tag>`.
-
-## `upgrade-core` reports missing hash guidance
-
-**Symptom**
-
-- upgrade suggests redownload due to missing hash metadata.
-
-**Likely cause**
-
-- server metadata lacks prior core hash.
-
-**Resolution**
-
-Run:
+Start with the smallest check that matches the failing layer:
 
 ```bash
-nesk upgrade-core <tag> --redownload
+nesk doctor
+docker version
+nesk validate --dir INSTANCE --instance
+nesk status --dir INSTANCE
+nesk diff --dir INSTANCE
+nesk cache verify
 ```
 
-## `delete` refuses running server
+`nesk doctor` checks both that the Docker executable is on `PATH` and that the
+current user can reach the daemon. `docker version` prints the underlying
+client/server detail.
+Add `--json --non-interactive` when collecting diagnostics in automation. Process
+exit codes identify the failing layer; the JSON `error.code` is its string name.
+Add `--debug` for stage-level diagnostics on stderr, for example
+`nesk install RECIPE --dir INSTANCE --dry-run --debug`. Debug output is
+designed to omit input values, secret-file paths, URLs, subprocess arguments,
+and command output; still review diagnostics before sharing paths or instance
+identifiers from the surrounding error report.
 
-**Symptom**
+## Installation and command discovery
 
-- delete fails because server must be stopped.
+### `nesk: command not found`
 
-**Likely cause**
+**Likely cause.** The tool was installed into a directory that the current shell
+does not search, or a newly changed `PATH` has not reached this terminal.
 
-- runtime is still running or loop controller remains active.
+**Check.** For uv, run `uv tool list`, then inspect the executable directory
+reported by `uv tool dir --bin`. For pipx, run `pipx list`. On Windows, also
+open a new terminal after changing `PATH`.
 
-**Resolution**
-
-1. Stop server: `nesk stop <tag>`.
-2. If loop-related, retry with `--force` where appropriate.
-3. Re-run delete: `nesk delete <tag>`.
-
-## Invalid status filter in `list`
-
-**Symptom**
-
-- `nesk list --status <value>` fails.
-
-**Likely cause**
-
-- only `running` and `stopped` are accepted.
-
-**Resolution**
-
-Use one of:
+**Fix.** Run `uv tool update-shell`, start a new shell, and retry:
 
 ```bash
-nesk list --status running
-nesk list --status stopped
+uv tool install luminesk-cli
+uv tool update-shell
+nesk --version
 ```
 
-## Need more context
+For a pipx installation, run `pipx ensurepath` and start a new terminal.
 
-- [Command Reference](/docs/command-reference)
-- [Server Lifecycle](/docs/server-lifecycle)
-- [Runtime & Docker Model](/docs/runtime-and-docker)
+If you installed a standalone release bundle, invoke `nesk` or `nesk.exe` from
+the extracted directory or add that exact directory to `PATH`.
+
+The one-line installer prints its destination. For a normal user this is
+`~/.local/bin/nesk` on Linux/macOS and `$HOME\.local\bin\nesk.exe` on Windows.
+Add that directory to `PATH`, open a new terminal, and run `nesk --version`.
+
+### The one-line installer reports a foreign installation
+
+Another method already owns the `nesk` found on `PATH`. The installer refuses
+to overwrite it because that would leave uv, pipx, or a manual bundle in an
+inconsistent state. Update with the existing manager, or uninstall it with that
+same manager before choosing the one-line installer. Do not remove the
+installer metadata merely to bypass this check.
+
+### A long command appears to be stuck
+
+Interactive terminals show a spinner and the active stage during downloads,
+image resolution, package builds, transactions, Docker startup, and readiness
+checks. Do not start a duplicate install or update while the first command is
+still running.
+
+Redirected output, `--json`, `--non-interactive`, and `--debug` deliberately
+disable animation. Add `--debug` to see stage transitions on stderr, or check
+the original process exit status before retrying. Provider, Docker, and
+readiness operations remain bounded by their configured timeouts.
+
+### Installation rejects the Python version
+
+**Cause.** The Python package requires Python 3.13 or newer.
+
+**Check.** Run `python --version` and `uv python list`.
+
+**Fix.** Install a supported interpreter and let uv select it. A standalone
+release bundle is an alternative when you do not want to manage Python.
+
+### A downloaded executable does not start
+
+**Likely causes.** The archive does not match the operating system or CPU, it was
+not extracted before execution, or the Unix executable bit was lost.
+
+**Check.** Compare the asset name with the platform table in
+[Installation](./installation.md), verify the release checksum, and check the
+extracted file type.
+
+**Fix.** Download the correct archive again, verify it, extract it, and on Linux
+or macOS run `chmod +x nesk` if necessary. Do not bypass an operating-system
+security warning until the file and its release source have been verified.
+
+## Docker
+
+### `nesk doctor` says Docker is missing
+
+**Cause.** The `docker` client is absent or not on `PATH`.
+
+**Check and fix.** Install Docker for the current platform, open a new terminal,
+and run:
+
+```bash
+nesk doctor
+docker version
+```
+
+### `nesk doctor` succeeds but a later Docker operation fails
+
+**Cause.** The daemon state or permissions may have changed after `doctor`, or
+the operation may need registry, image, port, or mount access that `doctor`
+does not exercise.
+
+**Check.** `docker version` must show both client and server sections. On macOS
+and Windows, confirm Docker Desktop is running. On Linux, inspect the daemon and
+socket permissions using your distribution's Docker instructions.
+
+**Fix.** Run `nesk doctor` again, then inspect the operation's runtime error and
+Docker detail. Docker daemon access is security-sensitive; do not make its
+socket world-writable.
+
+### Docker cannot pull or use the locked image
+
+**Likely causes.** Registry connectivity or authentication failed, the image is
+unavailable for this CPU architecture, or a mutable tag changed during a new
+resolution.
+
+**Check.** Inspect `runtime.image` in `luminesk.lock`, then test that exact
+digest with Docker. For a recipe checkout, also run:
+
+```bash
+nesk validate --dir RECIPE --resolve
+```
+
+**Fix.** Restore registry access or credentials, or choose an image published
+for the host architecture. Recipe authors should choose an appropriate image
+tag and regenerate the lock; operators should not hand-edit an installed lock.
+
+## Catalog, network, and sources
+
+### Catalog search is empty or stale
+
+**Check.** Inspect the configured catalog and its last verified revision:
+
+```bash
+nesk catalog status
+nesk catalog verify
+nesk catalog update
+nesk search QUERY
+```
+
+**Fix.** Restore network access and rerun `catalog update` to download the
+official catalog again. If another verified revision is already cached, activate
+it by exact 40-character commit with `nesk catalog use REVISION`. Do not suppress
+the verification error or replace the catalog pointer by hand.
+
+### A remote install asks for confirmation
+
+This is expected. Luminesk prints the recipe origin, resolved revision,
+build-code status, destination, and download count before trusting a remote
+recipe. Review it, then rerun with `--yes`. Automation must use both
+`--non-interactive` and `--yes`; Luminesk will not silently approve remote code.
+
+### Source resolution times out or returns no artifact
+
+**Likely causes.** The provider is unavailable, the recipe selector matches no
+release or asset, credentials are required, or the response exceeds a bounded
+network limit.
+
+**Check.** Use `nesk validate --dir RECIPE --resolve` and read the source ID in
+the error. Compare that source's selectors with the provider's current metadata.
+
+**Fix.** Restore connectivity, correct the provider URL/selectors, or pin a
+known valid version. Luminesk does not accept an ambiguous match. See
+[Source Providers](./sources.md) for each provider's selection rules.
+
+### A checksum or digest check fails
+
+Treat this as a security failure, not as a transient warning. It can mean that
+an upstream artifact changed, the declared checksum is wrong, a download was
+corrupted, or cached content was modified.
+
+```bash
+nesk cache verify
+nesk validate --dir RECIPE --resolve
+```
+
+Do not edit the lock to match unreviewed bytes. Verify the artifact from its
+authoritative source and update the recipe or lock only after review. When a
+locked cached blob is encountered with the wrong digest, Luminesk removes that
+blob and rejects the operation; repeat the connected resolution only after the
+security cause has been understood so it can fetch verified content again.
+
+### The cache is large
+
+Preview an age-based cleanup before applying it:
+
+```bash
+nesk cache prune --max-age 30 --dry-run
+nesk cache prune --max-age 30
+```
+
+Pruning may make later frozen operations fail until their exact blobs have been
+fetched again by a connected operation.
+
+## Recipe and manifest validation
+
+### TOML is invalid or a key is unknown
+
+**Check.** Run static validation in the recipe directory:
+
+```bash
+nesk validate --dir RECIPE --static
+```
+
+The manifest schema is closed: misspelled and unsupported keys are errors.
+Correct the TOML at the path named in the diagnostic. Do not add an undeclared
+`[permissions]` table; build permission is represented by the presence of
+`[build]`, with `[build].network` controlling build-network access.
+
+### A required input is missing
+
+For an official recipe, inspect every input, default, and constraint before
+installation:
+
+```bash
+nesk info NAME
+nesk install NAME --dir INSTANCE
+```
+
+In a normal terminal, `install` asks for missing values in a wizard. For
+automation, pass non-secret values with `--set NAME=VALUE` and secrets with
+`--set-file NAME=PATH`:
+
+```bash
+nesk plan --dir RECIPE --set port=25565 --set-file rcon_password=./secret.txt
+```
+
+Minecraft EULA acceptance is a recipe input, not plan approval. For Paper or
+Purpur automation, use `--set eula=true`; `--yes` separately approves the
+reviewed install/update plan and never accepts EULA terms by itself.
+
+Use `validate --build` with the same `--set` and `--set-file` values when the
+complete package-rendering phase needs required inputs. `plan` or a dry-run install
+can exercise the same inputs while also showing their resulting changes and
+capabilities.
+
+### A template fails to render
+
+**Likely causes.** A referenced input is missing, syntax is invalid, content
+violates its output mode, or a rendered path is unsafe.
+
+**Check.** Run `nesk plan` with all required inputs, then inspect the template
+and its `mode`, `max_size`, and destination. Template access is limited to
+declared inputs; environment variables and arbitrary host files are unavailable.
+
+### A local file source is rejected
+
+`local-file` paths must remain inside the recipe directory and must resolve to
+regular files. Move the artifact into the recipe tree, declare its digest when
+appropriate, and rerun static and resolve validation. Symlink or `..` escapes
+are rejected.
+
+### Build validation fails
+
+Run the phases separately to locate the boundary:
+
+```bash
+nesk validate --dir RECIPE --resolve
+nesk validate --dir RECIPE --build
+```
+
+Check the Dockerfile path, context, locked source inputs, network setting,
+resource limits, and post-build file checks. A recipe with `[build]` executes
+reviewed Docker build code; inspect it before approving a remote recipe.
+
+## Lock and frozen mode
+
+### `--frozen` fails
+
+Frozen mode requires all three of these conditions:
+
+- `luminesk.toml` matches the manifest digest in `luminesk.lock`;
+- the lock target matches the current operating system and architecture;
+- every locked source blob is already present and verifies in the content cache.
+
+Run `nesk cache verify`. For a recipe checkout, use a connected `nesk lock` to
+resolve and cache current inputs after reviewing the change. For an installed
+instance, preview `nesk update`; do not replace its lock with one generated from
+an unrelated checkout.
+
+### The lock target does not match this machine
+
+Locks are target-specific. Generate the lock and test the recipe on the target
+operating system and architecture. There is no public target override that makes
+a foreign lock executable on the current host.
+
+### Instance state does not match the lockfile
+
+**Likely cause.** A control file was edited or copied manually, or a transaction
+was interrupted.
+
+**Check.** Run:
+
+```bash
+nesk validate --dir INSTANCE --instance
+nesk diff --dir INSTANCE
+```
+
+If a transaction is pending, recover it first. Otherwise restore the instance's
+verified control files from backup or perform a reviewed update. Do not hand-edit
+`.luminesk_cli` state to force the digests to agree.
+
+## Install and ownership conflicts
+
+### The destination already contains files
+
+Remote recipe installs require a safe destination and will not merge arbitrary
+pre-existing content. Select a new empty directory. To adopt an existing server,
+install beside it and copy only recipe-declared `data` or `preserve` paths after
+an offline backup; Luminesk has no command that converts an arbitrary directory
+into a managed instance.
+
+### Install or update refuses a managed file
+
+**Cause.** A file recorded as `managed` or `generated` no longer matches its
+last applied digest. Luminesk refuses to overwrite that operator modification.
+
+**Check.** Run:
+
+```bash
+nesk diff --dir INSTANCE
+nesk update --dir INSTANCE --dry-run
+```
+
+**Fix.** Save the edit, then either express it as a recipe/template change, move
+it to a recipe-declared `preserve` or `data` path, or restore the last applied
+file. There is no force flag that bypasses an ownership conflict.
+
+### A post-install check fails
+
+Read the failing check ID and expected path. Correct the recipe, artifact, input,
+or file mapping and retry. A failed transaction attempts to restore the previous
+files and control state; validate the instance before starting it.
+
+### A server config is missing immediately after install
+
+Editable server-owned configuration is normally created in full by the core on
+its first start. Start the instance, wait for readiness, stop it, then edit the
+generated file:
+
+```bash
+nesk start --dir INSTANCE
+nesk stop --dir INSTANCE
+# Edit INSTANCE/server.properties or the config used by this core.
+nesk start --dir INSTANCE
+```
+
+Luminesk templates replace complete files; they do not merge a few properties
+into server defaults. A recipe that ships a partial server-owned config should
+be corrected instead of relying on missing implicit values.
+
+## Runtime and readiness
+
+### Attach opens without older console output
+
+`nesk attach --dir INSTANCE` requests the latest 200 Docker log lines before it
+starts following live output. If history is still empty, confirm that the
+recorded container is running and has written to stdout/stderr:
+
+```bash
+nesk status --dir INSTANCE
+nesk logs --dir INSTANCE --tail 500
+```
+
+The TUI footer shows its controls. Use `Ctrl+D` to detach without stopping the
+server, `Ctrl+C` for a graceful stop, `Ctrl+K` to kill it, and `Ctrl+L` to clear
+only the local view. `attach` requires a real terminal; use `logs` for pipes,
+files, and automation.
+
+### The container exits immediately
+
+Start without waiting only when you need to observe an early process failure:
+
+```bash
+nesk start --dir INSTANCE --no-wait
+nesk status --dir INSTANCE
+nesk logs --dir INSTANCE
+```
+
+Check the image, command argument array, mounted paths, file permissions, memory
+limit, and required inputs. Stop the failed container before retrying. Remember
+that Luminesk passes an argv array directly—shell expansion and shell operators
+do not run.
+
+### The host port is already in use
+
+Inspect Docker containers and the host's listening ports, then stop the
+conflicting service or select a different declared port input. Use `nesk plan`
+to confirm the rendered host-to-container mapping before starting. Do not expose
+a service on a public interface unless that is intentional.
+
+### The process cannot read or write a mount
+
+Compare recipe mount targets, ownership modes, Docker bind mounts, and
+`runtime.run_as`. Confirm the host source exists and that its permissions match
+the numeric container user. Correct ownership deliberately; avoid broad
+world-writable permissions as a shortcut.
+
+### Readiness times out
+
+**Check.** Inspect the declared readiness kind, timeout, retries, command or
+pattern, and port interpolation. For a currently running instance:
+
+```bash
+nesk validate --dir INSTANCE --readiness
+nesk logs --dir INSTANCE
+```
+
+Log-based readiness diagnostics are saved under
+`.luminesk_cli/logs/readiness-*.log`. A normal `start` removes a newly created
+container when required readiness fails, so Docker logs may no longer be
+available afterward; the saved diagnostic log is the durable evidence for
+log-regex checks. Use `--no-wait` only for diagnosis, not to declare the server
+healthy.
+
+### Update readiness fails
+
+If the instance was running before the update, Luminesk stops it, applies the
+new plan, starts it, and evaluates required readiness. A failure attempts to
+restore the prior filesystem/control state and restart the prior runtime.
+
+Check the original error and any separate rollback detail. Then run `status`,
+`validate --instance`, and `diff`. If rollback was incomplete, stop runtime
+activity and use `recover` as described below.
+
+## Interrupted transactions and recovery
+
+### An operation says that a transaction is pending
+
+Do not delete the journal or backup directory. Stop the instance if it is still
+running, then restore the recorded backup:
+
+```bash
+nesk recover --dir INSTANCE
+nesk validate --dir INSTANCE --instance
+nesk diff --dir INSTANCE
+```
+
+When a journal exists, `recover` selects its matching backup. Without an active
+journal it refuses to modify the instance. Only after independently inspecting
+the retained backup should an operator use `--force-clean` to select the newest
+one; scripts must combine it with `--yes`. Review the resulting instance before
+starting it.
+
+### The global index lost an instance
+
+Rebuild index entries only from valid current Luminesk instance state:
+
+```bash
+nesk import INSTANCE
+nesk import /srv/minecraft --scan
+```
+
+`--scan` recursively searches descendants for `.luminesk_cli/state.json` and
+validates each recorded instance root. Import does not convert legacy or
+arbitrary server directories.
+
+## Collecting a useful problem report
+
+Include the Luminesk version and platform, the failing command, its numeric exit
+status, and sanitized JSON output. Also include `nesk doctor`, `docker version`,
+the relevant validation phase, and the recipe source/revision. Remove secret
+input values, credentials, private URLs, and world/player data. Do not publish
+the contents of `.luminesk_cli` blindly; it can contain persisted input values
+and operational metadata.

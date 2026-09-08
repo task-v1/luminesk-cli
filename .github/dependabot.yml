@@ -26,3 +26,21 @@ updates:
       python-deps:
         patterns:
           - "*"
+
+  - package-ecosystem: npm
+    directory: "/docs"
+    schedule:
+      interval: weekly
+    labels:
+      - "dependencies"
+      - "documentation"
+    commit-message:
+      prefix: "deps(docs)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      docs-deps:
+        patterns:
+          - "*"

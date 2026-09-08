@@ -5,85 +5,183 @@
     <img src="https://github.com/task-v1/luminesk-cli/raw/refs/heads/main/docs/static/img/logo-with-cli-dark.svg" width="500" alt="Luminesk-CLI">
   </picture>
 
-  <p><strong>Composer of Minecraft Bedrock Edition (MCBE) servers</strong></p>
+  <p><strong>A reproducible composer for Minecraft Java and Bedrock server instances</strong></p>
 
   <p>
     <a href="https://github.com/task-v1/luminesk-cli/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/task-v1/luminesk-cli/ci.yml?branch=main&label=CI"></a>
     <a href="https://github.com/task-v1/luminesk-cli/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/task-v1/luminesk-cli"></a>
     <a href="https://pypi.org/project/luminesk-cli/"><img alt="PyPI Version" src="https://img.shields.io/pypi/v/luminesk-cli"></a>
-    <a href="https://pypi.org/project/luminesk-cli/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/luminesk-cli"></a>
     <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/task-v1/luminesk-cli"></a>
     <a href="https://luminesk.taskov1ch.xyz"><img alt="Docs" src="https://img.shields.io/badge/docs-online-0ea5e9"></a>
   </p>
 </div>
 
----
+## What Luminesk does
 
-## What is Luminesk-CLI?
+Luminesk-CLI (`nesk`) installs and operates Minecraft Java and Bedrock servers
+from reviewable recipes. One server lives in one directory. Docker is the only
+runtime, so the same lifecycle works on Linux, macOS, and Windows without
+installing a Java, PHP, or other server runtime directly on the host.
 
-Luminesk-CLI (`nesk`) is a command-line tool for provisioning and operating MCBE servers.
-It handles server creation, runtime configuration, downloads, updates, diagnostics, and lifecycle actions through one unified interface.
+A recipe tells Luminesk where the server comes from, which inputs it needs,
+which ports and files it uses, how to decide that it is ready, and which data
+must survive an update. Luminesk resolves exact artifact hashes and Docker
+image digests, shows a plan, and applies it transactionally.
 
-## Key capabilities
+## Your first server
 
-- Create and manage multiple MCBE server instances with stable tags.
-- Download supported cores and update them when new versions are available.
-- Run servers with a local Java runtime or Docker runtime.
-- Validate environment and provider availability with diagnostics.
-- Inspect server state, logs, and metadata from CLI commands.
-- Use consistent commands across Linux, macOS, and Windows.
+You need Docker Engine or Docker Desktop. Git is not required for normal use.
+The quickest installation uses the self-contained release binary and does not
+require Python.
 
-## Start here
-
-- [Getting Started](https://luminesk.taskov1ch.xyz/docs/getting-started)
-- [Installation](https://luminesk.taskov1ch.xyz/docs/installation)
-- [Quick Start](https://luminesk.taskov1ch.xyz/docs/quick-start)
-- [Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference)
-- [Runtime & Docker Model](https://luminesk.taskov1ch.xyz/docs/runtime-and-docker)
-- [Troubleshooting](https://luminesk.taskov1ch.xyz/docs/troubleshooting)
-
-## Installation
-
-### Linux / macOS
+Linux or macOS:
 
 ```bash
-curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --yes
 ```
 
-### Windows (PowerShell)
+Windows PowerShell:
 
 ```powershell
-iwr -useb https://luminesk.taskov1ch.xyz/ps1 | iex
+irm https://luminesk.taskov1ch.xyz/ps1 | iex
 ```
 
-### PyPI
+The installer detects the operating system and CPU, downloads the latest
+release, and verifies its SHA-256 digest before installing it. Run the same
+command again to update. The Unix `--yes` belongs to the installer and does not
+accept the Minecraft EULA or approve later `nesk` operations. If you prefer a
+Python-managed installation, Python 3.13+ is required:
 
 ```bash
-pip install luminesk-cli
+uv tool install luminesk-cli
 ```
 
-## Quick start
+Then check the environment and install a recipe:
 
 ```bash
-nesk --help
-nesk diagnostic
-nesk create -n "My Server" -d ./servers/my -c nukkit -t my-server
-nesk start my-server
+nesk doctor
+nesk catalog update
+nesk search --type core
+nesk info paper
+nesk install paper --dir ./servers/example
+```
+
+`nesk info paper` lists every input before installation. In an interactive
+terminal, `install` opens a wizard: press Enter to keep a default and answer
+required questions such as Minecraft EULA acceptance. It then shows the exact
+recipe, downloads, Docker image, capabilities, and file changes before asking
+for confirmation.
+
+`paper` is a Java example. Use `nesk search --edition bedrock` to find Bedrock
+recipes. A remote install needs a new, empty destination directory. With pipx,
+use `pipx install luminesk-cli`. ZIP bundles for Linux, macOS, and Windows are
+also available on the
+[GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
+
+## Start, configure, and use the console
+
+```bash
+nesk start --dir ./servers/example
+nesk status --dir ./servers/example
+nesk attach --dir ./servers/example
+```
+
+`attach` opens a full-screen console with recent history and live output. Type
+a server command and press Enter. Use `Ctrl+D` to detach while leaving the
+server running, `Ctrl+C` to stop it gracefully, or `Ctrl+K` to kill it.
+
+Editable server configs are normally created by the server on its first start.
+Official recipes do not seed partial `server.properties`-style files. Stop the
+server, edit the generated config inside the instance directory, then start it
+again. EULA files are the deliberate exception for recipes that require an
+explicit acceptance input.
+
+When your shell is already inside the instance, `--dir` may be omitted. From
+anywhere else, pass it explicitly so there is no ambiguity about which server
+the command targets.
+
+```bash
+nesk logs --dir ./servers/example --tail 500 --since 10m --timestamps
+nesk stop --dir ./servers/example
 nesk list
 ```
 
-For full command behavior, use the [Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference).
+## Review an update before applying it
+
+```bash
+nesk outdated --dir ./servers/example
+nesk diff --dir ./servers/example
+nesk update --dir ./servers/example --dry-run
+nesk update --dir ./servers/example --yes
+```
+
+Luminesk refuses to silently overwrite a locally changed managed file. An
+update of a running server stops it, applies the reviewed package, starts it,
+waits for readiness, and attempts to restore the previous instance if a
+required step fails. Transaction rollback is not a replacement for an
+independent backup of production worlds.
+
+## Automation
+
+Interactive defaults are intentionally disabled for scripts. Supply inputs and
+trust approval explicitly:
+
+```bash
+nesk install paper --dir ./servers/example \
+  --set eula=true --dry-run --json --non-interactive
+nesk install paper --dir ./servers/example \
+  --set eula=true --yes --json --non-interactive
+```
+
+Handled failures use stable exit codes and a JSON `error` object. Secret inputs
+must use `--set-file`; Luminesk does not persist them or place them in runtime
+arguments.
+
+## What is stored in an instance?
+
+- `luminesk.toml` — the reviewed recipe;
+- `luminesk.lock` — exact source and image identities;
+- `.luminesk_cli/` — ownership, transaction, backup, recipe, and runtime state;
+- server-owned files such as worlds, plugins, logs, and generated configs.
+
+Do not hand-edit the lock or `.luminesk_cli/`. Use `nesk diff`,
+`nesk validate --instance`, and `nesk recover` when state needs inspection or
+recovery.
+
+## Custom recipes and migration
+
+Recipe authors can start with:
+
+```bash
+nesk init --dir ./recipe --name example-server
+# Replace the placeholder source in luminesk.toml.
+nesk validate --dir ./recipe --static
+nesk lock --dir ./recipe
+nesk plan --dir ./recipe
+```
+
+Read the [documentation](https://luminesk.taskov1ch.xyz),
+[Quick Start](https://luminesk.taskov1ch.xyz/docs/quick-start), and
+[Command Reference](https://luminesk.taskov1ch.xyz/docs/command-reference).
+Luminesk 1.x instances require a
+[side-by-side migration](https://luminesk.taskov1ch.xyz/docs/migrating-to-2.0);
+their control state and instance formats are not interchangeable.
 
 ## Development
 
-- Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Documentation-specific contributor notes: [Development & Contributing](https://luminesk.taskov1ch.xyz/docs/development-and-contributing)
+```bash
+uv sync --locked --extra dev
+uv run python scripts/format.py --fix
+uv run mypy .
+uv run pytest
+```
 
-## Project status
-
-Luminesk-CLI is in active **beta** development.
-Validate behavior in your own environment before production-critical usage.
+See
+[CONTRIBUTING.md](https://github.com/task-v1/luminesk-cli/blob/main/CONTRIBUTING.md).
+Recipe trust, tested backups, and
+workload-specific validation remain the operator's responsibility.
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+GPL-3.0-or-later. See
+[LICENSE](https://github.com/task-v1/luminesk-cli/blob/main/LICENSE).
