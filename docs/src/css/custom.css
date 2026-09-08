@@ -108,9 +108,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .main-wrapper {
+  .main-wrapper, .navbar__title, .brandLogo {
     animation: none !important;
   }
+  html { scroll-behavior: auto !important; }
 }
 
 .header-github-link {
