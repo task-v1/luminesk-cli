@@ -5,6 +5,7 @@ from typing import Any
 
 from luminesk_cli.application.runtime import DockerRuntime
 from luminesk_cli.cli.commands.common import emit, parse_inputs, recipe
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.manifest import MANIFEST_NAME
 
@@ -13,11 +14,17 @@ def start(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
     _, manifest = recipe(root)
     values = parse_inputs(manifest, namespace.set, namespace.set_file)
-    state = DockerRuntime().start(
-        root,
-        input_overrides=values,
-        wait_for_readiness=not namespace.no_wait,
+    message = (
+        "Preparing the Docker image, starting the server, and waiting for readiness"
+        if not namespace.no_wait
+        else "Preparing the Docker image and starting the server"
     )
+    with activity(namespace, message):
+        state = DockerRuntime().start(
+            root,
+            input_overrides=values,
+            wait_for_readiness=not namespace.no_wait,
+        )
     emit(
         namespace,
         {
@@ -32,7 +39,8 @@ def start(namespace: Any) -> int:
 
 def stop(namespace: Any) -> int:
     root = _instance_root(namespace.dir)
-    state = DockerRuntime().stop(root)
+    with activity(namespace, "Stopping the server gracefully"):
+        state = DockerRuntime().stop(root)
     emit(namespace, {"status": state.runtime.status}, f"Stopped {state.tag}")
     return 0
 
@@ -42,12 +50,18 @@ def restart(namespace: Any) -> int:
     _, manifest = recipe(root)
     values = parse_inputs(manifest, namespace.set, namespace.set_file)
     runtime = DockerRuntime()
-    runtime.stop(root)
-    state = runtime.start(
-        root,
-        input_overrides=values,
-        wait_for_readiness=not namespace.no_wait,
-    )
+    with activity(namespace, "Stopping the server for restart") as progress:
+        runtime.stop(root)
+        progress.update(
+            "Preparing the Docker image, starting the server, and waiting for readiness"
+            if not namespace.no_wait
+            else "Preparing the Docker image and starting the server"
+        )
+        state = runtime.start(
+            root,
+            input_overrides=values,
+            wait_for_readiness=not namespace.no_wait,
+        )
     emit(
         namespace,
         {"status": state.runtime.status, "containerId": state.runtime.container_id},

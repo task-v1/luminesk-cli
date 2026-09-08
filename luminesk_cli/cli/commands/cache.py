@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from luminesk_cli.cli.commands.common import cache, emit
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.errors import SecurityError
 
 
 def verify(namespace: Any) -> int:
-    count, corrupt = cache().verify()
+    with activity(namespace, "Verifying cached downloads"):
+        count, corrupt = cache().verify()
 
     if corrupt:
         raise SecurityError(
@@ -24,10 +26,11 @@ def verify(namespace: Any) -> int:
 
 
 def prune(namespace: Any) -> int:
-    count, size = cache().prune(
-        max_age_seconds=namespace.max_age * 24 * 60 * 60,
-        dry_run=namespace.dry_run,
-    )
+    with activity(namespace, "Inspecting cached downloads"):
+        count, size = cache().prune(
+            max_age_seconds=namespace.max_age * 24 * 60 * 60,
+            dry_run=namespace.dry_run,
+        )
     verb = "Would remove" if namespace.dry_run else "Removed"
     emit(
         namespace,

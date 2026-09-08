@@ -12,6 +12,7 @@ from luminesk_cli.cli.commands.common import (
     resolve_lock,
     validate_frozen_lock,
 )
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, load_lockfile
 from luminesk_cli.infrastructure.recipe_snapshot import load_verified_installed_recipe
 from luminesk_cli.infrastructure.state import load_state
@@ -31,28 +32,32 @@ def run(namespace: Any) -> int:
             name: value for name, value in state.inputs.items() if name in known_inputs
         }
         values.update(parse_inputs(manifest, namespace.set, namespace.set_file))
-        lockfile = (
-            validate_frozen_lock(
-                installed_lock,
-                manifest,
-                cache(),
-                recipe_origin=snapshot.origin,
+        with activity(namespace, "Resolving sources and Docker images"):
+            lockfile = (
+                validate_frozen_lock(
+                    installed_lock,
+                    manifest,
+                    cache(),
+                    recipe_origin=snapshot.origin,
+                )
+                if namespace.frozen
+                else resolve_lock(
+                    recipe_root,
+                    manifest,
+                    frozen=False,
+                    recipe_origin=snapshot.origin,
+                )
             )
-            if namespace.frozen
-            else resolve_lock(
-                recipe_root,
-                manifest,
-                frozen=False,
-                recipe_origin=snapshot.origin,
-            )
-        )
     else:
         values = parse_inputs(manifest, namespace.set, namespace.set_file)
-        lockfile = resolve_lock(recipe_root, manifest, frozen=namespace.frozen)
-    temporary, package = build_package(recipe_root, manifest, lockfile, values)
+        with activity(namespace, "Resolving sources and Docker images"):
+            lockfile = resolve_lock(recipe_root, manifest, frozen=namespace.frozen)
+    with activity(namespace, "Building and verifying the package"):
+        temporary, package = build_package(recipe_root, manifest, lockfile, values)
 
     try:
-        plan = TransactionalInstaller().plan(package, target)
+        with activity(namespace, "Planning instance changes"):
+            plan = TransactionalInstaller().plan(package, target)
     finally:
         temporary.cleanup()
 

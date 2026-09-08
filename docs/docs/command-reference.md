@@ -17,7 +17,11 @@ from the installed release.
 Human-oriented output uses a restrained color palette when stdout or stderr is
 an interactive terminal. Redirected output stays plain, and the standard
 `NO_COLOR` environment variable disables color explicitly. Color and layout do
-not affect `--json` responses.
+not affect `--json` responses. Long downloads, resolution, package builds,
+transactions, cache scans, Docker startup, and readiness waits show an animated
+status on interactive stderr. These indicators are disabled for redirected
+output, `--json`, `--non-interactive`, and `--debug`, so automation and detailed
+diagnostic logs remain stable.
 
 ## Shared automation options
 

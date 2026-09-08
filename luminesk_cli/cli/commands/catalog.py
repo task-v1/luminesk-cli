@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from luminesk_cli.cli.commands.common import catalog_store, emit
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.catalog import CatalogEntry, search_catalog, suggest_catalog
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.manifest import InputSpec
@@ -61,7 +62,8 @@ def info(namespace: Any) -> int:
         suggestions = suggest_catalog(snapshot, namespace.name)
         hint = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
         raise ValidationError(f"catalog recipe not found: {namespace.name}.{hint}")
-    manifest = CatalogClient(store).fetch_entry_manifest(snapshot, entry)
+    with activity(namespace, "Downloading and verifying recipe details"):
+        manifest = CatalogClient(store).fetch_entry_manifest(snapshot, entry)
     data = _payload(entry)
     data["inputs"] = [_input_payload(spec) for spec in manifest.inputs]
     plain = (
@@ -95,7 +97,8 @@ def info(namespace: Any) -> int:
 
 def update(namespace: Any) -> int:
     store = catalog_store()
-    snapshot = CatalogClient(store).update()
+    with activity(namespace, "Downloading and verifying the recipe catalog"):
+        snapshot = CatalogClient(store).update()
     emit(
         namespace,
         {
@@ -136,7 +139,8 @@ def status(namespace: Any) -> int:
 
 
 def verify(namespace: Any) -> int:
-    snapshot = catalog_store().verify()
+    with activity(namespace, "Verifying the active recipe catalog"):
+        snapshot = catalog_store().verify()
     emit(
         namespace,
         {

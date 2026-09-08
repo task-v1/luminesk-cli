@@ -19,6 +19,7 @@ from luminesk_cli.cli.commands.common import (
 )
 from luminesk_cli.cli.input_wizard import collect_install_inputs
 from luminesk_cli.cli.output import print_human
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.errors import ConflictError, ValidationError
 from luminesk_cli.domain.lockfile import Lockfile
 from luminesk_cli.domain.preview import Preview
@@ -101,11 +102,12 @@ def run(namespace: Any) -> int:
             prefix="luminesk-database-recipe-"
         ) as temporary:
             LOGGER.debug("database recipe acquisition started")
-            snapshot = CatalogClient(catalog_store()).acquire_entry(
-                catalog,
-                entry,
-                Path(temporary) / "recipe",
-            )
+            with activity(namespace, "Downloading and verifying the recipe"):
+                snapshot = CatalogClient(catalog_store()).acquire_entry(
+                    catalog,
+                    entry,
+                    Path(temporary) / "recipe",
+                )
             return _install_snapshot(
                 namespace,
                 snapshot,
@@ -130,11 +132,12 @@ def run(namespace: Any) -> int:
         )
     with tempfile.TemporaryDirectory(prefix="luminesk-github-recipe-") as temporary:
         LOGGER.debug("github recipe acquisition started")
-        snapshot = acquire_github_recipe(
-            source,
-            Path(temporary) / "recipe",
-            cache(),
-        )
+        with activity(namespace, "Downloading and verifying the recipe"):
+            snapshot = acquire_github_recipe(
+                source,
+                Path(temporary) / "recipe",
+                cache(),
+            )
         return _install_snapshot(
             namespace,
             snapshot,
@@ -191,38 +194,44 @@ def _install_snapshot(
         bool(namespace.frozen),
         cached_lock is not None,
     )
-    lockfile = (
-        validate_frozen_lock(
-            cached_lock,
-            manifest,
-            cache(),
-            recipe_origin=origin,
+    with activity(
+        namespace,
+        "Resolving sources and Docker images",
+    ) as progress:
+        lockfile = (
+            validate_frozen_lock(
+                cached_lock,
+                manifest,
+                cache(),
+                recipe_origin=origin,
+            )
+            if cached_lock is not None
+            else resolve_lock(
+                root,
+                manifest,
+                frozen=namespace.frozen,
+                recipe_origin=origin,
+            )
         )
-        if cached_lock is not None
-        else resolve_lock(
-            root,
-            manifest,
-            frozen=namespace.frozen,
-            recipe_origin=origin,
+        LOGGER.debug(
+            "install lock resolution completed sources=%d build=%s",
+            len(lockfile.sources),
+            lockfile.build is not None,
         )
-    )
-    LOGGER.debug(
-        "install lock resolution completed sources=%d build=%s",
-        len(lockfile.sources),
-        lockfile.build is not None,
-    )
-    LOGGER.debug("install package build started")
-    temporary, package = build_package(root, manifest, lockfile, values)
-    LOGGER.debug(
-        "install package build completed files=%d",
-        len(package.metadata.files),
-    )
+        progress.update("Building and verifying the package")
+        LOGGER.debug("install package build started")
+        temporary, package = build_package(root, manifest, lockfile, values)
+        LOGGER.debug(
+            "install package build completed files=%d",
+            len(package.metadata.files),
+        )
 
     try:
         if origin.kind != "local" and cached_lock is None:
             recipe_cache().store(snapshot, lockfile, locator=cache_locator)
         installer = TransactionalInstaller(index=InstanceIndex(index_path()))
-        plan = installer.plan(package, target)
+        with activity(namespace, "Planning the installation"):
+            plan = installer.plan(package, target)
         LOGGER.debug(
             "install plan completed changes=%d conflicts=%s",
             len(plan.changes),
@@ -251,14 +260,15 @@ def _install_snapshot(
         elif not namespace.json:
             print_human(preview.to_text(), tone="info")
         LOGGER.debug("install transaction apply started")
-        plan, state = installer.install(
-            manifest,
-            lockfile,
-            package,
-            target,
-            inputs=values,
-            recipe_snapshot=snapshot,
-        )
+        with activity(namespace, "Applying the installation transaction"):
+            plan, state = installer.install(
+                manifest,
+                lockfile,
+                package,
+                target,
+                inputs=values,
+                recipe_snapshot=snapshot,
+            )
         LOGGER.debug("install transaction apply completed")
         return _emit_result(
             namespace,

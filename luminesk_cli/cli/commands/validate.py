@@ -11,6 +11,7 @@ from luminesk_cli.cli.commands.common import (
     recipe,
     resolve_lock,
 )
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.errors import ValidationError
 from luminesk_cli.domain.inputs import resolve_inputs
 from luminesk_cli.domain.lockfile import LOCKFILE_NAME, load_lockfile
@@ -31,20 +32,22 @@ def run(namespace: Any) -> int:
         results.append({"phase": "static", "ok": True})
 
     if "resolve" in phases or "build" in phases:
-        lockfile = resolve_lock(root, manifest, frozen=False)
+        with activity(namespace, "Resolving sources and Docker images"):
+            lockfile = resolve_lock(root, manifest, frozen=False)
         results.append({"phase": "resolve", "ok": True})
 
     if "build" in phases:
         assert lockfile is not None
 
         with tempfile.TemporaryDirectory(prefix="luminesk-validate-") as temporary:
-            package = DeclarativeBuilder(cache()).build(
-                manifest,
-                lockfile,
-                root,
-                Path(temporary) / "validation.lumineskpkg",
-                inputs=inputs,
-            )
+            with activity(namespace, "Building and verifying the package"):
+                package = DeclarativeBuilder(cache()).build(
+                    manifest,
+                    lockfile,
+                    root,
+                    Path(temporary) / "validation.lumineskpkg",
+                    inputs=inputs,
+                )
             results.append(
                 {"phase": "build", "ok": True, "packageDigest": package.digest}
             )
@@ -56,7 +59,8 @@ def run(namespace: Any) -> int:
     if "readiness" in phases:
         from luminesk_cli.application.runtime import DockerRuntime
 
-        state = DockerRuntime().check_readiness(root)
+        with activity(namespace, "Waiting for server readiness"):
+            state = DockerRuntime().check_readiness(root)
 
         results.append(
             {

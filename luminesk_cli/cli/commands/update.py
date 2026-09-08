@@ -21,6 +21,7 @@ from luminesk_cli.cli.commands.common import (
 from luminesk_cli.cli.commands.runtime import _instance_root
 from luminesk_cli.cli.input_wizard import collect_recipe_inputs
 from luminesk_cli.cli.output import print_human
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.catalog import CatalogEntry
 from luminesk_cli.domain.errors import ConflictError, TransactionError, ValidationError
 from luminesk_cli.domain.lockfile import (
@@ -59,15 +60,15 @@ def run(namespace: Any) -> int:
     installed = load_verified_installed_recipe(root, old_lock)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-update-recipe-") as temporary:
-        candidate = (
-            _frozen_candidate(old_lock, installed)
-            if namespace.frozen
-            else _candidate_recipe(
-                old_lock,
-                installed,
-                Path(temporary) / "recipe",
-            )
-        )
+        if namespace.frozen:
+            candidate = _frozen_candidate(old_lock, installed)
+        else:
+            with activity(namespace, "Checking and verifying the recipe update"):
+                candidate = _candidate_recipe(
+                    old_lock,
+                    installed,
+                    Path(temporary) / "recipe",
+                )
         manifest = candidate.manifest
         values = _update_inputs(
             root,
@@ -76,28 +77,33 @@ def run(namespace: Any) -> int:
             namespace.set_file,
             interactive=not namespace.non_interactive and not namespace.json,
         )
-        new_lock = (
-            validate_frozen_lock(
-                old_lock,
-                manifest,
-                cache(),
-                recipe_origin=candidate.origin,
+        with activity(
+            namespace,
+            "Resolving sources and Docker images",
+        ):
+            new_lock = (
+                validate_frozen_lock(
+                    old_lock,
+                    manifest,
+                    cache(),
+                    recipe_origin=candidate.origin,
+                )
+                if namespace.frozen
+                else resolve_lock(
+                    candidate.root,
+                    manifest,
+                    frozen=False,
+                    recipe_origin=candidate.origin,
+                )
             )
-            if namespace.frozen
-            else resolve_lock(
+        new_lock = _select_component(namespace.component, old_lock, new_lock)
+        with activity(namespace, "Building and verifying the package"):
+            temporary_package, package = build_package(
                 candidate.root,
                 manifest,
-                frozen=False,
-                recipe_origin=candidate.origin,
+                new_lock,
+                values,
             )
-        )
-        new_lock = _select_component(namespace.component, old_lock, new_lock)
-        temporary_package, package = build_package(
-            candidate.root,
-            manifest,
-            new_lock,
-            values,
-        )
 
         try:
             if not namespace.frozen and candidate.origin.kind != "local":
@@ -107,15 +113,16 @@ def run(namespace: Any) -> int:
                     locator=_candidate_locator(candidate.origin),
                 )
             service = UpdateService()
-            preview = service.update(
-                root,
-                manifest,
-                new_lock,
-                package,
-                inputs=values,
-                recipe_snapshot=candidate,
-                dry_run=True,
-            )
+            with activity(namespace, "Planning the update transaction"):
+                preview = service.update(
+                    root,
+                    manifest,
+                    new_lock,
+                    package,
+                    inputs=values,
+                    recipe_snapshot=candidate,
+                    dry_run=True,
+                )
             recipe_changes = _snapshot_diff(installed, candidate)
             security_changes = _security_changes(installed.manifest, manifest)
             warnings = _recipe_warnings(old_lock, new_lock)
@@ -131,18 +138,18 @@ def run(namespace: Any) -> int:
                     warnings,
                 )
 
-            result = (
-                preview
-                if namespace.dry_run
-                else service.update(
-                    root,
-                    manifest,
-                    new_lock,
-                    package,
-                    inputs=values,
-                    recipe_snapshot=candidate,
-                )
-            )
+            if namespace.dry_run:
+                result = preview
+            else:
+                with activity(namespace, "Applying the update transaction"):
+                    result = service.update(
+                        root,
+                        manifest,
+                        new_lock,
+                        package,
+                        inputs=values,
+                        recipe_snapshot=candidate,
+                    )
         finally:
             temporary_package.cleanup()
 
@@ -175,17 +182,18 @@ def outdated(namespace: Any) -> int:
     installed = load_verified_installed_recipe(root, old_lock)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-outdated-") as temporary:
-        candidate = _candidate_recipe(
-            old_lock,
-            installed,
-            Path(temporary) / "recipe",
-        )
-        new_lock = resolve_lock(
-            candidate.root,
-            candidate.manifest,
-            frozen=False,
-            recipe_origin=candidate.origin,
-        )
+        with activity(namespace, "Checking recipe, source, and image updates"):
+            candidate = _candidate_recipe(
+                old_lock,
+                installed,
+                Path(temporary) / "recipe",
+            )
+            new_lock = resolve_lock(
+                candidate.root,
+                candidate.manifest,
+                frozen=False,
+                recipe_origin=candidate.origin,
+            )
 
     updates = _lock_changes(old_lock, new_lock)
     warnings = _recipe_warnings(old_lock, new_lock)
@@ -217,11 +225,12 @@ def diff(namespace: Any) -> int:
     managed_drift = _managed_drift(root)
 
     with tempfile.TemporaryDirectory(prefix="luminesk-diff-") as temporary:
-        candidate = _candidate_recipe(
-            lockfile,
-            installed,
-            Path(temporary) / "recipe",
-        )
+        with activity(namespace, "Checking the upstream recipe"):
+            candidate = _candidate_recipe(
+                lockfile,
+                installed,
+                Path(temporary) / "recipe",
+            )
         upstream_diff = _snapshot_diff(installed, candidate)
 
     sections = [
@@ -282,12 +291,13 @@ def recover(namespace: Any) -> int:
     if force_clean:
         _confirm_forced_recovery(namespace, root, backup)
 
-    restore_install_backup(
-        root,
-        backup,
-        transaction_id=transaction_id,
-        allow_completed=force_clean,
-    )
+    with activity(namespace, "Restoring the instance transaction backup"):
+        restore_install_backup(
+            root,
+            backup,
+            transaction_id=transaction_id,
+            allow_completed=force_clean,
+        )
     journal.unlink(missing_ok=True)
     emit(namespace, {"backup": str(backup)}, f"Recovered instance from {backup}")
     return 0

@@ -5,6 +5,7 @@ import subprocess
 from typing import Any
 
 from luminesk_cli.cli.commands.common import emit
+from luminesk_cli.cli.progress import activity
 from luminesk_cli.domain.errors import RuntimeOperationError
 
 
@@ -20,14 +21,15 @@ def run(namespace: Any) -> int:
     if docker is None:
         raise RuntimeOperationError("Docker CLI is not available", checks=checks)
     try:
-        result = subprocess.run(
-            [docker, "version", "--format", "{{json .}}"],
-            check=False,
-            capture_output=True,
-            text=True,
-            shell=False,
-            timeout=10,
-        )
+        with activity(namespace, "Checking the Docker daemon"):
+            result = subprocess.run(
+                [docker, "version", "--format", "{{json .}}"],
+                check=False,
+                capture_output=True,
+                text=True,
+                shell=False,
+                timeout=10,
+            )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise RuntimeOperationError(
             "Docker daemon health check failed", checks=checks
