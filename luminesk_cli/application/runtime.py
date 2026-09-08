@@ -29,9 +29,12 @@ from luminesk_cli.infrastructure.state import load_state, write_state
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 MEMORY_RE = re.compile(r"^[1-9][0-9]*(?:[bkmg])?$", re.IGNORECASE)
 CONTAINER_NAME_RE = re.compile(r"[^a-z0-9_.-]+")
+LOG_SINCE_RE = re.compile(r"^[0-9A-Za-z:+._-]{1,128}$")
 LOGGER = logging.getLogger(__name__)
 ATTACH_HISTORY_LINES = 200
 MAX_ATTACH_HISTORY_BYTES = 1024 * 1024
+MAX_LOG_LINES = 100_000
+MAX_LOG_OUTPUT_BYTES = 4 * 1024 * 1024
 
 
 @dataclass(slots=True, frozen=True)
@@ -44,8 +47,9 @@ class AttachSession:
 
 
 class DockerRuntime:
-    def __init__(self, runner: CommandRunner = subprocess.run) -> None:
-        self._runner = runner
+    def __init__(self, runner: CommandRunner | None = None) -> None:
+        self._runner = runner or subprocess.run
+        self._bounded_log_capture = runner is None
 
     def start(
         self,
@@ -207,15 +211,37 @@ class DockerRuntime:
         LOGGER.debug("runtime status reconciled status=%s", actual_status)
         return updated
 
-    def logs(self, root: Path, *, follow: bool = False) -> int | str:
-        LOGGER.debug("runtime logs requested follow=%s", follow)
+    def logs(
+        self,
+        root: Path,
+        *,
+        follow: bool = False,
+        tail: int | None = None,
+        since: str | None = None,
+        timestamps: bool = False,
+    ) -> int | str:
+        _validate_log_options(tail, since)
+        LOGGER.debug(
+            "runtime logs requested follow=%s tail=%s since=%s timestamps=%s",
+            follow,
+            tail,
+            since is not None,
+            timestamps,
+        )
         state, _, _ = _load_instance(root.resolve())
         identifier = state.runtime.container_id or _container_name(state)
 
         if follow:
+            argv = _logs_argv(
+                identifier,
+                follow=True,
+                tail=tail,
+                since=since,
+                timestamps=timestamps,
+            )
             try:
                 follow_result = self._runner(
-                    ["docker", "logs", "--follow", identifier],
+                    argv,
                     check=False,
                     shell=False,
                 )
@@ -230,13 +256,20 @@ class DockerRuntime:
                 )
             return 0
 
-        result = self._read_logs(identifier)
+        result = self._read_logs(
+            identifier,
+            tail=tail,
+            since=since,
+            timestamps=timestamps,
+        )
 
         if result.returncode != 0:
             raise RuntimeOperationError(
                 "cannot read Docker logs",
                 stderr=(result.stderr or result.stdout)[-4000:],
             )
+
+        _validate_log_output_size(result.stdout)
 
         return result.stdout
 
@@ -363,7 +396,7 @@ class DockerRuntime:
 
         while time.monotonic() < deadline:
             if not self.is_running(identifier):
-                last_logs = str(self.logs(root))
+                last_logs = str(self.logs(root, tail=ATTACH_HISTORY_LINES))
                 _save_readiness_logs(root, check.id, last_logs)
                 raise RuntimeOperationError(
                     f"readiness check {check.id} failed: container stopped"
@@ -373,7 +406,7 @@ class DockerRuntime:
                 return
 
             if check.kind == "log-regex" and check.pattern is not None:
-                last_logs = str(self.logs(root))
+                last_logs = str(self.logs(root, tail=ATTACH_HISTORY_LINES))
 
                 if re.search(check.pattern, last_logs):
                     _save_readiness_logs(root, check.id, last_logs)
@@ -454,11 +487,18 @@ class DockerRuntime:
         identifier: str,
         *,
         tail: int | None = None,
+        since: str | None = None,
+        timestamps: bool = False,
     ) -> subprocess.CompletedProcess[str]:
-        argv = ["docker", "logs"]
-        if tail is not None:
-            argv.extend(("--tail", str(tail)))
-        argv.append(identifier)
+        argv = _logs_argv(
+            identifier,
+            follow=False,
+            tail=tail,
+            since=since,
+            timestamps=timestamps,
+        )
+        if self._bounded_log_capture:
+            return _run_bounded_logs(argv)
         try:
             return self._runner(
                 argv,
@@ -625,3 +665,89 @@ def _bounded_text(content: str, maximum_bytes: int) -> str:
     if len(encoded) <= maximum_bytes:
         return content
     return encoded[-maximum_bytes:].decode("utf-8", errors="replace")
+
+
+def _validate_log_options(tail: int | None, since: str | None) -> None:
+    if tail is not None and (isinstance(tail, bool) or not 1 <= tail <= MAX_LOG_LINES):
+        raise ValidationError(f"log tail must be between 1 and {MAX_LOG_LINES}")
+    if since is not None and LOG_SINCE_RE.fullmatch(since) is None:
+        raise ValidationError(
+            "log --since must be a Docker duration, Unix timestamp, or RFC3339 timestamp"
+        )
+
+
+def _logs_argv(
+    identifier: str,
+    *,
+    follow: bool,
+    tail: int | None,
+    since: str | None,
+    timestamps: bool,
+) -> tuple[str, ...]:
+    argv = ["docker", "logs"]
+    if follow:
+        argv.append("--follow")
+    if tail is not None:
+        argv.extend(("--tail", str(tail)))
+    if since is not None:
+        argv.extend(("--since", since))
+    if timestamps:
+        argv.append("--timestamps")
+    argv.append(identifier)
+    return tuple(argv)
+
+
+def _run_bounded_logs(
+    argv: Sequence[str],
+) -> subprocess.CompletedProcess[str]:
+    try:
+        process = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell=False,
+        )
+    except OSError as exc:
+        raise RuntimeOperationError(f"cannot read Docker logs: {exc}") from exc
+
+    output = bytearray()
+    assert process.stdout is not None
+    try:
+        while chunk := process.stdout.read(64 * 1024):
+            output.extend(chunk)
+            if len(output) > MAX_LOG_OUTPUT_BYTES:
+                _terminate_log_process(process)
+                raise _oversized_log_error()
+    except OSError as exc:
+        _terminate_log_process(process)
+        raise RuntimeOperationError(f"cannot read Docker logs: {exc}") from exc
+    finally:
+        process.stdout.close()
+
+    return subprocess.CompletedProcess(
+        argv,
+        process.wait(),
+        bytes(output).decode("utf-8", errors="replace"),
+        "",
+    )
+
+
+def _validate_log_output_size(output: str) -> None:
+    if len(output.encode("utf-8", errors="replace")) > MAX_LOG_OUTPUT_BYTES:
+        raise _oversized_log_error()
+
+
+def _oversized_log_error() -> RuntimeOperationError:
+    return RuntimeOperationError(
+        "Docker log output exceeds 4 MiB; reduce --tail or narrow --since",
+        limit=MAX_LOG_OUTPUT_BYTES,
+    )
+
+
+def _terminate_log_process(process: subprocess.Popen[bytes]) -> None:
+    process.terminate()
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()

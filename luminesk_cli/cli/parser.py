@@ -309,7 +309,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     logs = commands.add_parser("logs", help="Read current instance Docker logs.")
     logs.add_argument("--dir", default=None, help="Instance directory.")
-    logs.add_argument("--follow", "-f", action="store_true")
+    logs.add_argument(
+        "--follow",
+        "-f",
+        action="store_true",
+        help="Continue streaming new log output.",
+    )
+    logs.add_argument(
+        "--tail",
+        type=int,
+        default=200,
+        metavar="LINES",
+        help="Start with the latest LINES (default: 200; maximum: 100000).",
+    )
+    logs.add_argument(
+        "--since",
+        default=None,
+        metavar="TIME",
+        help="Show logs since a Docker duration or timestamp.",
+    )
+    logs.add_argument(
+        "--timestamps",
+        "-t",
+        action="store_true",
+        help="Include Docker timestamps.",
+    )
     _automation_options(logs)
     logs.set_defaults(handler="luminesk_cli.cli.commands.runtime:logs")
 

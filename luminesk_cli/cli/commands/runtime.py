@@ -90,7 +90,13 @@ def logs(namespace: Any) -> int:
         raise ValidationError("--json cannot be combined with --follow")
 
     root = _instance_root(namespace.dir)
-    result = DockerRuntime().logs(root, follow=namespace.follow)
+    result = DockerRuntime().logs(
+        root,
+        follow=namespace.follow,
+        tail=namespace.tail,
+        since=namespace.since,
+        timestamps=namespace.timestamps,
+    )
 
     if isinstance(result, int):
         if result != 0:

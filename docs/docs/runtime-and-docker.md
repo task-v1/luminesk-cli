@@ -154,6 +154,7 @@ Luminesk readiness or transactional rollback.
 nesk start --dir ./instance
 nesk status --dir ./instance
 nesk logs --dir ./instance
+nesk logs --dir ./instance --tail 500 --since 10m --timestamps
 nesk logs --dir ./instance --follow
 nesk restart --dir ./instance
 nesk stop --dir ./instance

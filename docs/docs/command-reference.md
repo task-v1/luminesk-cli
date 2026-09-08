@@ -370,11 +370,16 @@ Inspects Docker and reconciles recorded state to `running` or `stopped`.
 ### `nesk logs`
 
 ```text
-nesk logs [--dir DIR] [--follow | -f] [--json] [--non-interactive]
+nesk logs [--dir DIR] [--tail LINES] [--since TIME]
+  [--timestamps | -t] [--follow | -f] [--json] [--non-interactive]
 ```
 
-Prints Docker logs. `--follow` streams until interrupted and cannot be combined
-with `--json`.
+Prints the latest 200 Docker log lines by default. `--tail` accepts between 1
+and 100,000 lines; `--since` accepts a Docker duration, Unix timestamp, or
+RFC3339 timestamp; `--timestamps` includes Docker timestamps. Captured output is
+limited to 4 MiB and asks for a narrower filter instead of retaining an
+unbounded log in memory. `--follow` applies the same initial filters, then
+streams until interrupted, and cannot be combined with `--json`.
 
 ### `nesk attach`
 

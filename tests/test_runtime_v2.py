@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from luminesk_cli.application.runtime import DockerRuntime, build_run_argv
+from luminesk_cli.application.runtime import (
+    MAX_LOG_OUTPUT_BYTES,
+    DockerRuntime,
+    build_run_argv,
+)
 from luminesk_cli.domain.errors import RuntimeOperationError, ValidationError
 from luminesk_cli.domain.instance import (
     InstanceState,
@@ -205,6 +209,118 @@ def test_follow_logs_failure_uses_stable_runtime_error(tmp_path: Path) -> None:
 
     assert raised.value.code == 8
     assert raised.value.details["exitCode"] == 17
+
+
+def test_runtime_logs_passes_bounded_filters_to_docker(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(tuple(argv))
+        return subprocess.CompletedProcess(argv, 0, "server output\n", "")
+
+    result = DockerRuntime(runner=runner).logs(
+        root,
+        tail=25,
+        since="10m",
+        timestamps=True,
+    )
+
+    assert result == "server output\n"
+    assert calls == [
+        (
+            "docker",
+            "logs",
+            "--tail",
+            "25",
+            "--since",
+            "10m",
+            "--timestamps",
+            "luminesk-runtime-fixture-12345678",
+        )
+    ]
+
+
+def test_runtime_logs_rejects_invalid_filters_before_docker(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(tuple(argv))
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    runtime = DockerRuntime(runner=runner)
+    with pytest.raises(ValidationError, match="between 1 and"):
+        runtime.logs(root, tail=0)
+    with pytest.raises(ValidationError, match="--since"):
+        runtime.logs(root, since="10m\nmalicious")
+
+    assert calls == []
+
+
+def test_runtime_logs_rejects_oversized_capture(tmp_path: Path) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            argv,
+            0,
+            "x" * (MAX_LOG_OUTPUT_BYTES + 1),
+            "",
+        )
+
+    with pytest.raises(RuntimeOperationError, match="reduce --tail"):
+        DockerRuntime(runner=runner).logs(root, tail=200)
+
+
+def test_runtime_logs_stops_production_capture_at_byte_limit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "instance"
+    prepare_instance(root)
+
+    class Pipe:
+        def __init__(self) -> None:
+            self.read_once = False
+            self.closed = False
+
+        def read(self, size: int) -> bytes:
+            del size
+            if self.read_once:
+                return b""
+            self.read_once = True
+            return b"x" * (MAX_LOG_OUTPUT_BYTES + 1)
+
+        def close(self) -> None:
+            self.closed = True
+
+    class Process:
+        def __init__(self) -> None:
+            self.stdout = Pipe()
+            self.terminated = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            raise AssertionError("terminated process should not require kill")
+
+        def wait(self, timeout: int | None = None) -> int:
+            del timeout
+            return 0
+
+    process = Process()
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: process)
+
+    with pytest.raises(RuntimeOperationError, match="reduce --tail"):
+        DockerRuntime().logs(root, tail=200)
+
+    assert process.terminated is True
+    assert process.stdout.closed is True
 
 
 def test_prepare_attach_loads_bounded_history_and_disables_signal_proxy(

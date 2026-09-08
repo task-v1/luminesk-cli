@@ -40,8 +40,16 @@ class FakeRuntime:
         self.calls.append(("status", root))
         return self.running
 
-    def logs(self, root: Path, *, follow: bool) -> int | str:
-        self.calls.append(("logs", (root, follow)))
+    def logs(
+        self,
+        root: Path,
+        *,
+        follow: bool,
+        tail: int,
+        since: str | None,
+        timestamps: bool,
+    ) -> int | str:
+        self.calls.append(("logs", (root, follow, tail, since, timestamps)))
         return self.logs_result
 
 
@@ -53,6 +61,9 @@ def _namespace(root: Path, **overrides: Any) -> Namespace:
         "no_wait": True,
         "json": False,
         "follow": False,
+        "tail": 200,
+        "since": None,
+        "timestamps": False,
         "non_interactive": False,
     }
     values.update(overrides)
@@ -102,6 +113,10 @@ def test_runtime_command_handlers_delegate_and_emit(
     assert runtime_commands.status(namespace) == 0
     assert runtime_commands.logs(namespace) == 0
     assert runtime_commands.attach(namespace) == 0
+    assert (
+        runtime_commands.logs(_namespace(root, tail=25, since="10m", timestamps=True))
+        == 0
+    )
 
     fake.logs_result = 7
     with pytest.raises(RuntimeOperationError, match="stream"):
@@ -115,6 +130,10 @@ def test_runtime_command_handlers_delegate_and_emit(
     )
     assert [call[0] for call in fake.calls].count("stop") == 2
     assert ("attach", (root.resolve(), fake)) in fake.calls
+    assert (
+        "logs",
+        (root.resolve(), False, 25, "10m", True),
+    ) in fake.calls
     assert emitted[-1] == ({"logs": "server output"}, "server output", "plain")
 
 

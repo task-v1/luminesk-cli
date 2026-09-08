@@ -45,13 +45,16 @@ nesk logs --dir ./instance --follow
 ```bash
 nesk status --dir ./instance
 nesk logs --dir ./instance
+nesk logs --dir ./instance --tail 500 --since 10m --timestamps
 nesk logs --dir ./instance --follow
 nesk attach --dir ./instance
 ```
 
 `status` inspects Docker instead of trusting stale state and reconciles the
-recorded value to `running` or `stopped`. Non-following `logs` can emit JSON;
-`logs --follow` owns the terminal and cannot. `attach` is always interactive
+recorded value to `running` or `stopped`. `logs` starts with the latest 200
+lines and supports bounded `--tail`, `--since`, and `--timestamps` filters.
+Non-following `logs` can emit JSON; `logs --follow` owns the terminal and
+cannot. `attach` is always interactive
 and opens a full-screen console. It loads the latest 200 Docker log lines before
 streaming new output, so entering the console does not start with an unexplained
 blank screen. Type a server command and press Enter to send it.
