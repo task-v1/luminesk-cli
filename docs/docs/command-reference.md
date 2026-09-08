@@ -158,7 +158,7 @@ nesk install [SOURCE] [--dir DIR] [--ref REF]
 
 Supported `SOURCE` forms are:
 
-- an official catalog name such as `paper` or `db:paper`;
+- an official catalog name such as `lumi` or `db:lumi`;
 - an existing local recipe directory;
 - `OWNER/REPO`, `github:OWNER/REPO`, or an HTTPS GitHub repository URL;
 - any direct GitHub form above with `@REF`, or with `--ref REF`.

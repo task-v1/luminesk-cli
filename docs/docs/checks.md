@@ -141,7 +141,7 @@ available in the locked image.
 
 ## A Minecraft readiness policy
 
-For a Paper-like Java server, combine an immediate package invariant with a
+For a Lumi Bedrock server, combine an immediate package invariant with a
 server-specific startup log:
 
 ```toml
@@ -152,7 +152,7 @@ kind = "file"
 path = "server.jar"
 
 [[checks]]
-id = "paper-ready"
+id = "lumi-ready"
 phase = "readiness"
 kind = "log-regex"
 pattern = "Done .* For help, type"

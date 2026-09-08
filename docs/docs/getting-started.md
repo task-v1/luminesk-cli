@@ -34,7 +34,7 @@ for a runnable core, and inspect the selected entry:
 ```bash
 nesk catalog update
 nesk search --type core
-nesk search paper --edition java
+nesk search lumi --edition bedrock
 nesk info RECIPE
 ```
 

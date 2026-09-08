@@ -86,7 +86,7 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/sc.png',
+    image: 'img/social-card.png',
     colorMode: {
       respectPrefersColorScheme: false,
       defaultMode: 'dark',
@@ -100,7 +100,7 @@ const config: Config = {
         height: 22,
       },
       items: [
-        // { to: '/blog', label: 'Blog', position: 'left' },
+        { to: '/docs', label: 'Docs', position: 'left' },
         {
           href: 'https://github.com/task-v1/luminesk-cli',
           position: 'right',
@@ -112,11 +112,9 @@ const config: Config = {
     footer: {
       style: 'dark',
       // links: [],
-      copyright: `<span class='primary'>Luminesk-CLI</span> is released under the
-                <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GNU GPLv3 License</a>.
-                The gradient background in the Hero section is created using
-                <a href="https://neat.firecms.co/" target="_blank" rel="noopener noreferrer">NEAT</a>.
-                Built with Docusaurus.`,
+      copyright: `© ${new Date().getFullYear()} Taskov1ch. All rights reserved.<br />
+                Luminesk-CLI is licensed under
+                <a href="https://github.com/task-v1/luminesk-cli/blob/main/LICENSE">GNU GPLv3 or later</a>.`,
     },
     prism: {
       theme: prismThemes.github,

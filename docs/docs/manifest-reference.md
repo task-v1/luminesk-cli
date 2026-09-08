@@ -80,20 +80,20 @@ separately.
 
 ```toml
 [package]
-name = "paper-java"
+name = "lumi-bedrock"
 version = "1.2.0"
-display_name = "Paper for Java Edition"
+display_name = "Lumi for Bedrock Edition"
 kind = "core"
 game = "minecraft"
-edition = "java"
-summary = "A Paper server recipe"
-keywords = ["paper", "java", "plugins"]
+edition = "bedrock"
+summary = "A Lumi server recipe"
+keywords = ["lumi", "bedrock", "plugins"]
 license = "GPL-3.0-or-later"
 authors = ["Example Maintainer"]
 platforms = ["linux/amd64", "linux/arm64"]
 
 [package.repository]
-url = "https://github.com/example/paper-recipe"
+url = "https://github.com/example/lumi-recipe"
 ```
 
 | Field | Type | Required | Default | Meaning and constraints |
@@ -127,7 +127,7 @@ pattern = "^.{1,80}$"
 
 [inputs.port]
 type = "integer"
-default = 25565
+default = 19132
 min = 1
 max = 65535
 
@@ -170,7 +170,7 @@ for secret inputs. Template rendering converts booleans to lowercase `true` or
 ```toml
 [[sources]]
 id = "core"
-type = "paper"
+type = "maven"
 target = "server.jar"
 max_size = 536870912
 extract = false
@@ -179,8 +179,11 @@ allow_http = false
 allow_private_network = false
 
 [sources.options]
-minecraft = "1.21.8"
-build = "latest"
+repository = "https://repo.lumi.su/releases"
+group = "com.koshakmine"
+artifact = "Lumi"
+version = "latest"
+channel = "stable"
 ```
 
 | Field | Type | Required | Default | Meaning and constraints |
