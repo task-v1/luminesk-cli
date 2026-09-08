@@ -50,6 +50,18 @@ For a pipx installation, run `pipx ensurepath` and start a new terminal.
 If you installed a standalone release bundle, invoke `nesk` or `nesk.exe` from
 the extracted directory or add that exact directory to `PATH`.
 
+The one-line installer prints its destination. For a normal user this is
+`~/.local/bin/nesk` on Linux/macOS and `$HOME\.local\bin\nesk.exe` on Windows.
+Add that directory to `PATH`, open a new terminal, and run `nesk --version`.
+
+### The one-line installer reports a foreign installation
+
+Another method already owns the `nesk` found on `PATH`. The installer refuses
+to overwrite it because that would leave uv, pipx, or a manual bundle in an
+inconsistent state. Update with the existing manager, or uninstall it with that
+same manager before choosing the one-line installer. Do not remove the
+installer metadata merely to bypass this check.
+
 ### A long command appears to be stuck
 
 Interactive terminals show a spinner and the active stage during downloads,

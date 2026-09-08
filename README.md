@@ -30,12 +30,35 @@ image digests, shows a plan, and applies it transactionally.
 
 ## Your first server
 
-You need Docker Engine or Docker Desktop. Python 3.13+ is required for the
-Python package; the release bundles include Python. Git is not required for
-normal use.
+You need Docker Engine or Docker Desktop. Git is not required for normal use.
+The quickest installation uses the self-contained release binary and does not
+require Python.
+
+Linux or macOS:
+
+```bash
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --yes
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://luminesk.taskov1ch.xyz/ps1 | iex
+```
+
+The installer detects the operating system and CPU, downloads the latest
+release, and verifies its SHA-256 digest before installing it. Run the same
+command again to update. The Unix `--yes` belongs to the installer and does not
+accept the Minecraft EULA or approve later `nesk` operations. If you prefer a
+Python-managed installation, Python 3.13+ is required:
 
 ```bash
 uv tool install luminesk-cli
+```
+
+Then check the environment and install a recipe:
+
+```bash
 nesk doctor
 nesk catalog update
 nesk search --type core
@@ -50,10 +73,9 @@ recipe, downloads, Docker image, capabilities, and file changes before asking
 for confirmation.
 
 `paper` is a Java example. Use `nesk search --edition bedrock` to find Bedrock
-recipes. A remote install needs a new, empty destination directory.
-
-With pipx, use `pipx install luminesk-cli`. Prebuilt bundles for Linux, macOS,
-and Windows are available on the
+recipes. A remote install needs a new, empty destination directory. With pipx,
+use `pipx install luminesk-cli`. ZIP bundles for Linux, macOS, and Windows are
+also available on the
 [GitHub Releases](https://github.com/task-v1/luminesk-cli/releases/latest) page.
 
 ## Start, configure, and use the console

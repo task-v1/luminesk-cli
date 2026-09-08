@@ -10,8 +10,26 @@ recipe name in the same workflow.
 
 ## 1. Install and check the environment
 
+Linux or macOS:
+
 ```bash
-uv tool install luminesk-cli
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --yes
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://luminesk.taskov1ch.xyz/ps1 | iex
+```
+
+The self-contained installer does not require Python. The Unix `--yes` belongs
+only to this installer; it does not accept the Minecraft EULA or approve later
+server operations. For uv, pipx, ZIP bundle, update, removal, and PATH details,
+see [Installation](/docs/installation).
+
+Check the installed CLI and Docker:
+
+```bash
 nesk --version
 nesk doctor
 docker version

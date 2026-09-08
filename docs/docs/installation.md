@@ -4,9 +4,10 @@ sidebar_position: 3
 
 # Installation
 
-Luminesk supports Python tool installation and self-contained release bundles.
-For most users who already have a supported Python, an isolated uv tool is the
-easiest installation to keep current.
+Luminesk supports a one-line installer, Python tool installation, and
+self-contained release bundles. Choose one installation method and keep using
+the same method for updates; do not layer multiple managers over one `nesk`
+executable.
 
 ## Requirements
 
@@ -18,6 +19,58 @@ easiest installation to keep current.
 
 Git is not required for normal use. Luminesk acquires GitHub recipes through
 the GitHub API, limits what it downloads, and pins the selected commit.
+
+## Install with one command
+
+The one-line installer downloads the self-contained binary, so Python is not
+required.
+
+On Linux or macOS:
+
+```bash
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --yes
+```
+
+On Windows, open PowerShell and run:
+
+```powershell
+irm https://luminesk.taskov1ch.xyz/ps1 | iex
+```
+
+The installer:
+
+- detects the operating system and AMD64/ARM64 architecture;
+- selects the matching asset from the latest GitHub release;
+- requires a valid SHA-256 digest in the release metadata and verifies the
+  download before installation;
+- refuses to overwrite a `nesk` owned by uv, pipx, or a manual installation.
+
+In the Unix command, `--yes` is an installer option: piping occupies standard
+input, so the installer cannot ask its normal terminal question. This option
+approves only installing the Luminesk executable. It does not accept the
+Minecraft EULA, provide a recipe input, or approve a later `nesk install` or
+`nesk update` plan. The PowerShell command asks before writing.
+
+A normal Linux/macOS user installation goes to `~/.local/bin/nesk`; a root
+installation uses `/usr/local/bin/nesk`. A normal Windows installation goes to
+`$HOME\.local\bin\nesk.exe`; an Administrator installation uses
+`$env:ProgramFiles\luminesk\nesk.exe`. If the installer warns that this
+directory is missing from `PATH`, add it and open a new terminal.
+
+Run the same one-line command later to check for and install an update. To
+remove an installation owned by the script, use:
+
+```bash
+curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --delete --yes
+```
+
+```powershell
+& ([scriptblock]::Create((irm https://luminesk.taskov1ch.xyz/ps1))) "--delete"
+```
+
+These commands execute a remote script over HTTPS. You can review the complete
+[Linux/macOS installer](https://luminesk.taskov1ch.xyz/sh) or
+[Windows installer](https://luminesk.taskov1ch.xyz/ps1) before running it.
 
 ## Install with uv
 
@@ -88,9 +141,9 @@ keep its executable and adjacent `_internal` directory together.
 
 The same release also contains standalone assets named
 `luminesk_cli-linux-*`, `luminesk_cli-darwin-*`, and
-`luminesk_cli-windows-*.exe`. The repository's one-line installers use those
-assets. Prefer the ZIP when you want the transparent onedir layout, or uv when
-you want Python-managed upgrades.
+`luminesk_cli-windows-*.exe`. The one-line installer uses those assets. Prefer
+the ZIP when you want the transparent onedir layout, or uv when you want
+Python-managed upgrades.
 
 To upgrade a bundle, verify and extract the new complete bundle, then replace
 the old bundle directory. Instances and the content cache are outside the

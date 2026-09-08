@@ -31,7 +31,9 @@ export default function CTA() {
     return null;
   }
 
-  const installCmd = "uv tool install luminesk-cli";
+  const installCmd = os === 'Windows'
+    ? 'irm https://luminesk.taskov1ch.xyz/ps1 | iex'
+    : 'curl -fsSL https://luminesk.taskov1ch.xyz/sh | sh -s -- --yes';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(installCmd);
@@ -65,7 +67,7 @@ export default function CTA() {
         </div>
 
         <Link to="/docs/installation" className={styles.documentationLink}>
-          View Python and prebuilt bundle options for {os}
+          View all installation options for {os}
           <ArrowRightIcon width="16" height="16" />
         </Link>
       </div>
